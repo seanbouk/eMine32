@@ -23,6 +23,30 @@ Measured after rAF pacing (headless Chrome, 1720×720, in-level): 75 fps (monito
 frame. Earlier measurement (headless Chrome, 960×600, 8-bit classic renderer, Duke3D shareware E1L1): locked 60 fps, ~7 ms of work per
 frame including game logic, OPL music synthesis and canvas upload. Rendering itself ~1.5 ms/frame.
 
+## Block world ("voxworld")
+
+New engine module `source/build/src/voxworld.cpp` + `include/voxworld.h` (eMine32 code, GPL). A map opts in with a
+single sector whose `extra` is `0x7E32`; that sector becomes a box of blocks (512 xy units = 8192 z units = one cube,
+16x16 texels per face, layer 0 on the sector floor). Seed = sector `hitag`.
+
+| Hook | What |
+|---|---|
+| `engine.cpp` `engineLoadBoard` | calls `voxworld_onmapload` (generates terrain, puts start sprites on the ground) |
+| `engine.cpp` `renderDrawRoomsQ16` | in the block-world sector, `voxworld_drawworld()` replaces Build's wall/floor drawing |
+| `engine.cpp` `renderDrawMasks` | face sprites drawn by `voxworld_drawsprites()`, depth-tested against blocks (wall/floor sprites: TODO) |
+| `engine.cpp` `cansee` | blocks also block line of sight |
+| `clip.cpp` `clipmove` / `getzrange` / `hitscan` | wrapped: blocks collide (same height rules as Build's sector steps), give floor/ceiling heights, and stop hitscans |
+| `duke3d/src/premap.cpp` | (dev only) loose map files override the GRP even with shareware data |
+
+Renderer: per screen column, a 2D grid walk (DDA) front to back; block columns are stored as vertical solid runs.
+Vertical faces are constant-depth columns (like Build walls), horizontal faces use a per-row reciprocal (like Build
+floors), occlusion is a per-column list of open row intervals, depth goes to a float buffer for sprites. Everything is
+drawn through Build's palette and shade tables (`palookup`), with Build's own distance-shading formula.
+Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`).
+
+Measured (headless Chrome, generated hills + trees, 96-block view): 1720x720 ~6 ms block rendering, ~8.5 ms per frame
+total, holds 75 Hz; 3440x1440 ~17 ms block rendering, ~36 fps.
+
 ## Windows (llvm-mingw) build
 
 `scripts/build-native.sh` passes `USE_MIMALLOC=0 HAVE_FLAC=0 STARTUP_WINDOW=0` (mimalloc vs libc++ clash; bundled

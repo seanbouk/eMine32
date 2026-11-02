@@ -17,7 +17,8 @@ Engine first: blocks + performance + still feeling like a sprite-based Build sho
 ## Milestones
 1. ~~Stock EDuke32 native + web, measured~~ (done: 60+ fps in browser, ~2-3 ms/frame at 1720x720)
 2. Voxel spike: chunk of blocks rendered in the software renderer with Duke palette/shading/fog, sprites in the same
-   world, walkable. Native + web.
+   world, walkable. Native + web. (**first pass done**: 256x256x64 generated world, sprites depth-tested, block
+   collision/hitscan/line-of-sight; needs play-testing + more renderer speed for full-res 21:9)
 3. Terrain generation (noise heightmap, caves), chunk streaming.
 4. Mining / placing blocks.
 5. Art pass: our own palette, block textures, sprolygon monsters, HUD; remove all Duke data (see PRELAUNCH-CHECKLIST).

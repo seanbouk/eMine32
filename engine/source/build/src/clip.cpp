@@ -5,11 +5,14 @@
 // This file has been modified from Ken Silverman's original release
 // by Jonathon Fowler (jf@jonof.id.au)
 // by the EDuke32 team (development@voidpoint.com)
+// and the eMine32 project (block world hooks, marked eMine32)
 
 #include "a.h"
 #include "build.h"
 #include "baselayer.h"
 #include "clip.h"
+#include "voxworld.h"
+#include <float.h>
 #include "engine_priv.h"
 #include "microprofile.h"
 
@@ -1478,7 +1481,7 @@ void clipmove_errorlogger(vec3_t* const pos, int32_t xvect, int32_t yvect)
 //
 // clipmove
 //
-int32_t clipmove(vec3_t * const pos, int16_t * const sectnum, int32_t xvect, int32_t yvect,
+static int32_t clipmove_build(vec3_t * const pos, int16_t * const sectnum, int32_t xvect, int32_t yvect,
                  int32_t const walldist, int32_t const ceildist, int32_t const flordist, uint32_t const cliptype)
 {
     if ((xvect|yvect) == 0 || *sectnum < 0)
@@ -1988,7 +1991,7 @@ int pushmove(vec3_t *const vect, int16_t *const sectnum,
 //
 // getzrange
 //
-void getzrange(const vec3_t *pos, int16_t sectnum,
+static void getzrange_build(const vec3_t *pos, int16_t sectnum,
                int32_t *ceilz, int32_t *ceilhit, int32_t *florz, int32_t *florhit,
                int32_t walldist, uint32_t cliptype)
 {
@@ -2833,7 +2836,7 @@ static inline void hitscan_addclipsect(int const sectnum, int16_t* tempshortnum)
 //
 // hitscan
 //
-int32_t hitscan(const vec3_t *sv, int16_t sectnum, int32_t vx, int32_t vy, int32_t vz,
+static int32_t hitscan_build(const vec3_t *sv, int16_t sectnum, int32_t vx, int32_t vy, int32_t vz,
                 hitdata_t *hit, uint32_t cliptype)
 {
     int32_t x1, y1=0, z1=0, x2, y2, intx, inty, intz;
@@ -3114,4 +3117,64 @@ int32_t hitscan(const vec3_t *sv, int16_t sectnum, int32_t vx, int32_t vy, int32
 #endif
 
     return 0;
+}
+
+//
+// eMine32: block world collision wrappers
+//
+int32_t clipmove(vec3_t * const pos, int16_t * const sectnum, int32_t xvect, int32_t yvect,
+                 int32_t const walldist, int32_t const ceildist, int32_t const flordist, uint32_t const cliptype)
+{
+    int voxhit = 0;
+    if (voxworld_active() && *sectnum == voxworld_sector())
+        voxhit = voxworld_clipmove(pos, &xvect, &yvect, walldist, ceildist, flordist);
+
+    int32_t ret = clipmove_build(pos, sectnum, xvect, yvect, walldist, ceildist, flordist, cliptype);
+
+    if (!ret && voxhit)
+        ret = 32768 | sector[voxworld_sector()].wallptr;  // report it as hitting a wall
+    return ret;
+}
+
+void getzrange(const vec3_t *pos, int16_t sectnum,
+               int32_t *ceilz, int32_t *ceilhit, int32_t *florz, int32_t *florhit,
+               int32_t walldist, uint32_t cliptype)
+{
+    getzrange_build(pos, sectnum, ceilz, ceilhit, florz, florhit, walldist, cliptype);
+
+    if (voxworld_active() && sectnum == voxworld_sector())
+    {
+        int const r = voxworld_getzrange(pos, walldist, ceilz, florz);
+        if (r & 1) *florhit = sectnum + 16384;
+        if (r & 2) *ceilhit = sectnum + 16384;
+    }
+}
+
+int32_t hitscan(const vec3_t *sv, int16_t sectnum, int32_t vx, int32_t vy, int32_t vz,
+                hitdata_t *hit, uint32_t cliptype)
+{
+    int32_t const ret = hitscan_build(sv, sectnum, vx, vy, vz, hit, cliptype);
+
+    if (voxworld_active() && sectnum == voxworld_sector() && (vx|vy|vz))
+    {
+        // how far along the ray Build's own hit is
+        float tb = FLT_MAX;
+        if (hit->sect >= 0)
+        {
+            int32_t const ax = klabs(vx), ay = klabs(vy), az = klabs(vz) >> 4;
+            if (ax >= ay && ax >= az)  tb = (float)(hit->x - sv->x) / vx;
+            else if (ay >= az)         tb = (float)(hit->y - sv->y) / vy;
+            else                       tb = (float)(hit->z - sv->z) / vz;
+        }
+
+        vwhit_t vh;
+        if (voxworld_raycast(sv, vx, vy, vz, tb, &vh))
+        {
+            hit->xyz    = vh.pos;
+            hit->sect   = sectnum;
+            hit->wall   = -1;
+            hit->sprite = -1;
+        }
+    }
+    return ret;
 }

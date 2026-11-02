@@ -5,11 +5,13 @@
 // This file has been modified from Ken Silverman's original release
 // by Jonathon Fowler (jf@jonof.id.au)
 // by the EDuke32 team (development@voidpoint.com)
+// and the eMine32 project (block world hooks, marked eMine32)
 
 #define engine_c_
 
 #include "a.h"
 #include "baselayer.h"
+#include "voxworld.h"
 #include "build.h"
 #include "cache1d.h"
 #include "colmatch.h"
@@ -9693,6 +9695,13 @@ int32_t renderDrawRoomsQ16(int32_t daposx, int32_t daposy, int32_t daposz,
         mirrorsy2 = max(dmost[mirrorsx1],dmost[mirrorsx2]);
     }
 
+    // eMine32: the block world draws itself (and replaces its sector's walls/floor/ceiling)
+    if (voxworld_active() && globalcursectnum == voxworld_sector())
+    {
+        voxworld_drawworld();
+        numbunches = 0;
+    }
+
     while ((numbunches > 0) && (numhits > 0))
     {
         Bmemset(tempbuf, 0, numbunches);
@@ -10187,6 +10196,14 @@ void renderDrawMasks(void)
 # define debugmask_add(dispidx, idx) do {} while (0)
 #endif
     int32_t numSprites = spritesortcnt;
+
+    // eMine32: sprites in the block world are depth-tested against the blocks
+    if (!isPolymost && voxworld_active())
+    {
+        voxworld_drawsprites();
+        videoEndDrawing();
+        return;
+    }
 
     if (isPolymost)
         PolymostPrepareMasks();
@@ -11311,7 +11328,9 @@ skip_reading_mapbin:
 
     // initprintf("Loaded map \"%s\" (md4sum: %08x%08x%08x%08x)\n", filename, B_BIG32(*((int32_t*)&md4out[0])), B_BIG32(*((int32_t*)&md4out[4])), B_BIG32(*((int32_t*)&md4out[8])), B_BIG32(*((int32_t*)&md4out[12])));
 
-    return engineFinishLoadBoard(dapos, dacursectnum, numsprites, myflags);
+    int32_t const ret = engineFinishLoadBoard(dapos, dacursectnum, numsprites, myflags);
+    voxworld_onmapload(dapos);  // eMine32
+    return ret;
 }
 
 
@@ -12715,7 +12734,7 @@ static int16_t yax_cansee_fixsector(int32_t x, int32_t y, int32_t z, int16_t sta
 }
 #endif
 
-int32_t cansee(int32_t x1, int32_t y1, int32_t z1, int16_t orig_sect1, int32_t x2, int32_t y2, int32_t z2, int16_t orig_sect2, int32_t wallmask)
+static int32_t cansee_build(int32_t x1, int32_t y1, int32_t z1, int16_t orig_sect1, int32_t x2, int32_t y2, int32_t z2, int16_t orig_sect2, int32_t wallmask)
 {
     MICROPROFILE_SCOPEI("Engine", EDUKE32_FUNCTION, MP_AUTO);
 
@@ -15072,3 +15091,12 @@ void tileInvalidate(int16_t tilenume, int32_t pal, int32_t how)
 /*
  * vim:ts=8:
  */
+
+// eMine32: blocks also block line of sight
+int32_t cansee(int32_t x1, int32_t y1, int32_t z1, int16_t orig_sect1, int32_t x2, int32_t y2, int32_t z2, int16_t orig_sect2, int32_t wallmask)
+{
+    int32_t const r = cansee_build(x1, y1, z1, orig_sect1, x2, y2, z2, orig_sect2, wallmask);
+    if (r && voxworld_active() && !voxworld_cansee(x1, y1, z1, x2, y2, z2))
+        return 0;
+    return r;
+}

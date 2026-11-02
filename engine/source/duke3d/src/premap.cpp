@@ -1986,7 +1986,8 @@ int G_EnterLevel(int gameMode)
         G_LoadMapHack(levelName, boardfilename);
         G_SetupFilenameBasedMusic(levelName, boardfilename);
     }
-    else if (engineLoadBoard(m.filename, VOLUMEONE, &p0.pos, &playerAngle, &p0.cursectnum) < 0)
+    // eMine32: allow loose map files to override the GRP even with shareware data (dev only)
+    else if (engineLoadBoard(m.filename, 0, &p0.pos, &playerAngle, &p0.cursectnum) < 0)
     {
         LOG_F(ERROR, "Unable to load %s: file not found or has invalid version!", m.filename);
         return 1;

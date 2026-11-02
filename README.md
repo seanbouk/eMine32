@@ -4,7 +4,7 @@ A block-world (mine/build) engine built **inside EDuke32**, the Duke Nukem 3D so
 Build-engine look: 8-bit palette, shade tables and distance fog, billboarded "sprolygon" enemies, a weapon on the HUD.
 The target is a browser build (WebAssembly) for itch.io.
 
-Status: **early engine work**. Nothing playable yet.
+Status: **early engine work**. A generated block world renders and is walkable inside EDuke32 (native + browser).
 
 ## Layout
 
@@ -13,6 +13,7 @@ Status: **early engine work**. Nothing playable yet.
 | `engine/` | Fork of [EDuke32](https://voidpoint.io/terminx/eduke32) (upstream `ec5824db8`, 2026-08-07) plus the block-world additions. This is the reusable engine. Build it and point it at any game data. |
 | `game/` | eMine32's own game data (art, CON scripts, sounds). Swap in your own to make a different game on the engine. |
 | `scripts/` | Build scripts (native Windows, web). |
+| `tools/` | `mkworld.py` (generates `game/` placeholder content), `webtest/` (headless-Chrome tests). |
 | `docs/` | Notes, including the pre-release licence checklist. |
 | `devdata/` | *(git-ignored)* Local test data, e.g. the Duke3D 1.3D shareware `DUKE3D.GRP`. Never committed. |
 | `run/` | *(git-ignored)* Working directory for configs, logs and saves. |

@@ -7,8 +7,8 @@ set ROOT=%~dp0
 if not exist "%ROOT%run" mkdir "%ROOT%run"
 pushd "%ROOT%run"
 if "%~1"=="" (
-  "%ROOT%engine\eduke32.exe" -nosetup -usecwd -j "%ROOT%devdata\duke3d-sw" -gamegrp DUKE3D.GRP
+  "%ROOT%engine\eduke32.exe" -nosetup -usecwd -j "%ROOT%devdata\duke3d-sw" -j "%ROOT%game" -mh emine32.def -gamegrp DUKE3D.GRP
 ) else (
-  "%ROOT%engine\eduke32.exe" -nosetup -usecwd -j "%ROOT%devdata\duke3d-sw" -gamegrp DUKE3D.GRP -map %1 -s1
+  "%ROOT%engine\eduke32.exe" -nosetup -usecwd -j "%ROOT%devdata\duke3d-sw" -j "%ROOT%game" -mh emine32.def -gamegrp DUKE3D.GRP -map %1 -s1
 )
 popd

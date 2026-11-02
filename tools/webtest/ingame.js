@@ -7,7 +7,7 @@ const { chromium } = require('playwright-core');
     args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding'] });
   const page = await browser.newPage({ viewport: { width: +(process.env.VW || 1100), height: +(process.env.VH || 760) } });
   const t0 = Date.now(); const ts = () => ((Date.now() - t0) / 1000).toFixed(1).padStart(5);
-  page.on('console', m => { const t = m.text(); if (/YIELDSTATS|ERROR|EMINE/.test(t)) console.log(ts(), t.slice(0, 200)); });
+  page.on('console', m => { const t = m.text(); if (/YIELDSTATS|ERROR|EMINE|voxworld|WARN/.test(t)) console.log(ts(), t.slice(0, 200)); });
   page.on('pageerror', e => console.log(ts(), '[pageerror]', e.message));
   await page.goto(url);
   await page.waitForTimeout(4000);
