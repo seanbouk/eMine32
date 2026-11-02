@@ -1371,7 +1371,7 @@ void G_DisplayRest(int32_t smoothratio)
         G_ShowCacheLocks();
 
 #ifndef EDUKE32_TOUCH_DEVICES
-    if (VOLUMEONE)
+    if (VOLUMEONE && 0)  // eMine32: no "unregistered shareware" overlay (dev data only; we ship our own content)
     {
         if (ud.show_help == 0 && g_showShareware > 0 && (g_player[myconnectindex].ps->gm&MODE_MENU) == 0)
             rotatesprite_fs((320-50)<<16, 9<<16, 65536L, 0, BETAVERSION, 0, 0, 2+8+16+128);

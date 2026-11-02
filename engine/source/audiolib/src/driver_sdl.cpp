@@ -178,6 +178,11 @@ int SDLDrv_PCM_Init(int *mixrate, int *numchannels, void * initdata)
     }
 
     int chunksize = 512;
+#ifdef __EMSCRIPTEN__
+    // eMine32: in the browser the mixer runs on the main thread between frames; a 512-sample (~11ms)
+    // buffer underruns whenever a frame runs long, which sounds like crackling.
+    chunksize = 2048;
+#endif
 #ifdef __ANDROID__
     chunksize = droidinfo.audio_buffer_size;
 #endif

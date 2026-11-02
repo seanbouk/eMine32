@@ -63,8 +63,15 @@
       if (type !== 'auxclick' && Module._emine_mouse_xbutton) Module._emine_mouse_xbutton(e.button - 3, type === 'mousedown' ? 1 : 0);
     }, true);
   });
-  // Clicking the game captures the mouse (Esc releases it).
+  // Mouse capture: browsers only allow pointer lock inside a user gesture, but the game grabs the mouse from its
+  // own loop (e.g. when a level starts). So on every key/click, if the game wants the mouse and doesn't have it,
+  // request it here. Clicking the game always captures; Esc releases (and opens the menu).
+  function wantLock() {
+    return document.pointerLockElement !== canvas && Module._emine_mouse_wanted && Module._emine_mouse_wanted();
+  }
   canvas.addEventListener('click', function () { if (document.pointerLockElement !== canvas) canvas.requestPointerLock(); });
+  window.addEventListener('keydown', function (e) { if (e.key !== 'Escape' && wantLock()) canvas.requestPointerLock(); });
+  window.addEventListener('mousedown', function () { if (wantLock()) canvas.requestPointerLock(); });
   // Follow the window size (F11, dragging the window): ask the engine to switch resolution once things settle.
   var resizeTimer = 0;
   window.addEventListener('resize', function () {

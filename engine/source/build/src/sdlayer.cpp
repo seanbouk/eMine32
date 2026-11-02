@@ -1375,6 +1375,12 @@ void mouseGrabInput(bool grab)
 
 }
 
+#ifdef __EMSCRIPTEN__
+// eMine32: browsers only grant pointer lock during a user gesture, but the game grabs the mouse from its
+// own loop. The page asks this on each key/click and requests the lock itself when the game wants it.
+extern "C" EMSCRIPTEN_KEEPALIVE int emine_mouse_wanted(void) { return g_mouseGrabbed && appactive; }
+#endif
+
 void mouseLockToWindow(char a)
 {
 #if SDL_MAJOR_VERSION >= 2
