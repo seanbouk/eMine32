@@ -57,7 +57,11 @@
   });
   // Mouse back/forward buttons belong to the game (back = back out of menus), not browser navigation.
   ['mousedown', 'mouseup', 'auxclick'].forEach(function (type) {
-    window.addEventListener(type, function (e) { if (e.button === 3 || e.button === 4) e.preventDefault(); }, true);
+    window.addEventListener(type, function (e) {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      if (type !== 'auxclick' && Module._emine_mouse_xbutton) Module._emine_mouse_xbutton(e.button - 3, type === 'mousedown' ? 1 : 0);
+    }, true);
   });
   // Clicking the game captures the mouse (Esc releases it).
   canvas.addEventListener('click', function () { if (document.pointerLockElement !== canvas) canvas.requestPointerLock(); });

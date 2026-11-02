@@ -51,6 +51,16 @@ void emine_sleep(double ms, bool frame)
         emscripten_sleep((unsigned)ms);
     em_lastYield = emscripten_get_now();
 }
+// SDL's Emscripten backend drops mouse buttons 3/4 (back/forward); web/shell.html forwards them here.
+extern "C" EMSCRIPTEN_KEEPALIVE void emine_mouse_xbutton(int which, int pressed)
+{
+    SDL_Event ev = {};
+    ev.type          = pressed ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+    ev.button.button = which ? SDL_BUTTON_X2 : SDL_BUTTON_X1;
+    ev.button.state  = pressed ? SDL_PRESSED : SDL_RELEASED;
+    ev.button.clicks = 1;
+    SDL_PushEvent(&ev);
+}
 static void em_yield(bool frame)
 {
     if (frame)

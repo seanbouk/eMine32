@@ -15,7 +15,7 @@ timing (`EMINE fps=… busy%=… msPerFrame=…`) in the JS console; `?args=...`
 | `source/build/src/baselayer.cpp` | **Bug fix:** `engineFPSLimit` looped forever on a zero frame delay. In the browser, sleep until the next frame instead of busy-waiting. |
 | `source/build/src/sdlayer.cpp` | **Bug fix:** the SDL window is not resizable on the web. A resizable window let SDL resize the canvas mid-frame on browser resize / F11, corrupting the image or crashing the tab. The page CSS-scales the canvas instead. |
 | `source/build/src/sdlayer.cpp`, `baselayer.cpp` | Frames are paced with `requestAnimationFrame`, so the browser build runs at the monitor's refresh rate (75 Hz, 144 Hz, ...). An explicit `r_maxfps` cap still applies. |
-| `source/mact/src/control.cpp` | Mouse back (thumb) button backs out of menus, like right-click. (`web/shell.html` stops it navigating the browser.) |
+| `source/mact/src/control.cpp`, `sdlayer.cpp` | Mouse back (thumb) button backs out of menus, like right-click. SDL's Emscripten backend drops buttons 3/4, so `web/shell.html` forwards them to `emine_mouse_xbutton()` (and stops browser navigation). |
 | `source/build/src/compat.cpp`, `source/build/include/compat.h` | Emscripten: little-endian detection, `pwd.h` for `getpwuid`. |
 | `source/build/src/sdlayer.cpp` | No `execinfo.h` segfault backtraces on Emscripten. |
 
