@@ -48,11 +48,17 @@ single sector whose `extra` is `0x7E32`; that sector becomes a box of blocks (51
 | `engine.cpp` `cansee` | blocks also block line of sight |
 | `clip.cpp` `clipmove` / `getzrange` / `hitscan` | wrapped: blocks collide (same height rules as Build's sector steps), give floor/ceiling heights, and stop hitscans |
 | `duke3d/src/premap.cpp` | (dev only) loose map files override the GRP even with shareware data |
+| `duke3d/src/emine.cpp` (new) | Duke-side destruction: shots chip blocks, explosions blast craters, destroyed blocks throw scrap drawn in the block's texture + smoke + sound |
+| `duke3d/src/player.cpp` | player hitscan weapons (pistol/shotgun/chaingun) and `A_PostFireHitscan` (enemy fire, custom projectiles) call `Emine_HitscanBlock` |
+| `duke3d/src/actors.cpp` | `A_RadiusDamage` calls `Emine_ExplosionBlocks`; scrap debris lands on blocks (`Emine_FloorZ`) |
 
 Renderer: per screen column, a 2D grid walk (DDA) front to back; block columns are stored as vertical solid runs.
 Vertical faces are constant-depth columns (like Build walls), horizontal faces use a per-row reciprocal (like Build
 floors), occlusion is a per-column list of open row intervals, depth goes to a float buffer for sprites. Everything is
 drawn through Build's palette and shade tables (`palookup`), with Build's own distance-shading formula.
+Destruction: per-block damage (hardness per type: leaves 6, sand 10, dirt/grass 12, planks 24, wood 30, cobble 40,
+stone 48, bedrock indestructible); damaged blocks render darker. Sprites with lotag `0x7E00|type` are drawn as chunks
+of that block (debris).
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`).
 
 Measured (headless Chrome, generated hills + trees, 96-block view): 1720x720 ~6 ms block rendering, ~8.5 ms per frame

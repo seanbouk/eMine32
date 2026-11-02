@@ -28,6 +28,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "colmatch.h"
 #include "duke3d.h"
+#include "emine.h"
 #include "input.h"
 #include "microprofile.h"
 #include "screens.h"
@@ -305,6 +306,8 @@ void A_RadiusDamage(int const spriteNum, int const blastRadius, int const dmg1, 
     Bmemcpy(ud.returnvar, parms, sizeof(parms));
 
     auto const pSprite = (uspriteptr_t)&sprite[spriteNum];
+
+    Emine_ExplosionBlocks(spriteNum, blastRadius, max(max(dmg1, dmg2), max(dmg3, dmg4)));  // eMine32
 
     int16_t sectorListTotal, sectorList[MAXDAMAGESECTORS];
     uint8_t * const sectorMap = (uint8_t *)Balloca(bitmap_size(numsectors));
@@ -6219,7 +6222,7 @@ ACTOR_STATIC void G_MoveMisc(void)  // STATNUM 5
                 sectNum = pSprite->sectnum;
             }
 
-            if (pSprite->z < sector[sectNum].floorz-(2<<8))
+            if (pSprite->z < Emine_FloorZ(spriteNum, sector[sectNum].floorz)-(2<<8))  // eMine32: land on blocks
             {
                 if (pData[1] < 1) pData[1]++;
                 else

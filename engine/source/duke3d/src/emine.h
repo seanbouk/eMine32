@@ -1,0 +1,21 @@
+// eMine32: Duke-side glue for the block world (see source/build/include/voxworld.h).
+// Copyright (C) 2026 the eMine32 project. GPLv2.
+
+#pragma once
+
+#ifndef emine_h_
+#define emine_h_
+
+#include "build.h"
+
+// A hitscan shot (Duke weapons, enemy fire) landed; if it hit a block, damage it. shotSprite carries the damage
+// in its `extra` (as Duke's shotsparks do).
+void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit);
+
+// An explosion (A_RadiusDamage): blast blocks within the radius.
+void Emine_ExplosionBlocks(int spriteNum, int blastRadius, int maxDamage);
+
+// Floor height for falling debris etc.: the nearest block top below, else the sector floor.
+int32_t Emine_FloorZ(int spriteNum, int32_t sectorFloorZ);
+
+#endif

@@ -112,21 +112,35 @@ enum
     T_COUNT
 };
 
-struct vwblockdef_t { uint8_t top, side, bottom; };
+// hardness: damage points to destroy (0 = indestructible). Duke's pistol does ~6 per shot.
+struct vwblockdef_t { uint8_t top, side, bottom, hardness; };
 
 static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
 {
-    { 0, 0, 0 },                                // air (unused)
-    { T_GRASS_TOP, T_GRASS_SIDE, T_DIRT },      // grass
-    { T_DIRT, T_DIRT, T_DIRT },                 // dirt
-    { T_STONE, T_STONE, T_STONE },              // stone
-    { T_BEDROCK, T_BEDROCK, T_BEDROCK },        // bedrock
-    { T_SAND, T_SAND, T_SAND },                 // sand
-    { T_WOOD_TOP, T_WOOD_SIDE, T_WOOD_TOP },    // wood
-    { T_LEAVES, T_LEAVES, T_LEAVES },           // leaves
-    { T_PLANKS, T_PLANKS, T_PLANKS },           // planks
-    { T_COBBLE, T_COBBLE, T_COBBLE },           // cobble
+    { 0, 0, 0, 0 },                                 // air (unused)
+    { T_GRASS_TOP, T_GRASS_SIDE, T_DIRT, 12 },      // grass
+    { T_DIRT, T_DIRT, T_DIRT, 12 },                 // dirt
+    { T_STONE, T_STONE, T_STONE, 48 },              // stone
+    { T_BEDROCK, T_BEDROCK, T_BEDROCK, 0 },         // bedrock
+    { T_SAND, T_SAND, T_SAND, 10 },                 // sand
+    { T_WOOD_TOP, T_WOOD_SIDE, T_WOOD_TOP, 30 },    // wood
+    { T_LEAVES, T_LEAVES, T_LEAVES, 6 },            // leaves
+    { T_PLANKS, T_PLANKS, T_PLANKS, 24 },           // planks
+    { T_COBBLE, T_COBBLE, T_COBBLE, 40 },           // cobble
 };
+
+// Accumulated damage per block, same layout as vw_blocks (allocated on first damage).
+static uint8_t *vw_dmg;
+
+static FORCE_INLINE size_t vw_index(int bx, int by, int bz) { return ((size_t)bx*vw_sy + by)*vw_sz + bz; }
+
+// Extra shade (darker) for a damaged block: up to +10 just before it breaks.
+static FORCE_INLINE int vw_dmgshade(size_t idx, uint8_t type)
+{
+    if (!vw_dmg || !vw_dmg[idx]) return 0;
+    int const h = vw_blockdefs[type].hardness;
+    return h ? (vw_dmg[idx] * 10) / h : 0;
+}
 
 // Texel data for each face tile, column-major (Build tile order): tex[u*VW_TEXSIZE + v].
 // Falls back to a generated checker if the tile isn't present or isn't VW_TEXSIZE square.
@@ -310,6 +324,7 @@ void voxworld_onmapload(vec3_t *dapos)
 
     Xfree(vw_blocks);
     Xfree(vw_cols);
+    DO_FREE_AND_NULL(vw_dmg);
     vw_blocks = (uint8_t *)Xcalloc((size_t)vw_sx*vw_sy*vw_sz, 1);
     vw_cols   = (vwcolumn_t *)Xcalloc((size_t)vw_sx*vw_sy, sizeof(vwcolumn_t));
 
@@ -533,8 +548,9 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                 int u = ((int)along >> 5) & (VW_TEXSIZE-1);
                                 if (side == 0 || side == 3) u = VW_TEXSIZE-1 - u;  // keep textures unmirrored
 
-                                uint8_t const *const pal = vw_shadetab(vw_faceshade[side], din);
+                                uint8_t const *pal = nullptr;
                                 int const ucol = u*VW_TEXSIZE;
+                                size_t const colidx = vw_index(gx, gy, 0);
 
                                 // Height above the world floor in 16.16 texels, stepping down the screen.
                                 float const zperrow = din / vw_ky;
@@ -560,6 +576,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                         {
                                             curlayer = layer;
                                             tex = vw_tex[vw_blockdefs[cb[layer]].side] + ucol;
+                                            pal = vw_shadetab(vw_faceshade[side] + vw_dmgshade(colidx + layer, cb[layer]), din);
                                         }
                                         col[y] = pal[tex[VW_TEXSIZE-1 - (t & (VW_TEXSIZE-1))]];
                                         zc[y] = din;
@@ -580,7 +597,8 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                             int const nv = vw_clip(gaps, ng, a, b, vis);
                             if (nv)
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
-                                            vw_tex[vw_blockdefs[cb[r.z1-1]].top], vw_faceshade[4]);
+                                            vw_tex[vw_blockdefs[cb[r.z1-1]].top],
+                                            vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]));
                         }
                     }
 
@@ -595,7 +613,8 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                             int const nv = vw_clip(gaps, ng, a, b, vis);
                             if (nv)
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
-                                            vw_tex[vw_blockdefs[cb[r.z0]].bottom], vw_faceshade[5]);
+                                            vw_tex[vw_blockdefs[cb[r.z0]].bottom],
+                                            vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]));
                         }
                     }
 
@@ -756,6 +775,14 @@ static void vw_drawfacesprite(tspriteptr_t tspr, float depth)
     int tilenum = tspr->picnum;
     tileUpdatePicnum(&tilenum, tspr->owner + 32768);
     if ((unsigned)tilenum >= MAXTILES) return;
+
+    // Debris convention: a sprite whose lotag is VW_DEBRIS_TAG|type is drawn as a chunk of that block.
+    if ((unsigned)tspr->owner < MAXSPRITES && (sprite[tspr->owner].lotag & 0xFF00) == VW_DEBRIS_TAG)
+    {
+        int const type = sprite[tspr->owner].lotag & 0xFF;
+        if (type > VW_AIR && type < VW_NUMTYPES)
+            tilenum = VW_TILEBASE + vw_blockdefs[type].side;
+    }
 
     int const spanx = tilesiz[tilenum].x, spany = tilesiz[tilenum].y;
     if (spanx <= 0 || spany <= 0 || !tspr->xrepeat || !tspr->yrepeat) return;
@@ -1039,6 +1066,104 @@ bool voxworld_cansee(int32_t x1, int32_t y1, int32_t z1, int32_t x2, int32_t y2,
 }
 
 //////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+// Destruction
+//////////////////////////////////////////////////////////////////////////////
+
+static struct { bool valid; vec3_t pos; int bx, by, bz; } vw_lasthit;
+
+void voxworld_notehit(const vec3_t *pos, int bx, int by, int bz)
+{
+    vw_lasthit.valid = true;
+    vw_lasthit.pos = *pos;
+    vw_lasthit.bx = bx; vw_lasthit.by = by; vw_lasthit.bz = bz;
+}
+
+bool voxworld_lasthit(const vec3_t *pos, int *bx, int *by, int *bz)
+{
+    if (!vw_active || !vw_lasthit.valid || vw_lasthit.pos.x != pos->x || vw_lasthit.pos.y != pos->y || vw_lasthit.pos.z != pos->z)
+        return false;
+    *bx = vw_lasthit.bx; *by = vw_lasthit.by; *bz = vw_lasthit.bz;
+    return true;
+}
+
+int voxworld_damage(int bx, int by, int bz, int amount)
+{
+    if (!vw_active || !vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz || amount <= 0) return VW_AIR;
+    size_t const idx = vw_index(bx, by, bz);
+    uint8_t const type = vw_blocks[idx];
+    if (type == VW_AIR) return VW_AIR;
+    int const hardness = vw_blockdefs[type].hardness;
+    if (!hardness) return VW_AIR;  // indestructible
+
+    if (!vw_dmg) vw_dmg = (uint8_t *)Xcalloc((size_t)vw_sx*vw_sy*vw_sz, 1);
+
+    int const total = vw_dmg[idx] + amount;
+    if (total < hardness)
+    {
+        vw_dmg[idx] = (uint8_t)total;
+        return VW_AIR;
+    }
+
+    vw_dmg[idx] = 0;
+    voxworld_set(bx, by, bz, VW_AIR);
+    return type;
+}
+
+int voxworld_hardness(int type) { return (type > VW_AIR && type < VW_NUMTYPES) ? vw_blockdefs[type].hardness : 0; }
+
+void voxworld_blockcenter(int bx, int by, int bz, vec3_t *out)
+{
+    out->x = vw_x0 + bx*VW_BLOCKXY + VW_BLOCKXY/2;
+    out->y = vw_y0 + by*VW_BLOCKXY + VW_BLOCKXY/2;
+    out->z = vw_layertop(bz) - VW_BLOCKZ/2;
+}
+
+int voxworld_explode(const vec3_t *pos, int32_t radius, int damage, vwdestroyfn_t fn, void *ud)
+{
+    if (!vw_active || radius <= 0) return 0;
+
+    // radius in xy units; the explosion is a sphere in cube space (z/16)
+    float const cx = (pos->x - vw_x0) / (float)VW_BLOCKXY, cy = (pos->y - vw_y0) / (float)VW_BLOCKXY;
+    float const cz = (vw_zbot - pos->z) / (float)VW_BLOCKZ;
+    float const rb = (float)radius / VW_BLOCKXY;
+    int destroyed = 0;
+
+    for (int bx = (int)floorf(cx - rb); bx <= (int)floorf(cx + rb); bx++)
+        for (int by = (int)floorf(cy - rb); by <= (int)floorf(cy + rb); by++)
+            for (int bz = (int)floorf(cz - rb); bz <= (int)floorf(cz + rb); bz++)
+            {
+                if (!vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) continue;
+                float const dx = bx + 0.5f - cx, dy = by + 0.5f - cy, dz = bz + 0.5f - cz;
+                float const d = sqrtf(dx*dx + dy*dy + dz*dz);
+                if (d >= rb) continue;
+                int const amount = (int)(damage * (1.f - d / rb));
+                int const type = voxworld_damage(bx, by, bz, amount);
+                if (type != VW_AIR)
+                {
+                    destroyed++;
+                    if (fn) fn(bx, by, bz, type, ud);
+                }
+            }
+    return destroyed;
+}
+
+int32_t voxworld_floorz(int32_t x, int32_t y, int32_t z, int32_t def)
+{
+    if (!vw_active) return def;
+    int bx, by, bz;
+    voxworld_toblock(x, y, z, &bx, &by, &bz);
+    if (!vw_inxy(bx, by)) return def;
+    vwcolumn_t const *c = vw_col(bx, by);
+    int32_t best = def;
+    for (int i = 0; i < c->nruns; i++)
+    {
+        int32_t const top = vw_layertop(c->runs[i].z1);
+        if (top >= z - 256 && top < best) best = top;
+    }
+    return best;
+}
 
 static int osdcmd_voxdist(osdcmdptr_t parm)
 {

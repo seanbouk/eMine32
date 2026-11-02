@@ -84,6 +84,23 @@ bool    voxworld_raycast(const vec3_t *start, int32_t vx, int32_t vy, int32_t vz
 // Line of sight between two points (true if no block in between).
 bool    voxworld_cansee(int32_t x1, int32_t y1, int32_t z1, int32_t x2, int32_t y2, int32_t z2);
 
+// Destruction.
+// hitscan() remembers which block it hit; voxworld_lasthit returns it if pos is that hit's position.
+void    voxworld_notehit(const vec3_t *pos, int bx, int by, int bz);
+bool    voxworld_lasthit(const vec3_t *pos, int *bx, int *by, int *bz);
+// Adds damage; returns the destroyed block's type (or VW_AIR if it survives / can't be damaged).
+int     voxworld_damage(int bx, int by, int bz, int amount);
+int     voxworld_hardness(int type);
+void    voxworld_blockcenter(int bx, int by, int bz, vec3_t *out);
+typedef void (*vwdestroyfn_t)(int bx, int by, int bz, int type, void *ud);
+// Damage falls off linearly to 0 at radius (xy units). Calls fn for each destroyed block. Returns count.
+int     voxworld_explode(const vec3_t *pos, int32_t radius, int damage, vwdestroyfn_t fn, void *ud);
+// Top of the nearest block at/below z at (x,y), or def if none.
+int32_t voxworld_floorz(int32_t x, int32_t y, int32_t z, int32_t def);
+
+// Sprites whose lotag is (VW_DEBRIS_TAG | blocktype) are drawn as chunks of that block's texture.
+#define VW_DEBRIS_TAG 0x7E00
+
 }
 #endif
 

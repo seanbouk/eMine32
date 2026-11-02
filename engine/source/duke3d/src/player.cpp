@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "demo.h"
 #include "duke3d.h"
+#include "emine.h"
 #include "enet.h"
 #include "input.h"
 #include "savegame.h"
@@ -793,6 +794,8 @@ static int A_PostFireHitscan(const hitdata_t *hitData, int const spriteNum, int 
     }
     else
     {
+        Emine_HitscanBlock(returnSprite, hitData);  // eMine32: shots chip blocks
+
         if (Proj_MaybeDamageCF2(returnSprite, zvel, hitData->sect))
         {
             sprite[returnSprite].xrepeat = 0;
@@ -1215,6 +1218,9 @@ static int32_t A_ShootHardcoded(int spriteNum, int projecTile, int shootAng, vec
             if (playerNum >= 0)
             {
                 spawnedSprite = Proj_InsertShotspark(&hitData, spriteNum, projecTile, 10, shootAng, G_DefaultActorHealthForTile(projecTile) + (krand() % 6));
+
+                if (hitData.wall < 0 && hitData.sprite < 0)
+                    Emine_HitscanBlock(spawnedSprite, &hitData);  // eMine32: player shots chip blocks
 
                 if (P_PostFireHitscan(playerNum, spawnedSprite, &hitData, spriteNum, projecTile, Zvel, SMALLSMOKE, BULLETHOLE, SHOTSPARK1, 0, true) < 0)
                     return -1;

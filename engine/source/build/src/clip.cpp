@@ -3175,6 +3175,7 @@ int32_t hitscan(const vec3_t *sv, int16_t sectnum, int32_t vx, int32_t vy, int32
             float const t = max(0.f, vh.dist - 24.f / len);
             vh.pos = { sv->x + (int32_t)(vx * t), sv->y + (int32_t)(vy * t), sv->z + (int32_t)(vz * t) };
             hit->xyz    = vh.pos;
+            voxworld_notehit(&vh.pos, vh.bx, vh.by, vh.bz);
             hit->sect   = sectnum;
             hit->wall   = -1;
             hit->sprite = -1;
