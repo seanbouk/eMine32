@@ -1,0 +1,10 @@
+{
+  "name": "emine32-webtest",
+  "private": true,
+  "description": "Headless-Chrome checks for the web build. Needs serve-web.bat (or any server) on :8032.",
+  "scripts": {
+    "ingame": "node ingame.js http://localhost:8032/eduke32.html?stats ingame.png",
+    "stack": "node stack.js http://localhost:8032/eduke32.html 12"
+  },
+  "dependencies": { "playwright-core": "1.49.1" }
+}

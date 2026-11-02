@@ -10,3 +10,5 @@ web/out/
 *.log
 engine/obj-web/
 engine/NUL
+tools/webtest/node_modules/
+tools/webtest/*.png
