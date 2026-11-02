@@ -13,10 +13,14 @@ timing (`EMINE fps=… busy%=… msPerFrame=…`) in the JS console; `?args=...`
 | `source/build/src/timer.cpp` | **Bug fix:** Emscripten defines `CLOCK_MONOTONIC_RAW` but `clock_gettime()` rejects it, leaving garbage time; timer then ran trillions of callbacks per call. This (plus the next fix) is why earlier web ports ran at ~2 fps. Use `CLOCK_MONOTONIC`. |
 | `source/build/src/sdlayer.cpp` | **Bug fix:** refresh rate of 0 Hz (Emscripten) → default 60. Yield to the browser after each presented frame and from the event pump (ASYNCIFY); optional `?stats` timing. |
 | `source/build/src/baselayer.cpp` | **Bug fix:** `engineFPSLimit` looped forever on a zero frame delay. In the browser, sleep until the next frame instead of busy-waiting. |
+| `source/build/src/sdlayer.cpp` | **Bug fix:** the SDL window is not resizable on the web. A resizable window let SDL resize the canvas mid-frame on browser resize / F11, corrupting the image or crashing the tab. The page CSS-scales the canvas instead. |
+| `source/build/src/sdlayer.cpp`, `baselayer.cpp` | Frames are paced with `requestAnimationFrame`, so the browser build runs at the monitor's refresh rate (75 Hz, 144 Hz, ...). An explicit `r_maxfps` cap still applies. |
+| `source/mact/src/control.cpp` | Mouse back (thumb) button backs out of menus, like right-click. (`web/shell.html` stops it navigating the browser.) |
 | `source/build/src/compat.cpp`, `source/build/include/compat.h` | Emscripten: little-endian detection, `pwd.h` for `getpwuid`. |
 | `source/build/src/sdlayer.cpp` | No `execinfo.h` segfault backtraces on Emscripten. |
 
-Measured (headless Chrome, 960×600, 8-bit classic renderer, Duke3D shareware E1L1): locked 60 fps, ~7 ms of work per
+Measured after rAF pacing (headless Chrome, 1720×720, in-level): 75 fps (monitor rate), ~2-3 ms of engine work per
+frame. Earlier measurement (headless Chrome, 960×600, 8-bit classic renderer, Duke3D shareware E1L1): locked 60 fps, ~7 ms of work per
 frame including game logic, OPL music synthesis and canvas upload. Rendering itself ~1.5 ms/frame.
 
 ## Windows (llvm-mingw) build

@@ -20,6 +20,10 @@
 // to the browser so it can present frames and deliver input.
 // Load the page with ?stats to get once-a-second timing in the JS console.
 # include <emscripten.h>
+// Present on the display's refresh (whatever rate the monitor runs at).
+EM_ASYNC_JS(void, em_wait_animation_frame, (), {
+    await new Promise(function (resolve) { requestAnimationFrame(function () { resolve(); }); });
+});
 static double em_lastYield;
 static double em_statStart, em_busy, em_maxSlice;
 static int    em_frames, em_statsOn = -1;
@@ -41,13 +45,18 @@ void emine_sleep(double ms, bool frame)
             em_statStart = now; em_frames = 0; em_busy = em_maxSlice = 0;
         }
     }
-    emscripten_sleep((unsigned)ms);
+    if (ms < 0)
+        em_wait_animation_frame();
+    else
+        emscripten_sleep((unsigned)ms);
     em_lastYield = emscripten_get_now();
 }
 static void em_yield(bool frame)
 {
-    if (frame || emscripten_get_now() - em_lastYield > 10.0)
-        emine_sleep(0, frame);
+    if (frame)
+        emine_sleep(-1, true);  // after presenting: wait for the next display refresh
+    else if (emscripten_get_now() - em_lastYield > 10.0)
+        emine_sleep(0, false);
 }
 #endif
 
@@ -1950,7 +1959,14 @@ int32_t videoSetMode(int32_t x, int32_t y, int32_t c, int32_t fs)
         // init
         sdl_window = SDL_CreateWindow("", g_windowPosValid ? g_windowPos.x : (int)SDL_WINDOWPOS_CENTERED_DISPLAY(display),
                                           g_windowPosValid ? g_windowPos.y : (int)SDL_WINDOWPOS_CENTERED_DISPLAY(display), x, y,
+#ifdef __EMSCRIPTEN__
+                                      // eMine32: a resizable window lets SDL resize the canvas under us mid-frame
+                                      // (browser resize / F11), corrupting or crashing the blit. The page scales the
+                                      // canvas with CSS instead; resolution changes go through videoSetGameMode.
+                                      borderless);
+#else
                                       SDL_WINDOW_RESIZABLE | borderless);
+#endif
         if (!sdl_window)
             SDL2_VIDEO_ERR("SDL_CreateWindow");
 

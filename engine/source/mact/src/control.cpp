@@ -832,7 +832,8 @@ UserInput *CONTROL_GetUserInput(UserInput *info)
 
     info->b_advance = KB_KeyPressed(sc_Enter) || KB_KeyPressed(sc_kpad_Enter) || (MOUSE_GetButtons() & M_LEFTBUTTON)
                     || (JOYSTICK_GetControllerButtons() & (1 << CONTROLLER_BUTTON_A));
-    info->b_return   = KB_KeyPressed(sc_Escape) || (MOUSE_GetButtons() & M_RIGHTBUTTON) || (JOYSTICK_GetControllerButtons() & (1 << CONTROLLER_BUTTON_B));
+    // eMine32: the mouse's back (thumb) button also backs out of menus
+    info->b_return   = KB_KeyPressed(sc_Escape) || (MOUSE_GetButtons() & (M_RIGHTBUTTON | M_XBUTTON)) || (JOYSTICK_GetControllerButtons() & (1 << CONTROLLER_BUTTON_B));
     info->b_escape = KB_KeyPressed(sc_Escape) || (JOYSTICK_GetControllerButtons() & (1 << CONTROLLER_BUTTON_START));
 
 #if defined(GEKKO)

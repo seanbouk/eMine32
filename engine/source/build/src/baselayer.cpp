@@ -894,6 +894,13 @@ int engineFPSLimit(bool const throttle)
     if (r_maxfps == -2)
         return true;
 
+#ifdef __EMSCRIPTEN__
+    // eMine32: by default the browser paces us (each present waits for requestAnimationFrame),
+    // which follows the monitor's real refresh rate. An explicit r_maxfps cap still applies.
+    if (r_maxfps <= 0)
+        return true;
+#endif
+
     g_frameDelay = calcFrameDelay(!throttle || ((unsigned)(r_maxfps-1) < (unsigned)refreshfreq) ? r_maxfps : -1);
 
     if (g_frameDelay != lastDelay)

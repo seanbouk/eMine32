@@ -8,9 +8,9 @@ Things we've agreed to do "at some point", not yet scheduled. Newest at the bott
   height so you can hop exactly one block).
 
 ## Web / QoL
-- Pace frames with `requestAnimationFrame` so the browser build matches the monitor's refresh rate (75 Hz on Sean's
-  display) instead of a fixed 60.
 - Present via WebGL (8-bit frame as a texture + palette lookup in a shader) instead of SDL's per-pixel JS copy; it's
   ~13% of frame time at 3440x1440.
-- Render-scale option in the game's own menu (today it's the `?scale=` / `?res=` URL options), maybe dynamic resolution.
-- Resize the render resolution when the browser window changes size (today it's picked once at startup).
+- Render-scale / resolution / FPS-cap options in the game's own menu (today: `?scale=`, `?res=` URL options and the
+  `r_maxfps` cvar). Period-correct: let players choose to run low-res or slow; no automatic dynamic resolution needed.
+- Follow browser window size changes by switching resolution at a safe point (today it's picked once at startup and
+  the canvas is CSS-scaled; live canvas resizing caused corruption/crashes, see ENGINE-CHANGES).
