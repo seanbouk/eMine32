@@ -52,14 +52,15 @@ void emine_sleep(double ms, bool frame)
     em_lastYield = emscripten_get_now();
 }
 // SDL's Emscripten backend drops mouse buttons 3/4 (back/forward); web/shell.html forwards them here.
+// NOTE: these exports are called from browser event handlers, possibly while the engine is paused inside an
+// ASYNCIFY sleep. They must only record requests; the engine acts on them in handleevents() (em_pagerequests).
+static uint8_t em_xbq[16];  // queued thumb-button events: bit0 = pressed, bit1 = which
+static int     em_xbn;
+static bool    em_mouseRepair;
 extern "C" EMSCRIPTEN_KEEPALIVE void emine_mouse_xbutton(int which, int pressed)
 {
-    SDL_Event ev = {};
-    ev.type          = pressed ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
-    ev.button.button = which ? SDL_BUTTON_X2 : SDL_BUTTON_X1;
-    ev.button.state  = pressed ? SDL_PRESSED : SDL_RELEASED;
-    ev.button.clicks = 1;
-    SDL_PushEvent(&ev);
+    if (em_xbn < (int)sizeof(em_xbq))
+        em_xbq[em_xbn++] = (pressed ? 1 : 0) | (which ? 2 : 0);
 }
 static void em_yield(bool frame)
 {
@@ -144,10 +145,14 @@ static vec2_t sdl_resize;
 #ifdef __EMSCRIPTEN__
 // eMine32: the page asks for a new render resolution when the browser window changes size (F11 etc.).
 // It's applied by handleevents() at a safe point (not mid-frame), like a desktop window resize.
+vec2_t emine_webres;  // render size the page wants; videoSetGameMode uses it over the config size
 extern "C" EMSCRIPTEN_KEEPALIVE void emine_request_resize(int w, int h)
 {
     if (w >= 320 && h >= 200)
-        sdl_resize = { w & ~3, h & ~1 };
+    {
+        emine_webres = { w & ~3, h & ~1 };
+        sdl_resize = emine_webres;
+    }
 }
 #endif
 static int sdl_minimized;
@@ -1397,18 +1402,39 @@ void mouseGrabInput(bool grab)
 // stale after a browser blur) - set it up now. Returns whether the page should hold pointer lock.
 extern "C" EMSCRIPTEN_KEEPALIVE int emine_mouse_wanted(void)
 {
-    if (em_mouseWant && g_mouseEnabled && sdl_window && !SDL_GetRelativeMouseMode())
+    em_mouseRepair = true;  // handled in em_pagerequests()
+    return em_mouseWant;
+}
+
+// Act on what the page asked for (see the NOTE above), from inside the engine's own event loop.
+static void em_pagerequests(void)
+{
+    for (int i = 0; i < em_xbn; i++)
     {
-        appactive = 1;
-        if (!SDL_GetMouseFocus())
-            SDL_WarpMouseInWindow(sdl_window, xdim >> 1, ydim >> 1);
-        if (SDL_SetRelativeMouseMode(SDL_TRUE) == 0)
+        SDL_Event ev = {};
+        ev.type          = (em_xbq[i] & 1) ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+        ev.button.button = (em_xbq[i] & 2) ? SDL_BUTTON_X2 : SDL_BUTTON_X1;
+        ev.button.state  = (em_xbq[i] & 1) ? SDL_PRESSED : SDL_RELEASED;
+        ev.button.clicks = 1;
+        SDL_PushEvent(&ev);
+    }
+    em_xbn = 0;
+
+    if (em_mouseRepair)
+    {
+        em_mouseRepair = false;
+        if (em_mouseWant && g_mouseEnabled && sdl_window && !SDL_GetRelativeMouseMode())
         {
-            g_mouseGrabbed = true;
-            g_mousePos.x = g_mousePos.y = 0;
+            appactive = 1;
+            if (!SDL_GetMouseFocus())
+                SDL_WarpMouseInWindow(sdl_window, xdim >> 1, ydim >> 1);
+            if (SDL_SetRelativeMouseMode(SDL_TRUE) == 0)
+            {
+                g_mouseGrabbed = true;
+                g_mousePos.x = g_mousePos.y = 0;
+            }
         }
     }
-    return em_mouseWant;
 }
 #endif
 
@@ -2165,7 +2191,15 @@ void videoShowFrame(int32_t w)
 
     // if we're minimized or about to resize, just throw away the frame
     if (sdl_resize.x || sdl_minimized)
+    {
+#ifdef __EMSCRIPTEN__
+        // eMine32: still hand control to the browser (and drop any leaked frame lock so handleevents can
+        // apply the resize), or a pending resize can freeze the page.
+        while (lockcount) videoEndDrawing();
+        em_yield(true);
+#endif
         return;
+    }
 
 #ifdef __ANDROID__
     if (mobile_halted) return;
@@ -2910,6 +2944,7 @@ int32_t handleevents(void)
 {
 #ifdef __EMSCRIPTEN__
     em_yield(false);
+    em_pagerequests();
 #endif
 #ifdef __ANDROID__
     if (mobile_halted) return 0;

@@ -27,6 +27,13 @@ Measured after rAF pacing (headless Chrome, 1720×720, in-level): 75 fps (monito
 frame. Earlier measurement (headless Chrome, 960×600, 8-bit classic renderer, Duke3D shareware E1L1): locked 60 fps, ~7 ms of work per
 frame including game logic, OPL music synthesis and canvas upload. Rendering itself ~1.5 ms/frame.
 
+### Rule for page -> engine calls
+Exports called from browser event handlers (`emine_mouse_wanted`, `emine_mouse_xbutton`, `emine_request_resize`)
+only record requests. The engine may be paused inside an ASYNCIFY sleep when a browser event fires, so doing real
+work there (SDL calls, game state) is unsafe; `em_pagerequests()` in `handleevents()` acts on them instead.
+Also on the web: the window-derived size overrides the cfg size in `videoSetGameMode` (level start used to switch
+back), and `videoShowFrame` still yields while a resize is pending so the page can't freeze.
+
 ## Block world ("voxworld")
 
 New engine module `source/build/src/voxworld.cpp` + `include/voxworld.h` (eMine32 code, GPL). A map opts in with a

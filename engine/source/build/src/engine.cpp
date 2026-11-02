@@ -11972,6 +11972,13 @@ int32_t videoSetGameMode(char davidoption, int32_t daupscaledxdim, int32_t daups
 #ifdef USE_OPENGL
     if (nogl) dabpp = 8;
 #endif
+#ifdef __EMSCRIPTEN__
+    // eMine32: in the browser the render size follows the window, not the config (a level start would
+    // otherwise switch back to the size saved in the cfg).
+    extern vec2_t emine_webres;
+    if (emine_webres.x)
+        daupscaledxdim = emine_webres.x, daupscaledydim = emine_webres.y;
+#endif
     daupscaledxdim = max(640, daupscaledxdim);
     daupscaledydim = max(400, daupscaledydim);
 
