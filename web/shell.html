@@ -19,14 +19,16 @@
   #bar > i { display: block; height: 100%; width: 0; background: #e8c040; }
   #overlay.ready #bar { display: none; }
   #overlay:not(.ready) { cursor: progress; }
+  #build { position: fixed; right: 12px; bottom: 8px; font-size: 11px; opacity: .5; }
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
-<div id="overlay"><h1>eMINE32</h1><div id="bar"><i></i></div><div id="status">Loading…</div></div>
+<div id="overlay"><h1>eMINE32</h1><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div>
 <script>
   var overlay = document.getElementById('overlay'), statusEl = document.getElementById('status'),
       barEl = document.querySelector('#bar > i'), canvas = document.getElementById('canvas');
+  console.log('eMine32 build __EMINE_BUILD__');
   var Module = {
     canvas: canvas,
     noInitialRun: true,

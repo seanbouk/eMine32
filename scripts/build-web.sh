@@ -16,4 +16,6 @@ make -j"$(nproc)" duke3d obj=obj-web PLATFORM=EMSCRIPTEN RELEASE=1 HAVE_VORBIS=0
 mkdir -p "$ROOT/web/out"
 mv -f eduke32.html eduke32.js eduke32.wasm eduke32.data "$ROOT/web/out/" 2>/dev/null || true
 rm -f mapster32.html mapster32.js mapster32.wasm mapster32.data
-echo "Built: $ROOT/web/out"
+STAMP="$(date +%Y-%m-%d\ %H:%M:%S) $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo +)"
+sed -i "s|__EMINE_BUILD__|$STAMP|g" "$ROOT/web/out/eduke32.html"
+echo "Built: $ROOT/web/out ($STAMP)"
