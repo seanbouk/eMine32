@@ -67,7 +67,9 @@
   // own loop (e.g. when a level starts). So on every key/click, if the game wants the mouse and doesn't have it,
   // request it here. Clicking the game always captures; Esc releases (and opens the menu).
   function wantLock() {
-    return document.pointerLockElement !== canvas && Module._emine_mouse_wanted && Module._emine_mouse_wanted();
+    // always ask (it also repairs the engine's grab state), then lock if the game wants the mouse
+    var want = Module._emine_mouse_wanted && Module._emine_mouse_wanted();
+    return want && document.pointerLockElement !== canvas;
   }
   canvas.addEventListener('click', function () { if (document.pointerLockElement !== canvas) canvas.requestPointerLock(); });
   window.addEventListener('keydown', function (e) { if (e.key !== 'Escape' && wantLock()) canvas.requestPointerLock(); });

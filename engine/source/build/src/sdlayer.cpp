@@ -1346,6 +1346,13 @@ static inline char grabmouse_low(char a)
        is called only when a window is ready?                */
     if (sdl_window)
         SDL_SetWindowGrab(sdl_window, a ? SDL_TRUE : SDL_FALSE);
+#ifdef __EMSCRIPTEN__
+    // eMine32: SDL's Emscripten backend refuses relative mode unless it thinks the mouse is over the window,
+    // which it only learns from mouseenter/mousemove on the canvas - events that never arrive once the page
+    // has captured the pointer. Warping establishes mouse focus without moving anything.
+    if (a && sdl_window && !SDL_GetMouseFocus())
+        SDL_WarpMouseInWindow(sdl_window, xdim >> 1, ydim >> 1);
+#endif
     return SDL_SetRelativeMouseMode(a ? SDL_TRUE : SDL_FALSE);
 #else
     UNREFERENCED_PARAMETER(a);
@@ -1358,8 +1365,15 @@ static inline char grabmouse_low(char a)
 //
 // grabmouse() -- show/hide mouse cursor
 //
+#ifdef __EMSCRIPTEN__
+static bool em_mouseWant;  // what the game asked for, even if the grab didn't take
+#endif
+
 void mouseGrabInput(bool grab)
 {
+#ifdef __EMSCRIPTEN__
+    em_mouseWant = grab;
+#endif
     if (grab != g_mouseGrabbed)
         g_mousePos.x = g_mousePos.y = 0;
 
@@ -1378,7 +1392,24 @@ void mouseGrabInput(bool grab)
 #ifdef __EMSCRIPTEN__
 // eMine32: browsers only grant pointer lock during a user gesture, but the game grabs the mouse from its
 // own loop. The page asks this on each key/click and requests the lock itself when the game wants it.
-extern "C" EMSCRIPTEN_KEEPALIVE int emine_mouse_wanted(void) { return g_mouseGrabbed && appactive; }
+// Called from the page's key/mouse handlers (i.e. during a user gesture). If the game wants the mouse but SDL
+// isn't actually in relative mode - the grab was refused (no gesture, no mouse focus) or skipped (appactive was
+// stale after a browser blur) - set it up now. Returns whether the page should hold pointer lock.
+extern "C" EMSCRIPTEN_KEEPALIVE int emine_mouse_wanted(void)
+{
+    if (em_mouseWant && g_mouseEnabled && sdl_window && !SDL_GetRelativeMouseMode())
+    {
+        appactive = 1;
+        if (!SDL_GetMouseFocus())
+            SDL_WarpMouseInWindow(sdl_window, xdim >> 1, ydim >> 1);
+        if (SDL_SetRelativeMouseMode(SDL_TRUE) == 0)
+        {
+            g_mouseGrabbed = true;
+            g_mousePos.x = g_mousePos.y = 0;
+        }
+    }
+    return em_mouseWant;
+}
 #endif
 
 void mouseLockToWindow(char a)
