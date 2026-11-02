@@ -49,6 +49,12 @@
     canvas.focus();
     Module.callMain(Module.emineArgs || []);
   });
+  // Let the browser keep F11 (fullscreen) and F12 (dev tools): stop them before SDL sees and swallows them.
+  ['keydown', 'keyup', 'keypress'].forEach(function (type) {
+    window.addEventListener(type, function (e) {
+      if (e.key === 'F11' || e.key === 'F12') e.stopImmediatePropagation();
+    }, true);
+  });
   // Clicking the game captures the mouse (Esc releases it).
   canvas.addEventListener('click', function () { if (document.pointerLockElement !== canvas) canvas.requestPointerLock(); });
   window.addEventListener('error', function (e) { statusEl.textContent = 'Error: ' + e.message; });

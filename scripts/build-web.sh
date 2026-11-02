@@ -11,7 +11,7 @@ WEB="$ROOT/web"; command -v cygpath >/dev/null && WEB="$(cygpath -m "$WEB")"
 cd "$ROOT/engine"
 rm -f eduke32.html  # always relink so new data is packaged
 make -j"$(nproc)" duke3d obj=obj-web PLATFORM=EMSCRIPTEN RELEASE=1 HAVE_VORBIS=0 \
-    WEBFLAGS="--preload-file $DATA_DIR@/game --preload-file $WEB/eduke32.cfg@/eduke32.cfg --pre-js $WEB/pre.js --shell-file $WEB/shell.html" "$@"
+    WEBFLAGS="--preload-file $DATA_DIR@/game --pre-js $WEB/pre.js --shell-file $WEB/shell.html" "$@"
 mkdir -p "$ROOT/web/out"
 mv -f eduke32.html eduke32.js eduke32.wasm eduke32.data "$ROOT/web/out/" 2>/dev/null || true
 rm -f mapster32.html mapster32.js mapster32.wasm mapster32.data
