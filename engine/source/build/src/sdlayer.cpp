@@ -15,6 +15,42 @@
 #include "sdl_inc.h"
 #include "softsurface.h"
 
+#ifdef __EMSCRIPTEN__
+// eMine32: the engine runs blocking loops; under ASYNCIFY we hand control back
+// to the browser so it can present frames and deliver input.
+// Load the page with ?stats to get once-a-second timing in the JS console.
+# include <emscripten.h>
+static double em_lastYield;
+static double em_statStart, em_busy, em_maxSlice;
+static int    em_frames, em_statsOn = -1;
+void emine_sleep(double ms, bool frame)
+{
+    double const now = emscripten_get_now();
+    if (em_statsOn < 0)
+        em_statsOn = EM_ASM_INT({ return /[?&]stats/.test(location.search) ? 1 : 0; });
+    if (em_statsOn)
+    {
+        double const slice = now - em_lastYield;
+        em_busy += slice;
+        if (slice > em_maxSlice) em_maxSlice = slice;
+        em_frames += frame;
+        if (now - em_statStart > 1000.0)
+        {
+            EM_ASM({ console.log('EMINE fps=' + $0 + ' busy%=' + (100*$1/$3).toFixed(0) + ' msPerFrame=' + ($0 ? ($1/$0).toFixed(2) : '-') + ' maxSliceMs=' + $2.toFixed(1)); },
+                   em_frames, em_busy, em_maxSlice, now - em_statStart);
+            em_statStart = now; em_frames = 0; em_busy = em_maxSlice = 0;
+        }
+    }
+    emscripten_sleep((unsigned)ms);
+    em_lastYield = emscripten_get_now();
+}
+static void em_yield(bool frame)
+{
+    if (frame || emscripten_get_now() - em_lastYield > 10.0)
+        emine_sleep(0, frame);
+}
+#endif
+
 #if SDL_MAJOR_VERSION >= 2
 # include "imgui.h"
 # include "imgui_impl_sdl2.h"
@@ -323,7 +359,7 @@ void wm_setapptitle(const char *name)
 //
 
 /* XXX: libexecinfo could be used on systems without gnu libc. */
-#if !defined _WIN32 && defined __GNUC__ && !defined __OpenBSD__ && !(defined __APPLE__ && defined __BIG_ENDIAN__) && !defined GEKKO && !defined EDUKE32_TOUCH_DEVICES && !defined __OPENDINGUX__
+#if !defined _WIN32 && defined __GNUC__ && !defined __OpenBSD__ && !(defined __APPLE__ && defined __BIG_ENDIAN__) && !defined GEKKO && !defined EDUKE32_TOUCH_DEVICES && !defined __OPENDINGUX__ && !defined __EMSCRIPTEN__
 # define PRINTSTACKONSEGV 1
 # include <execinfo.h>
 #endif
@@ -1732,6 +1768,10 @@ int setvideomode_sdlcommonpost(int32_t x, int32_t y, int32_t c, int32_t fs, int3
 #endif
         refreshfreq = desktopmode.refresh_rate;
 
+    // eMine32: some backends (Emscripten) report 0Hz; frame pacing divides by this.
+    if (refreshfreq <= 0)
+        refreshfreq = 60.0;
+
     int const matchedResolution = (desktopmode.w == x && desktopmode.h == y);
     int const borderless = (r_borderless == 1 || (r_borderless == 2 && matchedResolution)) ? SDL_WINDOW_BORDERLESS : 0;
 
@@ -2193,6 +2233,9 @@ void videoShowFrame(int32_t w)
     }
 #else
     SDL_Flip(sdl_surface);
+#endif
+#ifdef __EMSCRIPTEN__
+    em_yield(true);
 #endif
     MicroProfileFlip();
 }
@@ -2792,6 +2835,9 @@ int32_t handleevents_pollsdl(void)
 
 int32_t handleevents(void)
 {
+#ifdef __EMSCRIPTEN__
+    em_yield(false);
+#endif
 #ifdef __ANDROID__
     if (mobile_halted) return 0;
 #endif

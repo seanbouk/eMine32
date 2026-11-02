@@ -76,6 +76,9 @@ endif
 ifeq ($(PLATFORM),WII)
     EXESUFFIX := .elf
 endif
+ifeq ($(PLATFORM),EMSCRIPTEN)
+    EXESUFFIX := .html
+endif
 ifeq ($(PLATFORM),WINDOWS)
     EXESUFFIX := .exe
     DLLSUFFIX := .dll
@@ -251,6 +254,22 @@ ifneq (0,$(CLANG))
     override L_CXX := $(CLANGXXNAME)
 endif
 
+# eMine32: WebAssembly via Emscripten. emcc reports itself as clang, so pin the
+# compiler drivers back to emcc/em++ after the clang detection above.
+ifeq ($(PLATFORM),EMSCRIPTEN)
+    override CLANG := 1
+    override LLD := 0
+    override CC := emcc -sUSE_SDL=2 -x c
+    override CXX := em++ -sUSE_SDL=2 -x c++
+    override COBJC := emcc -x objective-c
+    override COBJCXX := em++ -x objective-c++
+    override L_CC := emcc -sUSE_SDL=2
+    override L_CXX := em++ -sUSE_SDL=2
+    override AR := emar
+    override RANLIB := emranlib
+    override STRIP := true
+endif
+
 GCC_VER :=
 ifeq (0,$(CLANG))
     GCC_VER := $(strip $(shell $(CCFULLPATH) -dumpversion 2>&1))
@@ -390,6 +409,19 @@ else ifeq ($(PLATFORM),$(filter $(PLATFORM),DINGOO GCW))
     override NOASM := 1
 else ifeq ($(PLATFORM),$(filter $(PLATFORM),BEOS))
     override NOASM := 1
+else ifeq ($(PLATFORM),EMSCRIPTEN)
+    # eMine32 web build: software renderer only, no net, no threads-heavy extras
+    override USE_OPENGL := 0
+    override NETCODE := 0
+    override NOASM := 1
+    override HAVE_GTK2 := 0
+    override STARTUP_WINDOW := 0
+    override USE_LIBVPX := 0
+    override HAVE_FLAC := 0
+    override USE_MIMALLOC := 0
+    override IMPLICIT_ARCH := wasm32
+    BITS := 32
+    COMPILERFLAGS += -sUSE_SDL=2
 endif
 
 ifneq (i386,$(strip $(IMPLICIT_ARCH)))
@@ -590,9 +622,14 @@ ifeq ($(PACKAGE_REPOSITORY),0)
     COMMONFLAGS += -O$(OPTLEVEL) $(OPTOPT)
 endif
 
+ifeq ($(PLATFORM),EMSCRIPTEN)
+define LF
+endef
+else
 define LF
 -save-temps=obj -dumpdir $1
 endef
+endif
 
 ifneq (0,$(LTO))
     COMPILERFLAGS += -DUSING_LTO
@@ -993,7 +1030,7 @@ else ifeq ($(SUBPLATFORM),LINUX)
     LIBS += -lrt -latomic
 endif
 
-ifeq (,$(filter $(PLATFORM),WINDOWS WII))
+ifeq (,$(filter $(PLATFORM),WINDOWS WII EMSCRIPTEN))
     ifneq ($(PLATFORM),BSD)
         LIBS += -ldl
     endif
@@ -1049,6 +1086,15 @@ COMPILER_C=$(CC) $(CONLYFLAGS) $(COMMONFLAGS) $(CWARNS) $(CONLYWARNS) $(COMPILER
 COMPILER_CXX=$(CXX) $(CXXONLYFLAGS) $(COMMONFLAGS) $(CWARNS) $(COMPILERFLAGS) $(CUSTOMOPT)
 COMPILER_OBJC=$(COBJC) $(CONLYFLAGS) $(COMMONFLAGS) $(CWARNS) $(CONLYWARNS) $(COMPILERFLAGS) $(CUSTOMOPT)
 COMPILER_OBJCXX=$(COBJCXX) $(CXXONLYFLAGS) $(COMMONFLAGS) $(CWARNS) $(COMPILERFLAGS) $(CUSTOMOPT)
+ifeq ($(PLATFORM),EMSCRIPTEN)
+    # ASYNCIFY lets the engine's blocking loops yield to the browser (see sdlayer.cpp)
+    LINKERFLAGS += -sASYNCIFY -sASYNCIFY_STACK_SIZE=262144 -sALLOW_MEMORY_GROWTH=1 \
+                   -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=4194304 -sFORCE_FILESYSTEM=1 \
+                   -sEXIT_RUNTIME=0 -sEXPORTED_RUNTIME_METHODS=callMain,FS
+    # extra flags, e.g. --preload-file for game data, come from scripts/build-web.sh via WEBFLAGS
+    LINKERFLAGS += $(WEBFLAGS)
+endif
+
 LINKER=$(L_CXX) $(CXXONLYFLAGS) $(L_CXXONLYFLAGS) $(COMMONFLAGS) $(LINKERFLAGS) $(CUSTOMOPT)
 ifneq ($(CPLUSPLUS),0)
     COMPILER_C=$(COMPILER_CXX)

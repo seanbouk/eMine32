@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eMine32</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #c8b27a; overflow: hidden;
+    font: 14px/1.4 ui-monospace, Consolas, monospace; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  /* keep the 8-bit pixels crisp and the aspect ratio fixed */
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges;
+    width: 100vw; height: 100vh; object-fit: contain; outline: none; }
+  #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px;
+    align-items: center; justify-content: center; background: rgba(0,0,0,.85); cursor: pointer; text-align: center; }
+  #overlay h1 { margin: 0; font-size: 42px; letter-spacing: 4px; color: #e8c040; text-shadow: 3px 3px 0 #6a2a10; }
+  #status { min-height: 1.4em; }
+  #bar { width: 260px; height: 6px; background: #2a2010; }
+  #bar > i { display: block; height: 100%; width: 0; background: #e8c040; }
+  #overlay.ready #bar { display: none; }
+  #overlay:not(.ready) { cursor: progress; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="overlay"><h1>eMINE32</h1><div id="bar"><i></i></div><div id="status">Loading…</div></div>
+<script>
+  var overlay = document.getElementById('overlay'), statusEl = document.getElementById('status'),
+      barEl = document.querySelector('#bar > i'), canvas = document.getElementById('canvas');
+  var Module = {
+    canvas: canvas,
+    noInitialRun: true,
+    print: function (t) { console.log(t); },
+    printErr: function (t) { console.log(t); },
+    setStatus: function (t) {
+      var m = t && t.match(/\((\d+(?:\.\d+)?)\/(\d+)\)/);
+      if (m) barEl.style.width = (100 * m[1] / m[2]) + '%';
+      if (t) statusEl.textContent = t.replace(/\(.*\)/, '').trim() || 'Loading…';
+    },
+    onRuntimeInitialized: function () {
+      overlay.classList.add('ready');
+      statusEl.textContent = 'Click to play';
+    }
+  };
+  // Browsers only allow audio and mouse capture after a user gesture, so start on click.
+  overlay.addEventListener('click', function () {
+    if (!overlay.classList.contains('ready')) return;
+    overlay.remove();
+    canvas.focus();
+    Module.callMain(Module.emineArgs || []);
+  });
+  // Clicking the game captures the mouse (Esc releases it).
+  canvas.addEventListener('click', function () { if (document.pointerLockElement !== canvas) canvas.requestPointerLock(); });
+  window.addEventListener('error', function (e) { statusEl.textContent = 'Error: ' + e.message; });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

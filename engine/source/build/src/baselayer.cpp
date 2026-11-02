@@ -1,4 +1,7 @@
 #include "baselayer.h"
+#ifdef __EMSCRIPTEN__
+void emine_sleep(double ms, bool frame);  // sdlayer.cpp
+#endif
 
 #include "a.h"
 #include "build.h"
@@ -898,6 +901,10 @@ int engineFPSLimit(bool const throttle)
 
     uint64_t frameTicks = timerGetNanoTicks();
 
+    // eMine32: a zero delay would spin the catch-up loop below forever
+    if (g_frameDelay == 0)
+        return true;
+
     if (frameTicks - lastFrameTicks >= g_frameDelay)
     {
         do
@@ -906,6 +913,15 @@ int engineFPSLimit(bool const throttle)
 
         return true;
     }
+
+#ifdef __EMSCRIPTEN__
+    // eMine32: don't busy-wait in the browser; give the time back until the frame is due
+    {
+        double const ms = (double)(g_frameDelay - (frameTicks - lastFrameTicks)) * 1000.0 / (double)timerGetNanoTickRate();
+        if (ms >= 2.0)
+            emine_sleep(ms - 1.0, false);
+    }
+#endif
 
     return false;
 }

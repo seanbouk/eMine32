@@ -8,3 +8,5 @@ engine/*.exe
 engine/*.log
 web/out/
 *.log
+engine/obj-web/
+engine/NUL

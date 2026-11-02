@@ -29,7 +29,9 @@
 
 EDUKE32_STATIC_ASSERT(CLOCK_FREQ <= 1000000000ULL && CLOCK_FREQ >= 1000000ULL);
 
-#ifdef CLOCK_MONOTONIC_RAW
+// eMine32: Emscripten defines CLOCK_MONOTONIC_RAW but clock_gettime() rejects it,
+// leaving the timespec uninitialised (garbage time -> runaway timer callbacks).
+#if defined CLOCK_MONOTONIC_RAW && !defined __EMSCRIPTEN__
 # define CLOCK_TYPE CLOCK_MONOTONIC_RAW
 #else
 # define CLOCK_TYPE CLOCK_MONOTONIC
