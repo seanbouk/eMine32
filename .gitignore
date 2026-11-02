@@ -1,0 +1,10 @@
+# Local dev data: copyrighted game files never get committed
+devdata/
+# Runtime working dir (configs, logs, saves, caches)
+run/
+# Build outputs
+engine/obj/
+engine/*.exe
+engine/*.log
+web/out/
+*.log
