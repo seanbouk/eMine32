@@ -3170,6 +3170,10 @@ int32_t hitscan(const vec3_t *sv, int16_t sectnum, int32_t vx, int32_t vy, int32
         vwhit_t vh;
         if (voxworld_raycast(sv, vx, vy, vz, tb, &vh))
         {
+            // Pull the hit point back off the face a little so effects spawned there sit in front of it.
+            float const len = sqrtf((float)vx*vx + (float)vy*vy + ((float)vz*vz)*(1.f/256.f));
+            float const t = max(0.f, vh.dist - 24.f / len);
+            vh.pos = { sv->x + (int32_t)(vx * t), sv->y + (int32_t)(vy * t), sv->z + (int32_t)(vz * t) };
             hit->xyz    = vh.pos;
             hit->sect   = sectnum;
             hit->wall   = -1;

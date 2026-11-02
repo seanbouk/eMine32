@@ -65,6 +65,17 @@
   });
   // Clicking the game captures the mouse (Esc releases it).
   canvas.addEventListener('click', function () { if (document.pointerLockElement !== canvas) canvas.requestPointerLock(); });
+  // Follow the window size (F11, dragging the window): ask the engine to switch resolution once things settle.
+  var resizeTimer = 0;
+  window.addEventListener('resize', function () {
+    if (/[?&]res=/.test(location.search)) return;  // explicit resolution: just scale
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (!Module._emine_request_resize || !Module.emineRes) return;
+      var r = Module.emineRes();
+      Module._emine_request_resize(r[0], r[1]);
+    }, 250);
+  });
   window.addEventListener('error', function (e) { statusEl.textContent = 'Error: ' + e.message; });
 </script>
 {{{ SCRIPT }}}

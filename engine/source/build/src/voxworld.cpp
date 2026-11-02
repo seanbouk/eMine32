@@ -435,6 +435,25 @@ static __attribute__((noinline)) void vw_drawflat(uint8_t *col, float *zc, vwgap
         }
 }
 
+// Most common colour along the top edge of a sky tile (cached per tile).
+static uint8_t vw_skytopcolor(int tile)
+{
+    static int cachedtile = -1;
+    static uint8_t cached;
+    if (tile == cachedtile) return cached;
+    int const tw = tilesiz[tile].x, th = tilesiz[tile].y;
+    uint8_t const *const p = (uint8_t const *)waloff[tile];
+    int count[256] = {};
+    for (int u = 0; u < tw; u++)
+        for (int v = 0; v < min(th, 4); v++)
+            count[p[u*th + v]]++;
+    int best = 0;
+    for (int c = 1; c < 256; c++)
+        if (count[c] > count[best]) best = c;
+    cachedtile = tile;
+    return cached = (uint8_t)best;
+}
+
 static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float *zc)
 {
     int const ydim = ydimen;
@@ -610,16 +629,18 @@ next_cell:
 
         if (sky && tw > 0 && th > 0)
         {
-            // Wrap the sky tile 4 times around the horizon, horizon at 3/4 of its height.
+            // Wrap the sky tile 4 times around the horizon, horizon at 3/4 of its height. Above the tile's
+            // top edge, fill with the tile's dominant top-row colour instead of stretching each column's top pixel.
             float const ang = atan2f(dy, dx);
             int const u = ((int)((ang * (1.f / (2.f*fPI)) + 1.f) * 4.f * tw)) % tw;
             float const vscale = th / (ydim * 0.9f);
             uint8_t const *const scol = sky + u*th;
+            uint8_t const top = pal[vw_skytopcolor(skytile)];
             for (int i = 0; i < ng; i++)
                 for (int y = gaps[i].a; y < gaps[i].b; y++)
                 {
-                    int const v = clamp((int)(th*0.75f + (y - vw_horiz)*vscale), 0, th-1);
-                    col[y] = pal[scol[v]];
+                    int const v = (int)(th*0.75f + (y - vw_horiz)*vscale);
+                    col[y] = v < 0 ? top : pal[scol[min(v, th-1)]];
                     zc[y] = FLT_MAX;
                 }
         }
@@ -785,6 +806,10 @@ static void vw_drawfacesprite(tspriteptr_t tspr, float depth)
     int const bpl = bytesperline;
     float const invw = 1.f / pxw, invh = 1.f / pxh;
 
+    // Like Build, a sprite whose centre is in front of a surface draws over it: test against the depth of
+    // the sprite's nearest point (treating it as roughly as deep as it is wide), capped at a quarter block.
+    float const zdepth = depth - min(spanx * tspr->xrepeat * (1.f/8.f), (float)VW_BLOCKXY / 4);
+
     for (int x = lx; x < rx; x++)
     {
         int u = (int)((x + 0.5f - x1) * invw);
@@ -795,7 +820,7 @@ static void vw_drawfacesprite(tspriteptr_t tspr, float depth)
         for (int y = ty; y < by; y++)
         {
             float *const zp = &vw_zbuf[x*ydimen + y];
-            if (depth >= *zp) continue;
+            if (zdepth >= *zp) continue;
 
             int v = (int)((y + 0.5f - ytop) * invh);
             v = clamp(v, 0, spany - 1);

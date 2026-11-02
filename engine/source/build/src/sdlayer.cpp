@@ -140,6 +140,16 @@ char quitevent=0, appactive=1, novideo=0;
 static SDL_Surface *sdl_surface/*=NULL*/;
 
 static vec2_t sdl_resize;
+
+#ifdef __EMSCRIPTEN__
+// eMine32: the page asks for a new render resolution when the browser window changes size (F11 etc.).
+// It's applied by handleevents() at a safe point (not mid-frame), like a desktop window resize.
+extern "C" EMSCRIPTEN_KEEPALIVE void emine_request_resize(int w, int h)
+{
+    if (w >= 320 && h >= 200)
+        sdl_resize = { w & ~3, h & ~1 };
+}
+#endif
 static int sdl_minimized;
 
 #if SDL_MAJOR_VERSION >= 2
