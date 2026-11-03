@@ -21,7 +21,10 @@ int32_t Emine_FloorZ(int spriteNum, int32_t sectorFloorZ);
 // Extra shade from the block world's lighting where this sprite stands (0 outside the block world / in daylight).
 int Emine_LightShade(int spriteNum);
 
-// Console commands (called from registerosdcommands).
+// Console commands and world event hooks (called once from registerosdcommands).
 void Emine_RegisterOSD(void);
+
+// Once per game tic (G_MoveWorld): falling blocks etc.
+void Emine_Tick(void);
 
 #endif

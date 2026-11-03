@@ -16,7 +16,7 @@ const { chromium } = require('playwright-core');
   const type = async s => { for (const c of s) { if (c === '_') await page.keyboard.press('Shift+Minus'); else await page.keyboard.type(c); await page.waitForTimeout(40); } };
   for (const k of ['Space', 'Enter', 'Enter', 'Enter', 'Enter']) { await hold(k); await page.waitForTimeout(500); }
   await page.waitForTimeout(8000);
-  for (const c of 'dnkroz') await hold(c, 80);
+  if (!process.env.NOGOD) for (const c of 'dnkroz') await hold(c, 80);
   for (const cmd of (cmds || '').split(';').filter(Boolean)) {
     await hold('Backquote'); await type(cmd); await hold('Enter'); await hold('Backquote');
   }

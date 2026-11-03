@@ -95,8 +95,92 @@ static int osdcmd_emine_cave(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+static int emine_tic;  // game tics since startup
+
+// Is any enemy or player overlapping block cell (bx,by,bz)? Crush them.
+static bool Emine_CrushCell(int bx, int by, int bz, float speed)
+{
+    vec3_t c;
+    voxworld_blockcenter(bx, by, bz, &c);
+    int32_t const top = c.z - VW_BLOCKZ/2, bot = c.z + VW_BLOCKZ/2;
+    bool hit = false;
+
+    static const int stats[] = { STAT_PLAYER, STAT_ACTOR, STAT_ZOMBIEACTOR };
+    for (int stat : stats)
+        for (int i = headspritestat[stat]; i >= 0; i = nextspritestat[i])
+        {
+            auto const &s = sprite[i];
+            if (s.sectnum != voxworld_sector() || s.extra <= 0) continue;
+            if (s.picnum != APLAYER && !A_CheckEnemySprite(&s)) continue;
+            int32_t const r = max<int32_t>(s.clipdist << 2, 64);
+            if (klabs(s.x - c.x) >= VW_BLOCKXY/2 + r || klabs(s.y - c.y) >= VW_BLOCKXY/2 + r) continue;
+            int32_t const h = s.picnum == APLAYER ? PHEIGHT + (8<<8) : (tilesiz[s.picnum].y * s.yrepeat) << 2;
+            if (s.z - h >= bot || s.z <= top) continue;
+
+            // Crushed: same damage path as an explosion. Harder the further it fell.
+            auto &a = actor[i];
+            a.htpicnum = RADIUSEXPLOSION;
+            a.htextra  = 10 + (int)(speed * 25.f);
+            a.htowner  = i;
+            a.htang    = krand() & 2047;
+            hit = true;
+        }
+    return hit;
+}
+
+static bool Emine_OnWorldEvent(int event, int bx, int by, int bz, int type, float speed)
+{
+    int const playerSprite = g_player[myconnectindex].ps->i;
+    switch (event)
+    {
+        case VW_EV_FALLHIT:
+            return Emine_CrushCell(bx, by, bz, speed);
+
+        case VW_EV_FALLBROKE:
+            if (playerSprite >= 0) Emine_BlockDestroyedFX(bx, by, bz, type, playerSprite, 4, true);
+            break;
+
+        case VW_EV_FALLLANDED:
+        {
+            // a thud, but not a wall of them when a whole hillside comes down
+            static int lastThud = -1;
+            if (playerSprite >= 0 && speed > 0.15f && lastThud != emine_tic)
+            {
+                lastThud = emine_tic;
+                vec3_t c;
+                voxworld_blockcenter(bx, by, bz, &c);
+                S_PlaySound3D(DUKE_LAND, playerSprite, c);
+            }
+            break;
+        }
+    }
+    return false;
+}
+
+void Emine_Tick(void)
+{
+    emine_tic++;
+    voxworld_tick();
+}
+
+// Dev console: `emine_drop [height] [type]` drops a block (sand by default) onto the player from `height` blocks up.
+static int osdcmd_emine_drop(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (!voxworld_active() || p->i < 0) return OSDCMD_OK;
+    int const height = parm->numparms >= 1 ? clamp(Batol(parm->parms[0]), 2, 60) : 6;
+    int const type   = parm->numparms >= 2 ? clamp(Batol(parm->parms[1]), 1, VW_NUMTYPES-1) : VW_SAND;
+    int bx, by, bz;
+    voxworld_toblock(sprite[p->i].x, sprite[p->i].y, sprite[p->i].z - 1, &bx, &by, &bz);
+    if (voxworld_get(bx, by, bz + height) == VW_AIR)
+        voxworld_set(bx, by, bz + height, type);
+    return OSDCMD_OK;
+}
+
 void Emine_RegisterOSD(void)
 {
+    voxworld_seteventfn(Emine_OnWorldEvent);
+    OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);
     OSD_RegisterFunction("emine_cave", "emine_cave [maxlight 0-15]: dev - teleport to the nearest dark cave", osdcmd_emine_cave);
 }
 

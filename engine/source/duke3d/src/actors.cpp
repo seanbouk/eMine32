@@ -9347,6 +9347,8 @@ void G_MoveWorld(void)
     G_DoEventGame(EVENT_PREGAME, false);
     G_RecordOldSpritePos();
 
+    Emine_Tick();  // eMine32: falling blocks
+
     {
         MICROPROFILE_SCOPEI("MoveWorld", "MoveZombieActors", MP_YELLOW2);
         G_MoveZombieActors();  //ST 2

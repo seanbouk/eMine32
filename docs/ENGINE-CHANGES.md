@@ -64,13 +64,19 @@ Generation (spike, in the engine for now): fbm hills, then wandering tunnels (le
 Duke can't step up a whole block) with domed caverns, a few tunnels that stair down from the surface (one always just
 ahead of the spawn), ore veins (coal, iron, gold deeper) and gravel pockets, trees. ~25 ms for 256x256x64 in the browser.
 Lighting: Minecraft-style skylight 0..15 per air cell (full light falls straight down, otherwise -1 per block),
-flood-filled at load and spread incrementally when blocks are destroyed (blocks are never placed, so light only ever
-grows). Each face is shaded by the air cell in front of it, sprites by the cell they stand in. Missing light becomes
+flood-filled at load, spread incrementally when a cell opens and removed-then-reflooded when one fills (Minecraft's
+two-pass removal). Each face is shaded by the air cell in front of it, sprites by the cell they stand in. Missing light becomes
 extra Build shade (`r_voxdark`, default 20) that fades in with distance (`r_voxlantern`, default 6 blocks), so nearby
 walls stay readable in the dark, like a dark Doom/Duke room.
+Falling blocks: sand and gravel fall when the cell under them (or beside them, for cave ceilings) opens up. They move
+down the grid a cell at a time under gravity (`voxworld_tick`, once per game tic from `G_MoveWorld`), so a falling block
+is always an ordinary block. The game gets events through `voxworld_seteventfn`: before a block moves into a cell it
+asks whether an actor is there (eMine32 crushes players/enemies, explosion-style damage that grows with fall speed,
+and the block bursts into debris), plus a landing event (thud).
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
 `r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves
-red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave.
+red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave, `emine_drop [height] [type]` (dev) drops a
+block on you. The test arch's end wall (facing the spawn) is gravel topped with sand.
 
 Measured (headless Chrome, generated hills + trees, 96-block view): 1720x720 ~6 ms block rendering, ~8.5 ms per frame
 total, holds 75 Hz; 3440x1440 ~17 ms block rendering, ~36 fps.

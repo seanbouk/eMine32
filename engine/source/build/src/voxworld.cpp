@@ -48,6 +48,7 @@ static int32_t     vw_x0, vw_y0;             // world coords of block (0,0) corn
 static int32_t     vw_zbot;                  // Build z of the bottom of layer 0
 static uint8_t    *vw_blocks;                // [(x*sy + y)*sz + z]
 static vwcolumn_t *vw_cols;                  // [x*sy + y]
+static int         vw_nfallers;              // falling blocks in flight (see voxworld_tick)
 
 static FORCE_INLINE uint8_t *vw_colblocks(int bx, int by) { return &vw_blocks[((size_t)bx*vw_sy + by)*vw_sz]; }
 static FORCE_INLINE vwcolumn_t *vw_col(int bx, int by) { return &vw_cols[(size_t)bx*vw_sy + by]; }
@@ -85,19 +86,33 @@ uint8_t voxworld_get(int bx, int by, int bz)
 }
 
 static void vw_lightopened(int bx, int by, int bz);
+static void vw_lightclosed(int bx, int by, int bz);
+static void vw_neighbourchanged(int bx, int by, int bz);
+static void vw_startfall(int bx, int by, int bz);
 
 void voxworld_set(int bx, int by, int bz, uint8_t type)
 {
     if (!vw_active || !vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) return;
-    vw_colblocks(bx, by)[bz] = type;
+    uint8_t &b = vw_colblocks(bx, by)[bz];
+    uint8_t const old = b;
+    if (old == type) return;
+    b = type;
     vw_rebuildcolumn(bx, by);
-    if (type == VW_AIR) vw_lightopened(bx, by, bz);
+    if (type == VW_AIR)
+    {
+        vw_lightopened(bx, by, bz);
+        vw_neighbourchanged(bx, by, bz);  // sand/gravel around it may now fall
+    }
+    else if (old == VW_AIR)
+        vw_lightclosed(bx, by, bz);
+    if (type != VW_AIR) vw_startfall(bx, by, bz);  // sand put over a gap falls
 }
 
 //////////////////////////////////////////////////////////////////////////////
 // Lighting: skylight per air cell, 0..VW_LIGHTMAX. Full skylight falls straight down without fading;
 // everywhere else light drops by one per block it spreads (so it reaches ~15 blocks into a cave mouth).
-// Blocks only ever get removed in play, so light only ever needs to spread, never be taken away.
+// Opening a cell spreads light into it; filling one (a falling block landing) takes away the light that came
+// through it and re-spreads from whatever still lights the area (Minecraft's two-pass removal).
 //////////////////////////////////////////////////////////////////////////////
 
 static uint8_t  *vw_light;            // same layout as vw_blocks
@@ -232,6 +247,65 @@ bool voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out)
                     }
             }
     return false;
+}
+
+// A cell became solid: remove the light that depended on it, then re-flood from the edges of the removed area.
+static uint32_t *vw_lightrq;  // removal queue: (cell index << 4) | old light
+static size_t    vw_lightrqcap;
+
+static void vw_lightclosed(int bx, int by, int bz)
+{
+    if (!vw_light) return;
+    int const sz = vw_sz, sy = vw_sy;
+    uint32_t const idx = (uint32_t)(((size_t)bx*sy + by)*sz + bz);
+    int const old = vw_light[idx];
+    vw_light[idx] = 0;
+    if (!old) return;
+
+    size_t nr = 0, n = 0;
+    auto rpush = [&](uint32_t i, int l) {
+        if (nr == vw_lightrqcap)
+        {
+            vw_lightrqcap = max<size_t>(vw_lightrqcap * 2, 4096);
+            vw_lightrq = (uint32_t *)Xrealloc(vw_lightrq, vw_lightrqcap * sizeof(uint32_t));
+        }
+        vw_lightrq[nr++] = (i << 4) | (uint32_t)l;
+    };
+    rpush(idx, old);
+
+    for (size_t qi = 0; qi < nr; qi++)
+    {
+        uint32_t const i = vw_lightrq[qi] >> 4;
+        int const l = vw_lightrq[qi] & 15;
+        int const z = i % sz, col = i / sz, x = col / sy, y = col % sy;
+
+        static const int8_t dirs[6][3] = { {-1,0,0}, {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1} };
+        for (auto const &d : dirs)
+        {
+            int const nx = x + d[0], ny = y + d[1], nz = z + d[2];
+            if (!vw_inxy(nx, ny) || (unsigned)nz >= (unsigned)sz) continue;
+            uint32_t const ni = (uint32_t)(((size_t)nx*sy + ny)*sz + nz);
+            if (vw_blocks[ni] != VW_AIR) continue;
+            int const nl = vw_light[ni];
+            if (!nl) continue;
+            bool const fromhere = nl < l || (d[2] < 0 && l == VW_LIGHTMAX && nl == VW_LIGHTMAX);
+            if (fromhere)
+            {
+                vw_light[ni] = 0;
+                rpush(ni, nl);
+            }
+            else
+                vw_lightpush(n, ni);  // lit from elsewhere: spreads back in afterwards
+        }
+    }
+
+    // the very top layer of an open column is lit by the sky directly
+    for (size_t qi = 0; qi < nr; qi++)
+    {
+        uint32_t const i = vw_lightrq[qi] >> 4;
+        if ((int)(i % sz) == sz - 1 && !vw_light[i]) { vw_light[i] = VW_LIGHTMAX; vw_lightpush(n, i); }
+    }
+    vw_lightflood(n);
 }
 
 int voxworld_lightshade(int32_t x, int32_t y, int32_t z)
@@ -569,6 +643,13 @@ static void vw_generate(void)
                 vw_put(cx + dx, cy + dy, s + 4, VW_PLANKS);
                 if (abs(dx) == 4) for (int z = s; z < s + 4; z++) vw_put(cx + dx, cy + dy, z, VW_PLANKS);
             }
+        // The middle of the end wall facing the spawn is gravel with sand on top: shoot it to see blocks fall.
+        // (the full width of the wall, so it is right under the spawn crosshair)
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            for (int z = s; z <= s + 4; z++) vw_put(cx - 4, cy + dy, z, VW_GRAVEL);
+            for (int z = s + 5; z <= s + 6; z++) vw_put(cx - 4, cy + dy, z, VW_SAND);
+        }
         // a floating slab to look up at
         for (int dx = -2; dx <= 2; dx++)
             for (int dy = 4; dy <= 7; dy++)
@@ -623,6 +704,7 @@ void voxworld_onmapload(vec3_t *dapos)
     Xfree(vw_blocks);
     Xfree(vw_cols);
     DO_FREE_AND_NULL(vw_dmg);
+    vw_nfallers = 0;
     vw_blocks = (uint8_t *)Xcalloc((size_t)vw_sx*vw_sy*vw_sz, 1);
     vw_cols   = (vwcolumn_t *)Xcalloc((size_t)vw_sx*vw_sy, sizeof(vwcolumn_t));
 
@@ -1402,6 +1484,121 @@ bool voxworld_lasthit(const vec3_t *pos, int *bx, int *by, int *bz)
         return false;
     *bx = vw_lasthit.bx; *by = vw_lasthit.by; *bz = vw_lasthit.bz;
     return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Falling blocks (sand, gravel). A block falls when the cell under it opens up. It moves down the grid one cell
+// at a time under gravity, so it always stays a normal block (rendered, collided, lit like any other). If an actor
+// is in the way the game is told (it does the damage) and the block bursts.
+//////////////////////////////////////////////////////////////////////////////
+
+struct vwfaller_t
+{
+    int16_t x, y;
+    int16_t z;       // the cell it currently occupies
+    uint8_t type;
+    uint8_t delay;   // tics before it starts moving
+    float   pos;     // fractional fall progress below z (cells)
+    float   vel;     // cells per tic
+};
+
+#define VW_MAXFALLERS 2048
+static vwfaller_t  vw_fallers[VW_MAXFALLERS];
+static vweventfn_t vw_eventfn;
+static uint8_t     vw_falldelay = 3;  // tics before a disturbed block drops; 0 while a falling block pulls the next one along
+
+void voxworld_seteventfn(vweventfn_t fn) { vw_eventfn = fn; }
+
+static FORCE_INLINE bool vw_falls(uint8_t type) { return type == VW_SAND || type == VW_GRAVEL; }
+
+static void vw_startfall(int bx, int by, int bz)
+{
+    if (!vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) return;
+    uint8_t const type = vw_colblocks(bx, by)[bz];
+    if (!vw_falls(type) || voxworld_get(bx, by, bz - 1) != VW_AIR || bz == 0) return;
+    for (int i = 0; i < vw_nfallers; i++)
+        if (vw_fallers[i].x == bx && vw_fallers[i].y == by && vw_fallers[i].z == bz) return;
+    if (vw_nfallers >= VW_MAXFALLERS) return;
+    vw_fallers[vw_nfallers++] = { (int16_t)bx, (int16_t)by, (int16_t)bz, type, vw_falldelay, 0.f, 0.f };
+}
+
+static void vw_neighbourchanged(int bx, int by, int bz)
+{
+    vw_startfall(bx, by, bz + 1);
+    vw_startfall(bx - 1, by, bz);
+    vw_startfall(bx + 1, by, bz);
+    vw_startfall(bx, by - 1, bz);
+    vw_startfall(bx, by + 1, bz);
+}
+
+#define VW_GRAVITY  0.035f  // cells per tic per tic (~30 tics a second)
+#define VW_MAXFALL  1.5f
+
+void voxworld_tick(void)
+{
+    if (!vw_active || !vw_nfallers) return;
+
+    // lowest first, so a falling stack moves as one
+    std::sort(vw_fallers, vw_fallers + vw_nfallers, [](vwfaller_t const &a, vwfaller_t const &b) { return a.z < b.z; });
+
+    int n = vw_nfallers;
+    vw_falldelay = 0;
+    for (int i = 0; i < n; i++)
+    {
+        vwfaller_t &f = vw_fallers[i];
+        bool done = false;
+
+        if (vw_colblocks(f.x, f.y)[f.z] != f.type)
+            done = true;  // destroyed while falling
+        else if (f.delay)
+            f.delay--;
+        else
+        {
+            f.vel = min(f.vel + VW_GRAVITY, VW_MAXFALL);
+            f.pos += f.vel;
+            while (f.pos >= 1.f && !done)
+            {
+                f.pos -= 1.f;
+                int const nz = f.z - 1;
+                if (nz < 0 || vw_colblocks(f.x, f.y)[nz] != VW_AIR)
+                {
+                    // landed
+                    if (vw_eventfn) vw_eventfn(VW_EV_FALLLANDED, f.x, f.y, f.z, f.type, f.vel);
+                    done = true;
+                    break;
+                }
+                if (vw_eventfn && vw_eventfn(VW_EV_FALLHIT, f.x, f.y, nz, f.type, f.vel))
+                {
+                    // hit something: the block bursts
+                    if (vw_dmg) vw_dmg[vw_index(f.x, f.y, f.z)] = 0;
+                    int const oz = f.z;
+                    f.z = -1;  // so voxworld_set's neighbour check doesn't find this one
+                    voxworld_set(f.x, f.y, oz, VW_AIR);
+                    vw_eventfn(VW_EV_FALLBROKE, f.x, f.y, oz, f.type, f.vel);
+                    done = true;
+                    break;
+                }
+                // move down one cell: fill the new one first, then open the old one (which may start the next
+                // block above falling)
+                if (vw_dmg) vw_dmg[vw_index(f.x, f.y, f.z)] = 0;
+                int const oz = f.z;
+                f.z = nz;  // first, so filling the new cell doesn't register it as another faller
+                voxworld_set(f.x, f.y, nz, f.type);
+                voxworld_set(f.x, f.y, oz, VW_AIR);
+            }
+        }
+
+        if (done)
+        {
+            // fallers added this tic (beyond n) stay; swap in the last of this tic's ones
+            vw_fallers[i] = vw_fallers[n - 1];
+            vw_fallers[n - 1] = vw_fallers[vw_nfallers - 1];
+            vw_nfallers--;
+            n--;
+            i--;
+        }
+    }
+    vw_falldelay = 3;
 }
 
 int voxworld_damage(int bx, int by, int bz, int amount)

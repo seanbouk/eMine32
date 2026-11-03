@@ -109,6 +109,19 @@ int     voxworld_lightshade(int32_t x, int32_t y, int32_t z);
 // Dev helper: the nearest spot (feet position) with room to stand whose light is <= maxlight.
 bool    voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out);
 
+// Falling blocks and other world events. The game supplies the callback.
+enum
+{
+    VW_EV_FALLHIT,     // a falling block is about to move into cell (bx,by,bz): return true if an actor is in the way
+                       // (damage it; the block then bursts)
+    VW_EV_FALLBROKE,   // the falling block at (bx,by,bz) burst (debris, sound)
+    VW_EV_FALLLANDED,  // a falling block came to rest at (bx,by,bz)
+};
+typedef bool (*vweventfn_t)(int event, int bx, int by, int bz, int type, float speed);  // speed: cells per tic
+void    voxworld_seteventfn(vweventfn_t fn);
+// Advance falling blocks by one game tic.
+void    voxworld_tick(void);
+
 // Sprites whose lotag is (VW_DEBRIS_TAG | blocktype) are drawn as chunks of that block's texture.
 #define VW_DEBRIS_TAG 0x7E00
 
