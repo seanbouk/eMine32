@@ -1624,16 +1624,16 @@ static __attribute__((noinline)) void vw_drawglasscell(vwcolumn_t const *c, uint
         vwrun_t const r = c->gruns[ri];
 
         // near and far sides, where the neighbour there isn't glass
-        for (int far = 0; far < 2; far++)
+        for (int back = 0; back < 2; back++)
         {
-            int const s = far ? nside : side, fx = far ? nx : px, fy = far ? ny : py;
+            int const s = back ? nside : side, fx = back ? nx : px, fy = back ? ny : py;
             if (s < 0) continue;
             for (int z = r.z0; z < r.z1;)
             {
                 if (glassat(fx, fy, z)) { z++; continue; }
                 int z1 = z + 1;
                 while (z1 < r.z1 && !glassat(fx, fy, z1)) z1++;
-                wall(far ? dout : din, s, z, z1);
+                wall(back ? dout : din, s, z, z1);
                 z = z1;
             }
         }
