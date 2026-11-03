@@ -60,6 +60,40 @@ static int Emine_OreAmmo(int type, int *count)
     }
 }
 
+// Dropped pickups pop up out of the broken block, fall and bounce to rest: straight up and down only.
+#define EMINE_MAXDROPS   64
+#define EMINE_DROPGRAV   96    // z units per tic per tic
+#define EMINE_DROPBOUNCE 40    // percent of the landing speed kept for a bounce
+#define EMINE_DROPBOUNCES 2
+static struct { int16_t sprite, picnum; int32_t z, zvel; uint8_t bounces; } emine_drops[EMINE_MAXDROPS];
+static int emine_ndrops;
+
+static void Emine_MoveDrops(void)
+{
+    for (int i = 0; i < emine_ndrops; i++)
+    {
+        auto &d = emine_drops[i];
+        auto &s = sprite[d.sprite];
+        bool done = s.statnum == MAXSTATUS || s.picnum != d.picnum;  // picked up / gone
+        if (!done)
+        {
+            d.zvel += EMINE_DROPGRAV;
+            int32_t const floorz = voxworld_floorz(s.x, s.y, d.z - 16, sector[s.sectnum].floorz);
+            d.z += d.zvel;
+            if (d.z >= floorz)
+            {
+                d.z = floorz;
+                if (d.bounces++ >= EMINE_DROPBOUNCES) done = true;
+                else d.zvel = -d.zvel * EMINE_DROPBOUNCE / 100;
+            }
+            s.zvel = 0;  // ours to move, not Duke's
+            vec3_t const at = { s.x, s.y, d.z };
+            setsprite(d.sprite, &at);
+        }
+        if (done) emine_drops[i--] = emine_drops[--emine_ndrops];
+    }
+}
+
 static bool Emine_OreDrop(int bx, int by, int bz, int type, int ownerSprite)
 {
     int count;
@@ -70,11 +104,13 @@ static bool Emine_OreDrop(int bx, int by, int bz, int type, int ownerSprite)
     int const sect = voxworld_sector();
     for (int i = 0; i < count; i++)
     {
-        // on the ground where the block was (or whatever's under it now)
+        // out of the middle of the block, with a little pop upwards; Emine_MoveDrops does the rest
         int32_t const x = c.x + (count > 1 ? (krand() & 127) - 64 : 0), y = c.y + (count > 1 ? (krand() & 127) - 64 : 0);
         int const j = A_Spawn(ownerSprite, tile);
-        vec3_t const at = { x, y, voxworld_floorz(x, y, c.z, sector[sect].floorz) };
+        vec3_t const at = { x, y, min(c.z + VW_BLOCKZ/4, voxworld_floorz(x, y, c.z, sector[sect].floorz)) };
         setsprite(j, &at);
+        if (emine_ndrops < EMINE_MAXDROPS)
+            emine_drops[emine_ndrops++] = { (int16_t)j, sprite[j].picnum, at.z, -500 - (krand() & 255), 0 };  // pop up about a quarter of a block
     }
     return true;
 }
@@ -349,6 +385,7 @@ void Emine_Tick(void)
     auto const p = g_player[myconnectindex].ps;
     if (p->i >= 0) voxworld_stream(p->pos.x, p->pos.y);
     voxworld_tick();
+    Emine_MoveDrops();
 
     if (emine_where && p->i >= 0 && emine_tic % 15 == 0)
     {

@@ -120,7 +120,8 @@ gold below 32, lapis around 14-30, redstone and diamond below 16; diamond and la
 replaced the placeholder "atomic" ore and kept its block id 14; lapis is 33, diamond 34). The game: each ore drops
 one kind of Duke ammo where it breaks (shots, kicks, and up to 6 per explosion): coal 3 pistol clips, iron 2 boxes of
 shells, gold chaingun ammo, redstone pipe bombs, lapis freeze-thrower ammo, diamond rockets (`Emine_OreAmmo` holds the
-amounts). Duke holds every weapon from the start with one pistol clip and can only pick weapons he has ammo for
+amounts). A drop pops up out of the middle of the broken block, falls and bounces twice (straight up and down only,
+moved by `Emine_MoveDrops`). Duke holds every weapon from the start with one pistol clip and can only pick weapons he has ammo for
 (sector.cpp). The shareware data has no freeze-thrower art, so its pickup and weapon are invisible until the art
 pass. `emine_ore <type>` (dev) drops an ore's ammo in front of you.
 Snow caps (on trial): ground at or above the snowline (sea + 55% of the hill range, ~layer 88, ragged by +-3 layers of
