@@ -2053,9 +2053,15 @@ int voxworld_getzrange(const vec3_t *pos, int32_t walldist, int32_t *ceilz, int3
 // Ray casting (3D DDA). Works in "cube space": z divided by 16 so blocks are 512^3.
 //////////////////////////////////////////////////////////////////////////////
 
+// Plants a hitscan (a raycast with a hit record) went through on its way, for voxworld_smashplants.
+#define VW_MAXSHOTPLANTS 16
+static struct { int16_t x, y, z; } vw_shotplants[VW_MAXSHOTPLANTS];
+static int vw_nshotplants;
+
 bool voxworld_raycast(const vec3_t *start, int32_t vx, int32_t vy, int32_t vz, float maxt, vwhit_t *hit)
 {
     if (!vw_active) return false;
+    if (hit) vw_nshotplants = 0;
 
     float const ox = (start->x - vw_x0) / (float)VW_BLOCKXY;
     float const oy = (start->y - vw_y0) / (float)VW_BLOCKXY;
@@ -2079,6 +2085,8 @@ bool voxworld_raycast(const vec3_t *start, int32_t vx, int32_t vy, int32_t vz, f
         if (face >= 0)  // don't count the block we start in
         {
             uint8_t const b = voxworld_get(bx, by, bz);
+            if (hit && vw_isplant(b) && vw_nshotplants < VW_MAXSHOTPLANTS)
+                vw_shotplants[vw_nshotplants++] = { (int16_t)bx, (int16_t)by, (int16_t)bz };
             if (b != VW_AIR && bz >= 0 && !(vw_flags(b) & VW_BF_CLEAR))
             {
                 if (hit)
@@ -2103,6 +2111,27 @@ bool voxworld_raycast(const vec3_t *start, int32_t vx, int32_t vy, int32_t vz, f
         if (t > maxt) return false;
     }
     return false;
+}
+
+int voxworld_smashplants(const vec3_t *from, int32_t reach, vwdestroyfn_t fn, void *ud)
+{
+    int n = 0;
+    for (int i = 0; i < vw_nshotplants; i++)
+    {
+        auto const &p = vw_shotplants[i];
+        uint8_t const type = voxworld_get(p.x, p.y, p.z);
+        if (!vw_isplant(type)) continue;
+        if (reach > 0)
+        {
+            int32_t const cx = vw_x0 + p.x*VW_BLOCKXY + VW_BLOCKXY/2, cy = vw_y0 + p.y*VW_BLOCKXY + VW_BLOCKXY/2;
+            if (klabs(cx - from->x) + klabs(cy - from->y) > reach + VW_BLOCKXY/2) continue;
+        }
+        voxworld_set(p.x, p.y, p.z, VW_AIR);
+        if (fn) fn(p.x, p.y, p.z, type, ud);
+        n++;
+    }
+    vw_nshotplants = 0;
+    return n;
 }
 
 bool voxworld_cansee(int32_t x1, int32_t y1, int32_t z1, int32_t x2, int32_t y2, int32_t z2)

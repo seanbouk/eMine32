@@ -44,6 +44,27 @@ void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit)
         Emine_BlockDestroyedFX(bx, by, bz, type, sprite[shotSprite].owner >= 0 ? sprite[shotSprite].owner : shotSprite, 5, true);
 }
 
+// A shot smashes the plants it passes through: a few bits of leaf fly, no smoke or crunch.
+static void Emine_OnPlantSmashed(int bx, int by, int bz, int type, void *ud)
+{
+    int const owner = *(int *)ud;
+    vec3_t c;
+    voxworld_blockcenter(bx, by, bz, &c);
+    for (int i = 0; i < 3; i++)
+    {
+        int const j = A_InsertSprite(voxworld_sector(), c.x + (krand() & 255) - 128, c.y + (krand() & 255) - 128, c.z + (krand() & 2047),
+                                     SCRAP6 + (krand() & 15), -8, 12, 12, krand() & 2047, (krand() & 31) + 24, -256 - (krand() & 1023),
+                                     owner, STAT_MISC);
+        sprite[j].lotag = VW_DEBRIS_TAG | type;
+    }
+}
+
+void Emine_ShotPlants(int shooterSprite, const vec3_t *start, int32_t reach)
+{
+    if (!voxworld_active()) return;
+    voxworld_smashplants(start, reach, Emine_OnPlantSmashed, &shooterSprite);
+}
+
 struct emine_blastctx { int owner, count; };
 
 static void Emine_OnBlastDestroyed(int bx, int by, int bz, int type, void *ud)

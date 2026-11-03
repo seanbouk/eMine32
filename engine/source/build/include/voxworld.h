@@ -129,6 +129,9 @@ int     voxworld_damage(int bx, int by, int bz, int amount);
 int     voxworld_hardness(int type);
 void    voxworld_blockcenter(int bx, int by, int bz, vec3_t *out);
 typedef void (*vwdestroyfn_t)(int bx, int by, int bz, int type, void *ud);
+// Plants are see-through to shots, but a shot smashes the ones it passes on its way: call this right after the
+// shot's hitscan. Only those within reach of from (xy distance, Manhattan; 0 = any). Calls fn for each. Returns how many.
+int     voxworld_smashplants(const vec3_t *from, int32_t reach, vwdestroyfn_t fn, void *ud);
 // Damage falls off linearly to 0 at radius (xy units). Calls fn for each destroyed block. Returns count.
 int     voxworld_explode(const vec3_t *pos, int32_t radius, int damage, vwdestroyfn_t fn, void *ud);
 // Top of the nearest block at/below z at (x,y), or def if none.

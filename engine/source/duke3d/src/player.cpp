@@ -925,7 +925,11 @@ static int A_ShootCustom(int const spriteNum, int const projecTile, int shootAng
             A_PreFireHitscan(pSprite, startPos, &zvel, &shootAng, !(pProj->workslike & PROJECTILE_ACCURATE));
 
         if (Proj_DoHitscan(spriteNum, (pProj->cstat >= 0) ? pProj->cstat : 256 + 1, startPos, zvel, shootAng, &hitData))
+        {
+            Emine_ShotPlants(spriteNum, startPos, pProj->range);  // eMine32: shots smash the plants on their way
             return -1;
+        }
+        Emine_ShotPlants(spriteNum, startPos, pProj->range);
 
         if (pProj->range > 0 && klabs(startPos->x - hitData.x) + klabs(startPos->y - hitData.y) > pProj->range)
             return -1;
@@ -1159,6 +1163,8 @@ static int32_t A_ShootHardcoded(int spriteNum, int projecTile, int shootAng, vec
             }
 
             Proj_DoHitscan(spriteNum, 0, &startPos, Zvel, shootAng, &hitData);
+            if (projecTile == KNEE)
+                Emine_ShotPlants(spriteNum, &startPos, 1024);  // eMine32: a kick flattens plants within its reach
 
             if (projecTile >= BLOODSPLAT1 && projecTile <= BLOODSPLAT4)
             {
@@ -1209,7 +1215,9 @@ static int32_t A_ShootHardcoded(int spriteNum, int projecTile, int shootAng, vec
             else
                 A_PreFireHitscan(pSprite, &startPos, &Zvel, &shootAng, 1);
 
-            if (Proj_DoHitscan(spriteNum, 256 + 1, &startPos, Zvel, shootAng, &hitData))
+            int const missed = Proj_DoHitscan(spriteNum, 256 + 1, &startPos, Zvel, shootAng, &hitData);
+            Emine_ShotPlants(spriteNum, &startPos, 0);  // eMine32: shots smash the plants on their way
+            if (missed)
                 return -1;
 
             if ((krand() & 15) == 0 && sector[hitData.sect].lotag == ST_2_UNDERWATER)
