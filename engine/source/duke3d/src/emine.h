@@ -27,4 +27,12 @@ void Emine_RegisterOSD(void);
 // Once per game tic (G_MoveWorld): falling blocks etc.
 void Emine_Tick(void);
 
+// Block water. Is this point in water?
+bool Emine_InWaterAt(vec3_t const &pos);
+// The sector lotag the player's movement should use: ST_2_UNDERWATER (swimming) while their body is in block
+// water, else `lotag` unchanged. Also gives a hop out of the water when jump is held as they surface.
+int  Emine_PlayerLotag(int playerNum, int lotag, uint32_t playerBits);
+// After Duke's swimming: with no swim keys held, sink slowly (to standing on the bottom).
+void Emine_SwimSink(int playerNum, uint32_t playerBits, int32_t floorZ);
+
 #endif

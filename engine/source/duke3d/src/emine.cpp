@@ -98,6 +98,7 @@ static int osdcmd_emine_cave(osdcmdptr_t parm)
 }
 
 static int emine_tic;  // game tics since startup
+static bool emine_where;  // `emine_where`: print the player's surroundings
 
 // Is any enemy or player overlapping block cell (bx,by,bz)? Crush them.
 static bool Emine_CrushCell(int bx, int by, int bz, float speed)
@@ -198,11 +199,73 @@ static void Emine_LavaBurn(void)
     }
 }
 
+bool Emine_InWaterAt(vec3_t const &pos)
+{
+    return voxworld_active() && (voxworld_blockflags(voxworld_blockat(pos.x, pos.y, pos.z)) & VW_BF_WATER);
+}
+
+// Swimming starts when the water is a bit over knee deep: this point, measured down from the eye.
+#define EMINE_SWIMPOINT (PHEIGHT - 6144)
+
+int Emine_PlayerLotag(int playerNum, int lotag, uint32_t playerBits)
+{
+    auto const p = g_player[playerNum].ps;
+    if (lotag != 0 || !voxworld_active() || p->cursectnum != voxworld_sector())
+        return lotag;
+
+    static bool wasSwimming[MAXPLAYERS];
+    vec3_t const body = { p->pos.x, p->pos.y, p->pos.z + EMINE_SWIMPOINT };
+    bool const swimming = Emine_InWaterAt(body) || Emine_InWaterAt(p->pos);
+
+    if (swimming)
+    {
+        p->falling_counter = 0;  // water breaks a fall
+        if (!Emine_InWaterAt(p->pos))
+            p->airleft = 15 * GAMETICSPERSEC;  // head above water: breathe
+    }
+    else if (wasSwimming[playerNum] && TEST_SYNC_KEY(playerBits, SK_JUMP) && p->vel.z <= 0)
+    {
+        // Swimming up and out. Facing a bank: a jump's worth of push to get up onto it. Open water: just bob.
+        int const ang = fix16_to_int(p->q16ang);
+        int32_t const ax = p->pos.x + (sintable[(ang + 512) & 2047] >> 5), ay = p->pos.y + (sintable[ang & 2047] >> 5);
+        auto solid = [](int t) { return t != VW_AIR && !(voxworld_blockflags(t) & VW_BF_NONSOLID); };
+        if (solid(voxworld_blockat(ax, ay, p->pos.z + PHEIGHT - 256)) || solid(voxworld_blockat(ax, ay, p->pos.z + EMINE_SWIMPOINT)))
+        {
+            p->vel.z = 0;
+            p->jumping_counter = 1;
+            p->jumping_toggle  = 1;
+        }
+        else
+            p->vel.z = max(p->vel.z, -384);
+    }
+    wasSwimming[playerNum] = swimming;
+    return swimming ? ST_2_UNDERWATER : lotag;
+}
+
+void Emine_SwimSink(int playerNum, uint32_t playerBits, int32_t floorZ)
+{
+    auto const p = g_player[playerNum].ps;
+    if (sector[p->cursectnum].lotag == ST_2_UNDERWATER) return;  // a real Duke underwater sector
+    if (TEST_SYNC_KEY(playerBits, SK_JUMP) || TEST_SYNC_KEY(playerBits, SK_CROUCH)) return;
+    int32_t const stand = floorZ - PHEIGHT;
+    if (p->pos.z < stand)
+        p->pos.z = min(p->pos.z + 160, stand);
+}
+
 void Emine_Tick(void)
 {
     emine_tic++;
     Emine_LavaBurn();
     voxworld_tick();
+
+    auto const p = g_player[myconnectindex].ps;
+
+    if (emine_where && p->i >= 0 && emine_tic % 15 == 0)
+    {
+        auto at = [&](int32_t dz) { return voxworld_blockat(p->pos.x, p->pos.y, p->pos.z + dz); };
+        OSD_Printf("emine_where: z %d vel %d  eye %d body %d feet %d  pal %d air %d\n", p->pos.z, p->vel.z,
+                   at(0), at(EMINE_SWIMPOINT), at(PHEIGHT - 256), p->palette, p->airleft);
+    }
 }
 
 // Dev console: `emine_drop [height] [type]` drops a block (sand by default) onto the player from `height` blocks up.
@@ -219,8 +282,41 @@ static int osdcmd_emine_drop(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+// Dev console: `emine_water` drops the player into the nearest open water; `emine_water shore` stands them on the
+// nearest bank, facing the water.
+static int osdcmd_emine_water(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    vec3_t surf;
+    int ang;
+    bool const shore = parm->numparms >= 1;
+    if (!voxworld_active() || p->i < 0 || !voxworld_findwater(p->pos.x, p->pos.y, shore, &surf, &ang))
+    {
+        OSD_Printf("emine_water: no water found\n");
+        return OSDCMD_OK;
+    }
+    vec3_t const feet = { surf.x, surf.y, surf.z - (shore ? 0 : 1024) };
+    if (shore) p->q16ang = fix16_from_int(ang);
+    p->pos   = { feet.x, feet.y, feet.z - PHEIGHT };
+    p->opos  = p->pos;
+    p->bobpos = { feet.x, feet.y };
+    p->vel   = { 0, 0, 0 };
+    setsprite(p->i, &feet);
+    OSD_Printf("emine_water: moved to %d, %d, %d\n", feet.x, feet.y, feet.z);
+    return OSDCMD_OK;
+}
+
+// Dev console: `emine_where` toggles printing what the player is standing/swimming in.
+static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
+{
+    emine_where = !emine_where;
+    return OSDCMD_OK;
+}
+
 void Emine_RegisterOSD(void)
 {
+    OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
+    OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);
     voxworld_seteventfn(Emine_OnWorldEvent);
     OSD_RegisterFunction("emine_glow", "emine_glow [minlight 1-15]: dev - teleport next to the nearest glowing block", osdcmd_emine_cave);
     OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);

@@ -47,6 +47,13 @@ enum vwblock_t : uint8_t
     VW_LAVA_F3,  // lava spreading sideways, 3 = nearest the source
     VW_LAVA_F2,
     VW_LAVA_F1,
+    VW_WATER,      // water source (fluid, see-through)
+    VW_WATER_FALL, // water pouring down
+    VW_WATER_F4,   // water spreading sideways, 4 = nearest the source
+    VW_WATER_F3,
+    VW_WATER_F2,
+    VW_WATER_F1,
+    VW_OBSIDIAN,   // what a lava source turns into when water reaches it
     VW_NUMTYPES
 };
 
@@ -57,6 +64,8 @@ enum
     VW_BF_FLUID      = 2,
     VW_BF_FULLBRIGHT = 4,  // drawn without lighting (glows)
     VW_BF_LAVA       = 8,  // burns
+    VW_BF_WATER      = 16, // you swim in it
+    VW_BF_CLEAR      = 32, // see-through: drawn as a translucent overlay; light, sight and shots pass through
 };
 
 // First tile number used for block faces; see game/emine32.def. Tile layout per block type is in
@@ -131,6 +140,9 @@ int     voxworld_lightshade(int32_t x, int32_t y, int32_t z);
 bool    voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out);
 // Same, but a dark spot whose block light is at least minblocklight (somewhere lit by a glowing block).
 bool    voxworld_findspot(int32_t x, int32_t y, int maxlight, int minblocklight, vec3_t *out);
+// Dev helper: the surface (top centre) of the nearest open water; or with shore, the top of the nearest dry block
+// beside open water (*ang: Build angle facing the water).
+bool    voxworld_findwater(int32_t x, int32_t y, bool shore, vec3_t *out, int *ang);
 
 // Falling blocks and other world events. The game supplies the callback.
 enum

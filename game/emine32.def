@@ -16,3 +16,5 @@ tilefromtexture 7013 { file "textures/blocks/iron_ore.png" }
 tilefromtexture 7014 { file "textures/blocks/gold_ore.png" }
 tilefromtexture 7015 { file "textures/blocks/atomic_ore.png" }
 tilefromtexture 7016 { file "textures/blocks/lava.png" }
+tilefromtexture 7017 { file "textures/blocks/water.png" }
+tilefromtexture 7018 { file "textures/blocks/obsidian.png" }

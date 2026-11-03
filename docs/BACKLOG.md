@@ -16,7 +16,12 @@ Things we've agreed to do "at some point", not yet scheduled. Newest at the bott
 - Renderer speed for full-res 21:9: spread screen columns across threads (native; web with SharedArrayBuffer).
 
 - Art pass / palette: Duke's palette has few muted greens, so green-tinted light reads olive. Our own palette should
-  include ramps for the light colours we use (lava orange, atomic green, water blue).
+  include ramps for the light colours we use (lava orange, atomic green, water blue). Same for seeing through water:
+  Duke's translucency table turns grey + blue into mauve; our palette needs slate blue-greys.
+- Fluids are full blocks: flowing water/lava has no lower "spreading" surface yet. Water source rules are simple
+  (sources never multiply or drain).
+- Water views cost ~2-3x a dry view to render (overlay + what's behind it): ~6-10 ms vs ~3 ms at 1100x620 web.
+- Glass (another see-through block) can reuse the water overlay path.
 
 ## Web / QoL
 - Present via WebGL (8-bit frame as a texture + palette lookup in a shader) instead of SDL's per-pixel JS copy; it's

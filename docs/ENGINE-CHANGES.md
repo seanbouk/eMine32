@@ -88,10 +88,25 @@ every 12 tics fluid next to an opened cell pours down into open space, otherwise
 (source/pour -> 3 cells). Sources never go away (blocks are only ever removed), so flow never retreats. Generation
 floods open cave below the lava line (~layer 10). The game burns players (Duke hurt-floor style: damage, pain sound,
 orange flash) and enemies standing in it.
+Water: a see-through fluid (`VW_BF_WATER | VW_BF_CLEAR`). Columns keep a third run list, water runs; the opaque run
+list no longer includes them. Water doesn't occlude: per screen column the renderer draws the faces between water and
+non-water into an overlay (colour + depth) without closing any rows, carries on to whatever is behind, then blends the
+overlay over it with Duke's translucency table, by how far you look through the water (clear, half, mostly water,
+then just water past 6 blocks). Rows that deep in water are closed early so rays don't trace on to the lake bed.
+Sprites behind water get the same blend. With the camera under water the view fogs into deep blue with distance and
+is cut off past the fog. Light passes through water (sky light loses 1 per block of water instead of falling
+straight down), shots and sight pass through it. Fluids have two kinds with their own queue and pace (lava every 12
+tics, 3 cells; water every 5 tics, 4 cells); where they meet, water onto a lava source makes obsidian, onto flowing
+lava cobblestone, lava into water stone. Sand and gravel sink through fluids. Generation: a water table at layer
+sea-1 fills every hollow below it, and lake noise eases the ground down into basins (sand/gravel beds); caves aren't
+carved into anything next to water. The game: Duke's own swimming (`ST_2_UNDERWATER` movement) while his body is in
+water, slow sinking with no keys held, a jump-out hop when facing a bank, drowning with his head under, no fall
+damage into water.
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
 `r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves
 red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave, `emine_glow [minlight]` (dev) teleports next to the nearest glowing block, `emine_drop [height] [type]` (dev) drops a
-block on you. The test arch's end wall (facing the spawn) is gravel topped with sand.
+block on you (type 20 is water), `emine_water [shore]` (dev) drops you into the nearest open water (or stands you
+beside it, facing it), `emine_where` (dev) prints the blocks at your eye/body/feet. The test arch's end wall (facing the spawn) is gravel topped with sand.
 
 Measured (headless Chrome, generated hills + trees, 96-block view): 1720x720 ~6 ms block rendering, ~8.5 ms per frame
 total, holds 75 Hz; 3440x1440 ~17 ms block rendering, ~36 fps.

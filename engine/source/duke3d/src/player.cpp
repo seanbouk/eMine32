@@ -3654,7 +3654,7 @@ access_incs:
         }
     }
 
-    if (pPlayer->cursectnum >= 0 && pPlayer->scuba_on == 0 && sector[pPlayer->cursectnum].lotag == ST_2_UNDERWATER)
+    if (pPlayer->cursectnum >= 0 && pPlayer->scuba_on == 0 && (sector[pPlayer->cursectnum].lotag == ST_2_UNDERWATER || Emine_InWaterAt(pPlayer->pos)))  // eMine32: drown in block water
     {
         if (pPlayer->inv_amount[GET_SCUBA] > 0)
         {
@@ -4838,7 +4838,7 @@ static void P_DoWater(int const playerNum, int const playerBits, int const floor
     pPlayer->pyoff           = sintable[pPlayer->pycount] >> 7;
 
 #ifndef EDUKE32_STANDALONE
-    if (!FURY && !A_CheckSoundPlaying(pPlayer->i, DUKE_UNDERWATER))
+    if (!FURY && !A_CheckSoundPlaying(pPlayer->i, DUKE_UNDERWATER) && (sector[pPlayer->cursectnum].lotag == ST_2_UNDERWATER || Emine_InWaterAt(pPlayer->pos)))  // eMine32: not when just wading
         A_PlaySound(DUKE_UNDERWATER, pPlayer->i);
 #endif
     if (TEST_SYNC_KEY(playerBits, SK_JUMP))
@@ -5066,7 +5066,7 @@ void P_ProcessInput(int playerNum)
     }
 
     // sectorLotag can be set to 0 later on, but the same block sets spritebridge to 1
-    int sectorLotag       = sector[pPlayer->cursectnum].lotag;
+    int sectorLotag       = Emine_PlayerLotag(playerNum, sector[pPlayer->cursectnum].lotag, playerBits);  // eMine32: swimming in block water
     int getZRangeClipDist = (pPlayer->clipdist >> 1) - GETZRANGECLIPDISTOFFSET;
     int const stepHeight  = (((TEST_SYNC_KEY(playerBits, SK_CROUCH) && sectorLotag != ST_2_UNDERWATER && ((pPlayer->on_ground && !pPlayer->jumping_toggle)))
                             || (sectorLotag == ST_1_ABOVE_WATER && pPlayer->spritebridge != 1)))
@@ -5336,7 +5336,10 @@ void P_ProcessInput(int playerNum)
     // Shrinking code
 
     if (sectorLotag == ST_2_UNDERWATER)
+    {
         P_DoWater(playerNum, playerBits, floorZ, ceilZ);
+        Emine_SwimSink(playerNum, playerBits, floorZ);  // eMine32
+    }
     else if (pPlayer->jetpack_on)
         P_DoJetpack(playerNum, playerBits, playerShrunk, sectorLotag, floorZ);
     else

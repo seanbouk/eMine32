@@ -1,6 +1,7 @@
 // Cave test: run console commands (e.g. emine_cave to teleport into a cave), then look/walk and screenshot.
 // usage: node cave.js <url> <outPrefix> "<console cmd>;<console cmd>" [step...]
-//   step: <ms> forward, L/R<ms> turn, S/D<ms> strafe left/right, U/N<ms> look up/down, Q kick, F fire
+//   step: <ms> forward, B<ms> back, L/R<ms> turn, S/D<ms> strafe left/right, U/N<ms> look up/down, J/C<ms> jump/crouch
+//         (swim up/down), W<ms> wait, Q kick, F fire
 const { chromium } = require('playwright-core');
 (async () => {
   const [url, out, cmds, ...steps] = process.argv.slice(2);
@@ -25,11 +26,13 @@ const { chromium } = require('playwright-core');
   let i = 1;
   for (const w of steps) {
     const ms = +w.slice(1);
-    const keys = { S: 'Comma', D: 'Period', L: 'ArrowLeft', R: 'ArrowRight', U: 'Home', N: 'End' };
+    // EDuke32's default (WASD) bindings
+    const keys = { S: 'a', D: 'd', L: 'ArrowLeft', R: 'ArrowRight', U: 'Home', N: 'End', J: 'Space', C: 'ControlLeft', B: 's' };
     if (keys[w[0]]) await hold(keys[w[0]], ms);
+    else if (w[0] === 'W') await page.waitForTimeout(ms);
     else if (w === 'Q') await hold('q', 100);
     else if (w === 'F') { await page.mouse.down(); await page.waitForTimeout(60); await page.mouse.up(); }
-    else await hold('ArrowUp', +w);
+    else await hold('w', +w);
     await page.waitForTimeout(400);
     await page.screenshot({ path: out + '_' + (i++) + '.png' });
   }

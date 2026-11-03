@@ -33,15 +33,18 @@ static void vw_registerosd(void);
 //////////////////////////////////////////////////////////////////////////////
 
 #define VW_MAXRUNS 32  // max separate solid runs per block column (deep cave systems stack up a lot of them)
+#define VW_MAXWRUNS 8  // max separate see-through (water) runs per column
 
 struct vwrun_t { uint8_t z0, z1; };  // non-air layers [z0, z1)
 
 struct vwcolumn_t
 {
-    uint8_t  nruns;              // visible blocks (anything not air): rendering, light
+    uint8_t  nruns;              // opaque blocks (anything not air or see-through): rendering
     uint8_t  nsruns;             // solid blocks (not fluids): collision
+    uint8_t  nwruns;             // see-through blocks (water): drawn as an overlay
     vwrun_t  runs[VW_MAXRUNS];
     vwrun_t  sruns[VW_MAXRUNS];
+    vwrun_t  wruns[VW_MAXWRUNS];
 };
 
 static bool        vw_active;
@@ -53,11 +56,17 @@ static uint8_t    *vw_blocks;                // [(x*sy + y)*sz + z]
 static vwcolumn_t *vw_cols;                  // [x*sy + y]
 static int         vw_nfallers;              // falling blocks in flight (see voxworld_tick)
 
-#define VW_LAVATICS 12                       // tics between lava flow steps (lava is slow)
-static uint32_t   *vw_fluidq;                // fluid cells to update next flow step (see vw_fluidstep)
-static size_t      vw_nfluidq, vw_fluidqcap;
-static int         vw_fluidclock;
-static void        vw_fluidstep(void);
+// Fluids: kind 0 is lava, kind 1 water. Each has its own queue and pace.
+static const int   vw_fluidtics[2] = { 12, 5 }; // tics between flow steps (lava is slow)
+static uint32_t   *vw_fluidq[2];             // fluid cells to update next flow step (see vw_fluidstep)
+static size_t      vw_nfluidq[2], vw_fluidqcap[2];
+static int         vw_fluidclock[2];
+static void        vw_fluidstep(int kind);
+
+static FORCE_INLINE bool vw_iswater(uint8_t t) { return t >= VW_WATER && t <= VW_WATER_F1; }
+static FORCE_INLINE bool vw_islava(uint8_t t) { return t >= VW_LAVA && t <= VW_LAVA_F1; }
+// light passes through air and water (water dims it a little)
+static FORCE_INLINE bool vw_lightpass(uint8_t t) { return t == VW_AIR || vw_iswater(t); }
 
 static FORCE_INLINE uint8_t *vw_colblocks(int bx, int by) { return &vw_blocks[((size_t)bx*vw_sy + by)*vw_sz]; }
 static FORCE_INLINE vwcolumn_t *vw_col(int bx, int by) { return &vw_cols[(size_t)bx*vw_sy + by]; }
@@ -69,11 +78,12 @@ static void vw_rebuildcolumn(int bx, int by)
 {
     uint8_t const *b = vw_colblocks(bx, by);
     vwcolumn_t *c = vw_col(bx, by);
-    for (int pass = 0; pass < 2; pass++)
+    for (int pass = 0; pass < 3; pass++)
     {
-        vwrun_t *runs = pass ? c->sruns : c->runs;
-        uint8_t &n = pass ? c->nsruns : c->nruns;
-        auto in = [&](int z) { return pass ? vw_issolid(b[z]) : b[z] != VW_AIR; };
+        vwrun_t *runs = pass == 0 ? c->runs : pass == 1 ? c->sruns : c->wruns;
+        uint8_t &n = pass == 0 ? c->nruns : pass == 1 ? c->nsruns : c->nwruns;
+        int const maxn = pass == 2 ? VW_MAXWRUNS : VW_MAXRUNS;
+        auto in = [&](int z) { return pass == 0 ? (b[z] != VW_AIR && !vw_iswater(b[z])) : pass == 1 ? vw_issolid(b[z]) : vw_iswater(b[z]); };
         n = 0;
         int z = 0;
         while (z < vw_sz)
@@ -82,10 +92,10 @@ static void vw_rebuildcolumn(int bx, int by)
             if (z >= vw_sz) break;
             int const z0 = z;
             while (z < vw_sz && in(z)) z++;
-            if (n < VW_MAXRUNS)
+            if (n < maxn)
                 runs[n++] = { (uint8_t)z0, (uint8_t)z };
             else
-                runs[VW_MAXRUNS-1].z1 = (uint8_t)z;  // merge overflow into the top run (rare)
+                runs[maxn-1].z1 = (uint8_t)z;  // merge overflow into the top run (rare)
         }
     }
 }
@@ -106,6 +116,9 @@ static void vw_lightopened(int bx, int by, int bz, uint8_t oldtype);
 static void vw_lightclosed(int bx, int by, int bz, uint8_t newtype);
 static void vw_neighbourchanged(int bx, int by, int bz);
 static void vw_startfall(int bx, int by, int bz);
+static void vw_fluidqueue(int bx, int by, int bz);
+static int     vw_emit(uint8_t type);
+static uint8_t vw_emittint(uint8_t type);
 
 void voxworld_set(int bx, int by, int bz, uint8_t type)
 {
@@ -115,14 +128,23 @@ void voxworld_set(int bx, int by, int bz, uint8_t type)
     if (old == type) return;
     b = type;
     vw_rebuildcolumn(bx, by);
-    if (type == VW_AIR)
-    {
+    bool const op = vw_lightpass(old), np = vw_lightpass(type);
+    if (np && !op)
         vw_lightopened(bx, by, bz, old);
-        vw_neighbourchanged(bx, by, bz);  // sand/gravel around it may now fall
-    }
-    else if (old == VW_AIR)
+    else if (op && !np)
         vw_lightclosed(bx, by, bz, type);
+    else if (op && np)
+    {
+        // air <-> water: same openness, but water dims light; redo the cell
+        vw_lightclosed(bx, by, bz, type);
+        vw_lightopened(bx, by, bz, old);
+    }
+    else if (vw_emit(old) != vw_emit(type) || vw_emittint(old) != vw_emittint(type))
+        vw_lightclosed(bx, by, bz, type);  // e.g. lava turned to obsidian: its light goes
+    if (type == VW_AIR)
+        vw_neighbourchanged(bx, by, bz);  // sand/gravel around it may now fall, fluids flow in
     if (type != VW_AIR) vw_startfall(bx, by, bz);  // sand put over a gap falls
+    if (voxworld_blockflags(type) & VW_BF_FLUID) vw_fluidqueue(bx, by, bz);  // fluid put anywhere flows
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -211,8 +233,10 @@ static void vw_lightflood(size_t n, int ch)
             int const nx = bx + d[0], ny = by + d[1], nz = bz + d[2];
             if (!vw_inxy(nx, ny) || (unsigned)nz >= (unsigned)sz) continue;
             uint32_t const nidx = (uint32_t)(((size_t)nx*sy + ny)*sz + nz);
-            if (vw_blocks[nidx] != VW_AIR) continue;
-            int const nl = (ch == 0 && d[2] < 0 && l == VW_LIGHTMAX) ? VW_LIGHTMAX : l - 1;
+            uint8_t const nb = vw_blocks[nidx];
+            if (!vw_lightpass(nb)) continue;
+            // full skylight goes straight down through air without fading; water dims it
+            int const nl = (ch == 0 && d[2] < 0 && l == VW_LIGHTMAX && nb == VW_AIR) ? VW_LIGHTMAX : l - 1;
             if (nl > vw_lget(nidx, ch))
             {
                 vw_lset(nidx, ch, nl);
@@ -235,7 +259,7 @@ static void vw_computelight(void)
     auto skyfloor = [](int bx, int by) -> int {
         if (!vw_inxy(bx, by)) return 0;
         vwcolumn_t const *c = vw_col(bx, by);
-        return c->nruns ? c->runs[c->nruns-1].z1 : 0;
+        return max(c->nruns ? c->runs[c->nruns-1].z1 : 0, c->nwruns ? c->wruns[c->nwruns-1].z1 : 0);
     };
     for (int bx = 0; bx < vw_sx; bx++)
         for (int by = 0; by < vw_sy; by++)
@@ -253,6 +277,8 @@ static void vw_computelight(void)
             int const top = max(max(skyfloor(bx-1, by), skyfloor(bx+1, by)), max(skyfloor(bx, by-1), skyfloor(bx, by+1)));
             for (int z = f; z < top; z++)
                 vw_lightpush(n, vw_lidx(bx, by, z));
+            if (f > 0 && f < vw_sz && vw_iswater(vw_colblocks(bx, by)[f-1]))
+                vw_lightpush(n, vw_lidx(bx, by, f));  // daylight on a water surface sinks in
         }
     vw_lightflood(n, 0);
 
@@ -298,7 +324,7 @@ static void vw_lightremove(uint32_t idx, int ch, int old)
             int const nx = x + d[0], ny = y + d[1], nz = z + d[2];
             if (!vw_inxy(nx, ny) || (unsigned)nz >= (unsigned)sz) continue;
             uint32_t const ni = (uint32_t)(((size_t)nx*sy + ny)*sz + nz);
-            if (vw_blocks[ni] != VW_AIR)
+            if (!vw_lightpass(vw_blocks[ni]))
             {
                 if (ch && vw_emit(vw_blocks[ni])) vw_lightpush(n, ni);  // a neighbouring emitter shines back in
                 continue;
@@ -333,13 +359,14 @@ static void vw_lightopened(int bx, int by, int bz, uint8_t oldtype)
     uint32_t const idx = vw_lidx(bx, by, bz);
     if (vw_emit(oldtype)) vw_lightremove(idx, 1, vw_lget(idx, 1));  // an emitter went: its light goes with it
 
-    // sky: full skylight from straight above doesn't fade; anything else loses one
+    // sky: full skylight from straight above doesn't fade (unless this is water); anything else loses one
+    bool const air = vw_blocks[idx] == VW_AIR;
     int best = 0;
-    if (bz + 1 >= vw_sz) best = VW_LIGHTMAX;
+    if (bz + 1 >= vw_sz) best = air ? VW_LIGHTMAX : VW_LIGHTMAX - 1;
     else
     {
         uint32_t const above = vw_lidx(bx, by, bz + 1);
-        if (vw_blocks[above] == VW_AIR && (vw_light[above] & 15) == VW_LIGHTMAX) best = VW_LIGHTMAX;
+        if (air && vw_blocks[above] == VW_AIR && (vw_light[above] & 15) == VW_LIGHTMAX) best = VW_LIGHTMAX;
     }
     // block light (and its colour) from the brightest neighbour
     int bbest = 0, btint = 0;
@@ -349,9 +376,9 @@ static void vw_lightopened(int bx, int by, int bz, uint8_t oldtype)
         if (nz < 0) continue;
         if (!vw_inxy(nx, ny) || nz >= vw_sz) { best = max(best, VW_LIGHTMAX - 1); continue; }  // open sky outside
         uint32_t const ni = vw_lidx(nx, ny, nz);
-        if (vw_blocks[ni] == VW_AIR) best = max(best, (vw_light[ni] & 15) - 1);
+        if (vw_lightpass(vw_blocks[ni])) best = max(best, (vw_light[ni] & 15) - 1);
         int const bl = (vw_light[ni] >> 4) - 1;
-        if (bl > bbest && (vw_blocks[ni] == VW_AIR || vw_emit(vw_blocks[ni]))) { bbest = bl; btint = vw_ltint[ni]; }
+        if (bl > bbest && (vw_lightpass(vw_blocks[ni]) || vw_emit(vw_blocks[ni]))) { bbest = bl; btint = vw_ltint[ni]; }
     }
     vw_lset(idx, 0, max(best, 0));
     vw_lset(idx, 1, bbest);
@@ -410,12 +437,58 @@ bool voxworld_findspot(int32_t x, int32_t y, int maxlight, int minblocklight, ve
     return false;
 }
 
+// Top of the open water in column (bx,by), or -1 if its top block isn't water.
+static int vw_openwatertop(int bx, int by)
+{
+    if (!vw_inxy(bx, by)) return -1;
+    vwcolumn_t const *c = vw_col(bx, by);
+    if (!c->nwruns) return -1;
+    int const wtop = c->wruns[c->nwruns-1].z1;
+    return (c->nruns && c->runs[c->nruns-1].z1 > wtop) ? -1 : wtop;
+}
+
+bool voxworld_findwater(int32_t x, int32_t y, bool shore, vec3_t *out, int *ang)
+{
+    if (!vw_active) return false;
+    int cx, cy, cz;
+    voxworld_toblock(x, y, 0, &cx, &cy, &cz);
+    static const int8_t sdirs[4][2] = { {1,0}, {0,1}, {-1,0}, {0,-1} };  // Build angles 0, 512, 1024, 1536
+    for (int r = 0; r < max(vw_sx, vw_sy); r++)
+        for (int bx = cx - r; bx <= cx + r; bx++)
+            for (int by = cy - r; by <= cy + r; by++)
+            {
+                if (max(abs(bx - cx), abs(by - cy)) != r || !vw_inxy(bx, by)) continue;
+                int top = vw_openwatertop(bx, by);
+                int dir = 0;
+                if (shore)
+                {
+                    // dry ground at the water's level (or a block above it) right next to open water
+                    vwcolumn_t const *c = vw_col(bx, by);
+                    if (top >= 0 || !c->nruns) continue;
+                    top = c->runs[c->nruns-1].z1;
+                    for (dir = 0; dir < 4; dir++)
+                    {
+                        int const wt = vw_openwatertop(bx + sdirs[dir][0], by + sdirs[dir][1]);
+                        if (wt >= 0 && top >= wt && top <= wt + 1) break;
+                    }
+                    if (dir == 4) continue;
+                }
+                else if (top < 0) continue;
+                out->x = vw_x0 + bx*VW_BLOCKXY + VW_BLOCKXY/2;
+                out->y = vw_y0 + by*VW_BLOCKXY + VW_BLOCKXY/2;
+                out->z = vw_zbot - top*VW_BLOCKZ;
+                if (ang) *ang = dir * 512;
+                return true;
+            }
+    return false;
+}
+
 // The cell a sprite at (x,y,z) is lit by.
 static void vw_spritecell(int32_t x, int32_t y, int32_t z, int *bx, int *by, int *bz)
 {
     voxworld_toblock(x, y, z, bx, by, bz);
     // standing inside a block (feet on a step edge etc.): use the cell above
-    if (vw_inxy(*bx, *by) && (unsigned)*bz < (unsigned)vw_sz && vw_colblocks(*bx, *by)[*bz] != VW_AIR) (*bz)++;
+    if (vw_inxy(*bx, *by) && (unsigned)*bz < (unsigned)vw_sz && !vw_lightpass(vw_colblocks(*bx, *by)[*bz])) (*bz)++;
 }
 
 int voxworld_lightshade(int32_t x, int32_t y, int32_t z)
@@ -495,7 +568,7 @@ static FORCE_INLINE int32_t vw_layertop(int layer) { return vw_zbot - layer*VW_B
 enum
 {
     T_GRASS_TOP, T_GRASS_SIDE, T_DIRT, T_STONE, T_BEDROCK, T_SAND, T_WOOD_SIDE, T_WOOD_TOP, T_LEAVES, T_PLANKS, T_COBBLE,
-    T_GRAVEL, T_COAL, T_IRON, T_GOLD, T_ATOMIC, T_LAVA,
+    T_GRAVEL, T_COAL, T_IRON, T_GOLD, T_ATOMIC, T_LAVA, T_WATER, T_OBSIDIAN,
     T_COUNT
 };
 
@@ -504,6 +577,7 @@ enum
 struct vwblockdef_t { uint8_t top, side, bottom, hardness, emit = 0, tint = 0, flags = 0; };
 
 #define VW_LAVAFLAGS (VW_BF_NONSOLID | VW_BF_FLUID | VW_BF_FULLBRIGHT | VW_BF_LAVA)
+#define VW_WATERFLAGS (VW_BF_NONSOLID | VW_BF_FLUID | VW_BF_WATER | VW_BF_CLEAR)
 
 static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
 {
@@ -527,6 +601,13 @@ static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
     { T_LAVA, T_LAVA, T_LAVA, 0, 14, VW_TINT_LAVA, VW_LAVAFLAGS },  // lava flowing 3
     { T_LAVA, T_LAVA, T_LAVA, 0, 13, VW_TINT_LAVA, VW_LAVAFLAGS },  // lava flowing 2
     { T_LAVA, T_LAVA, T_LAVA, 0, 12, VW_TINT_LAVA, VW_LAVAFLAGS },  // lava flowing 1
+    { T_WATER, T_WATER, T_WATER, 0, 0, 0, VW_WATERFLAGS },  // water source
+    { T_WATER, T_WATER, T_WATER, 0, 0, 0, VW_WATERFLAGS },  // water falling
+    { T_WATER, T_WATER, T_WATER, 0, 0, 0, VW_WATERFLAGS },  // water flowing 4
+    { T_WATER, T_WATER, T_WATER, 0, 0, 0, VW_WATERFLAGS },  // water flowing 3
+    { T_WATER, T_WATER, T_WATER, 0, 0, 0, VW_WATERFLAGS },  // water flowing 2
+    { T_WATER, T_WATER, T_WATER, 0, 0, 0, VW_WATERFLAGS },  // water flowing 1
+    { T_OBSIDIAN, T_OBSIDIAN, T_OBSIDIAN, 220 },    // obsidian: very hard
 };
 
 static int     vw_emit(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].emit : 0; }
@@ -551,19 +632,27 @@ static FORCE_INLINE int vw_dmgshade(size_t idx, uint8_t type)
 // Texel data for each face tile, column-major (Build tile order): tex[u*VW_TEXSIZE + v].
 // Falls back to a generated checker if the tile isn't present or isn't VW_TEXSIZE square.
 static uint8_t vw_tex[T_COUNT][VW_TEXSIZE*VW_TEXSIZE];
-static uint8_t vw_lavabase[VW_TEXSIZE*VW_TEXSIZE];  // lava as loaded; vw_tex[T_LAVA] is it scrolled (vw_animate)
+static uint8_t vw_lavabase[VW_TEXSIZE*VW_TEXSIZE];   // lava as loaded; vw_tex[T_LAVA] is it scrolled (vw_animate)
+static uint8_t vw_waterbase[VW_TEXSIZE*VW_TEXSIZE];  // same for water
 
-// Slowly churn the lava texture: scroll it, with each column drifting at its own pace.
-static void vw_animate(void)
+// Scroll a texture, with each texel column drifting at its own pace.
+static void vw_scrolltex(uint8_t *dst, uint8_t const *base, int t, int wobble)
 {
-    int const t = (int)totalclock / 6;  // totalclock: 120 ticks a second
     for (int u = 0; u < VW_TEXSIZE; u++)
     {
         int const du = (u + t/3) & (VW_TEXSIZE-1);
-        int const dv = (t + ((u * 5) & 7) / 3) & (VW_TEXSIZE-1);
+        int const dv = (t + ((u * 5) & 7) / wobble) & (VW_TEXSIZE-1);
         for (int v = 0; v < VW_TEXSIZE; v++)
-            vw_tex[T_LAVA][u*VW_TEXSIZE + v] = vw_lavabase[du*VW_TEXSIZE + ((v + dv) & (VW_TEXSIZE-1))];
+            dst[u*VW_TEXSIZE + v] = base[du*VW_TEXSIZE + ((v + dv) & (VW_TEXSIZE-1))];
     }
+}
+
+// Slowly churn the lava texture; ripple the water.
+static void vw_animate(void)
+{
+    // totalclock: 120 ticks a second
+    vw_scrolltex(vw_tex[T_LAVA], vw_lavabase, (int)totalclock / 6, 3);
+    vw_scrolltex(vw_tex[T_WATER], vw_waterbase, (int)totalclock / 10, 2);
 }
 
 static void vw_loadtextures(void)
@@ -577,6 +666,7 @@ static void vw_loadtextures(void)
         {
             Bmemcpy(dst, (void *)waloff[tile], VW_TEXSIZE*VW_TEXSIZE);
             if (t == T_LAVA) Bmemcpy(vw_lavabase, dst, sizeof(vw_lavabase));
+            if (t == T_WATER) Bmemcpy(vw_waterbase, dst, sizeof(vw_waterbase));
             continue;
         }
 
@@ -665,6 +755,10 @@ static void vw_carve(int x, int y, int z)
     // keep the spawn point and the test arch intact
     int const dx = x - (vw_sx/2 + 3), dy = y - vw_sy/2;
     if (dx*dx + dy*dy < 10*10 && z > vw_height(x, y) - 9) return;
+    // don't open caves up into lakes (the water would hang there until something disturbed it)
+    auto wet = [](int x, int y, int z) { return vw_inxy(x, y) && z < vw_sz && vw_iswater(vw_colblocks(x, y)[z]); };
+    if (wet(x, y, z) || wet(x, y, z + 1) || wet(x - 1, y, z) || wet(x + 1, y, z) || wet(x, y - 1, z) || wet(x, y + 1, z))
+        return;
     uint8_t &b = vw_colblocks(x, y)[z];
     if (b != VW_BEDROCK) b = VW_AIR;
 }
@@ -764,17 +858,35 @@ static void vw_generate(void)
             float const hills = vw_fbm(x / 64.f, y / 64.f, vw_seed, 4);
             float const rough = vw_fbm(x / 16.f, y / 16.f, vw_seed + 7, 3);
             int h = sea - 4 + (int)(hills*hills * amp * 1.4f + rough * 4.f);
+            // Lakes: where the lake noise is high the ground eases down into a basin below the water line, deepest
+            // in the middle (in hills too: a lake in a valley). None right at the spawn.
+            float const lake = vw_fbm(x / 48.f, y / 48.f, vw_seed + 31, 3);
+            float const sd = sqrtf((float)((x - vw_sx/2)*(x - vw_sx/2) + (y - vw_sy/2)*(y - vw_sy/2)));
+            float t = clamp((lake - 0.55f) / 0.08f, 0.f, 1.f) * clamp((sd - 24.f) / 10.f, 0.f, 1.f);
+            if (t > 0.f)
+            {
+                t = t*t*(3.f - 2.f*t);
+                float const bed = sea - 2 - (lake - 0.55f) * 60.f;
+                h = (int)lrintf(h + (min(bed, (float)h) - h) * t);
+            }
             h = clamp(h, 6, vw_sz - 12);
 
             uint8_t *b = vw_colblocks(x, y);
             for (int z = 0; z <= h; z++)
             {
                 uint8_t t = VW_STONE;
-                if (z > h - 4) t = (h <= sea + 1) ? VW_SAND : (z == h ? VW_GRASS : VW_DIRT);
+                if (z > h - 4)
+                {
+                    if (h < sea - 1)  // lake bed: sand with patches of gravel
+                        t = (vw_hash(x >> 2, y >> 2, vw_seed + 41) % 3) ? VW_SAND : VW_GRAVEL;
+                    else
+                        t = (h <= sea + 1) ? VW_SAND : (z == h ? VW_GRASS : VW_DIRT);
+                }
                 // Bedrock: solid at layer 0, then thinning out over layers 1-4 (4/5 .. 1/5), so the floor is lumpy.
                 if (z == 0 || (z <= 4 && (int)(vw_hash(x * 5 + z, y, vw_seed + 17) % 5) < 5 - z)) t = VW_BEDROCK;
                 b[z] = t;
             }
+            for (int z = h + 1; z < sea; z++) b[z] = VW_WATER;  // the water table: lakes and ponds up to layer sea-1
             vw_hmap[x*vw_sy + y] = h;
         }
 
@@ -914,7 +1026,7 @@ void voxworld_onmapload(vec3_t *dapos)
     DO_FREE_AND_NULL(vw_dmg);
     DO_FREE_AND_NULL(vw_ltint);
     vw_nfallers = 0;
-    vw_nfluidq = 0;
+    vw_nfluidq[0] = vw_nfluidq[1] = 0;
     vw_blocks = (uint8_t *)Xcalloc((size_t)vw_sx*vw_sy*vw_sz, 1);
     vw_cols   = (vwcolumn_t *)Xcalloc((size_t)vw_sx*vw_sy, sizeof(vwcolumn_t));
 
@@ -949,6 +1061,8 @@ void voxworld_onmapload(vec3_t *dapos)
 static float   *vw_zbuf;     // depth (forward distance, Build xy units), [x*ydimen + y]
 static uint8_t *vw_cbuf;     // colour, [x*ydimen + y]; transposed into the frame at the end
 static float   *vw_rowrec;   // per row: 1 / (y + 0.5 - horizon)
+static float   *vw_wzbuf;    // depth of the nearest water surface (FLT_MAX: none), [x*ydimen + y]
+static uint8_t *vw_wcbuf;    // its colour
 static int      vw_bufw, vw_bufh;
 
 // Per-frame camera, in floats.
@@ -1070,7 +1184,121 @@ static uint8_t vw_skytopcolor(int tile)
     return cached = (uint8_t)best;
 }
 
-static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float *zc)
+// Rows that look through more than VW_WATERMURKY of water show nothing but water, so they needn't be traced on
+// to the lake bed. Each batch of water rows drawn queues up to be closed once the ray is that far past it.
+struct vwmurky_t { int16_t a, b; float at; };
+#define VW_MAXMURKY 256
+struct vwmurkyq_t { vwmurky_t q[VW_MAXMURKY]; int head = 0, tail = 0; };
+
+// How much of what's behind water shows through, by how far you look through the water.
+#define VW_WATERCLEAR  (2.f*VW_BLOCKXY)  // up to here: mostly what's behind
+#define VW_WATERMURKY  (6.f*VW_BLOCKXY)  // up to here: mostly water; beyond, just water
+#define VW_WATERNEAR   (1.5f*VW_BLOCKXY) // under water, this close is clear
+
+static bool    vw_camwater;  // this frame's camera is under water: everything fogs into vw_fogcol with distance
+static uint8_t vw_fogcol;
+
+static FORCE_INLINE uint8_t vw_waterblend(uint8_t water, uint8_t behind, float through)
+{
+    uint8_t const *const tr = (uint8_t const *)blendtable[0];
+    if (!tr) return water;
+    if (through < VW_WATERCLEAR) return tr[(behind << 8) | water];
+    if (through < VW_WATERMURKY) return tr[(water << 8) | behind];
+    return water;
+}
+
+// Write water rows [a,b) that are still open (gaps) and have no nearer water yet. pix(y) gives colour and depth.
+template <typename F>
+static FORCE_INLINE void vw_waterrows(vwgap_t const *gaps, int ng, int a, int b, uint8_t *wcol, float *wz, F pix)
+{
+    for (int i = 0; i < ng; i++)
+    {
+        if (b <= gaps[i].a) break;
+        int const ya = max<int>(a, gaps[i].a), yb = min<int>(b, gaps[i].b);
+        for (int y = ya; y < yb; y++)
+            if (wz[y] == FLT_MAX) pix(y, wcol[y], wz[y]);
+    }
+}
+
+// The water surfaces of block column c (cell gx,gy) along this screen column's ray: faces between water and
+// anything that isn't water. They go into the water overlay; nothing is occluded, so what's behind still draws.
+static __attribute__((noinline)) void vw_drawwatercell(vwcolumn_t const *c, uint8_t const *cb, int gx, int gy, int side,
+                                                       float din, float dout, float dx, float dy,
+                                                       vwgap_t const *gaps, int ng, uint8_t *wcol, float *wz, vwmurkyq_t &mq)
+{
+    auto murky = [&](int a, int b, float d) { if (mq.tail < VW_MAXMURKY) mq.q[mq.tail++] = { (int16_t)a, (int16_t)b, d + VW_WATERMURKY }; };
+    int const ydim = ydimen, maxshade = numshades - 1;
+    float const dclip = max(din, VW_NEAR);
+    uint8_t const *const tex = vw_tex[T_WATER];
+    float const ox = vw_cx - vw_x0, oy = vw_cy - vw_y0;
+    // the cell the ray came from: its side of a front face
+    int const px = gx - (side == 0) + (side == 1), py = gy - (side == 2) + (side == 3);
+    uint8_t const *const pb = (side >= 0 && vw_inxy(px, py)) ? vw_colblocks(px, py) : nullptr;
+
+    for (int ri = 0; ri < c->nwruns; ri++)
+    {
+        vwrun_t const r = c->wruns[ri];
+
+        // Front faces at din, for the layers not continuing water from the cell in front.
+        if (din > VW_NEAR && side >= 0)
+        {
+            float const inv = vw_ky / din;
+            float const hx = vw_cx + dx*din, hy = vw_cy + dy*din;
+            float const along = (side < 2) ? (hy - vw_y0) : (hx - vw_x0);
+            int u = ((int)along >> 5) & (VW_TEXSIZE-1);
+            if (side == 0 || side == 3) u = VW_TEXSIZE-1 - u;
+            uint8_t const *const tcol = tex + u*VW_TEXSIZE;
+            float const zperrow = din / vw_ky, texperz = (float)VW_TEXSIZE / VW_BLOCKZ;
+
+            for (int z = r.z0; z < r.z1;)
+            {
+                if (pb && pb[z] != VW_AIR) { z++; continue; }  // water beyond water: no face; solid: can't see it
+                int z1 = z + 1;
+                while (z1 < r.z1 && !(pb && pb[z1] != VW_AIR)) z1++;
+                int ltint;
+                int const ls = vw_lightshade(px, py, z1 - 1, &ltint);
+                uint8_t const *const pal = vw_shadetab(vw_faceshade[side], ls, din, ltint);
+                int const a = max(vw_rowof(vw_horiz + ((float)vw_layertop(z1) - vw_cz)*inv), 0);
+                int const b = min(vw_rowof(vw_horiz + ((float)vw_layertop(z) - vw_cz)*inv), ydim);
+                vw_waterrows(gaps, ng, a, b, wcol, wz, [&](int y, uint8_t &oc, float &oz) {
+                    int const t = (int)((vw_zbot - (vw_cz + (y + 0.5f - vw_horiz)*zperrow)) * texperz);
+                    oc = pal[tcol[VW_TEXSIZE-1 - (t & (VW_TEXSIZE-1))]];
+                    oz = din;
+                });
+                murky(a, b, din);
+                z = z1;
+            }
+        }
+
+        // Top (the surface, seen from above) and bottom (seen from below, only over open air).
+        for (int face = 0; face < 2; face++)
+        {
+            float const zf = (float)vw_layertop(face ? r.z0 : r.z1);
+            if (face == 0 ? !(zf > vw_cz) : !(zf < vw_cz && r.z0 > 0 && cb[r.z0-1] == VW_AIR)) continue;
+            float const hz = (zf - vw_cz) * vw_ky;
+            int const a = max(vw_rowof(vw_horiz + hz / (face ? dclip : dout)), 0);
+            int const b = min(vw_rowof(vw_horiz + hz / (face ? dout : dclip)), ydim);
+            if (a >= b) continue;
+            int ftint;
+            int const fl = vw_lightshade(gx, gy, face ? r.z0 - 1 : r.z1, &ftint);
+            uint8_t const *const pal0 = vw_tinttable(ftint);
+            int const fshade = vw_faceshade[face ? 5 : 4];
+            vw_waterrows(gaps, ng, a, b, wcol, wz, [&](int y, uint8_t &oc, float &oz) {
+                float d = hz * vw_rowrec[y];
+                d = d < dclip ? dclip : (d > dout ? dout : d);
+                int const u = ((int)(ox + dx*d) >> 5) & (VW_TEXSIZE-1);
+                int const v = ((int)(oy + dy*d) >> 5) & (VW_TEXSIZE-1);
+                int sh = fshade + vw_lanterned(fl, d) + (int)(d * vw_visk);
+                sh = sh > maxshade ? maxshade : sh;
+                oc = pal0[(sh << 8) + tex[u*VW_TEXSIZE + v]];
+                oz = d;
+            });
+            murky(a, b, dout);
+        }
+    }
+}
+
+static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float *zc, uint8_t *wcol, float *wz)
 {
     int const ydim = ydimen;
 
@@ -1096,6 +1324,10 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
 
     float const eyelayer = (vw_zbot - vw_cz) / VW_BLOCKZ;
     vwgap_t vis[VW_MAXGAPS];
+    for (int y = 0; y < ydim; y++) wz[y] = FLT_MAX;
+    vwmurkyq_t mq;  // water rows to close once they're deep enough in murk
+    // under water, everything past the fog is fog
+    float const maxdist = vw_camwater ? min(vw_maxdist, VW_WATERNEAR + VW_WATERMURKY + VW_BLOCKXY) : vw_maxdist;
 
     for (;;)
     {
@@ -1104,17 +1336,20 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
         if (vw_inxy(gx, gy))
         {
             vwcolumn_t const *c = vw_col(gx, gy);
-            int const nr = c->nruns;
+            int const nr = c->nruns, nw = c->nwruns;
             // Cheap reject: if even the top of this block column projects below every open row, skip it.
             // (The top face's far edge is its highest point when it's below the eye, else the near edge.)
-            float const colztop = nr ? (float)vw_layertop(c->runs[nr-1].z1) : 0.f;
-            if (nr && din > VW_NEAR)
+            float const colztop = (float)vw_layertop(max(nr ? c->runs[nr-1].z1 : 0, nw ? c->wruns[nw-1].z1 : 0));
+            if ((nr || nw) && din > VW_NEAR)
             {
                 float const dz = colztop - vw_cz;
                 float const ytop = vw_horiz + dz * vw_ky / (dz > 0.f ? dout : din);
                 if (ytop >= gaps[ng-1].b)
                     goto next_cell;
             }
+            // water first: it doesn't occlude, and what's in this same cell may be behind it
+            if (nw)
+                vw_drawwatercell(c, vw_colblocks(gx, gy), gx, gy, side, din, dout, dx, dy, gaps, ng, wcol, wz, mq);
             if (nr)
             {
                 // Runs at/below eye level going down, then above eye level going up: within a cell,
@@ -1252,7 +1487,16 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
         }
 
 next_cell:
-        if (!ng || dout > vw_maxdist) break;
+        while (mq.head < mq.tail && mq.q[mq.head].at < dout && ng)
+        {
+            // close them: zc FLT_MAX makes the composite give pure water colour
+            vwmurky_t const m = mq.q[mq.head++];
+            int const nv = vw_clip(gaps, ng, m.a, m.b, vis);
+            for (int v = 0; v < nv; v++)
+                for (int y = vis[v].a; y < vis[v].b; y++)
+                    zc[y] = FLT_MAX;
+        }
+        if (!ng || dout > maxdist) break;
 
         din = dout;
         if (tmx < tmy) { gx += stepx; tmx += tdx; side = stepx > 0 ? 0 : 1; }
@@ -1294,6 +1538,20 @@ next_cell:
                     zc[y] = FLT_MAX;
                 }
         }
+    }
+
+    // Water over whatever is behind it: the further you look through it, the murkier.
+    if (vw_camwater)
+    {
+        // under water: clear close up, fogging into the water's colour further away
+        for (int y = 0; y < ydim; y++)
+            if (zc[y] > VW_WATERNEAR) col[y] = vw_waterblend(vw_fogcol, col[y], zc[y] - VW_WATERNEAR);
+    }
+    else
+    {
+        for (int y = 0; y < ydim; y++)
+            if (wz[y] < zc[y])
+                col[y] = vw_waterblend(wcol[y], col[y], zc[y] - wz[y]);
     }
 }
 
@@ -1356,10 +1614,12 @@ void voxworld_drawworld(void)
 
     if (vw_bufw != xdimen || vw_bufh != ydimen)
     {
-        Xfree(vw_zbuf); Xfree(vw_cbuf); Xfree(vw_rowrec);
+        Xfree(vw_zbuf); Xfree(vw_cbuf); Xfree(vw_rowrec); Xfree(vw_wzbuf); Xfree(vw_wcbuf);
         vw_bufw = xdimen; vw_bufh = ydimen;
         vw_zbuf   = (float *)Xmalloc(sizeof(float) * xdimen * ydimen);
         vw_cbuf   = (uint8_t *)Xmalloc(xdimen * ydimen);
+        vw_wzbuf  = (float *)Xmalloc(sizeof(float) * xdimen * ydimen);
+        vw_wcbuf  = (uint8_t *)Xmalloc(xdimen * ydimen);
         vw_rowrec = (float *)Xmalloc(sizeof(float) * ydimen);
     }
 
@@ -1367,13 +1627,27 @@ void voxworld_drawworld(void)
     vw_buildtints();
     vw_animate();
 
+    // Under water? Then the view fogs into deep blue, darker where the water is darker.
+    {
+        int bx, by, bz, tint;
+        voxworld_toblock((int32_t)vw_cx, (int32_t)vw_cy, (int32_t)vw_cz, &bx, &by, &bz);
+        vw_camwater = vw_iswater(voxworld_get(bx, by, bz));
+        if (vw_camwater)
+        {
+            static int fogbase = -1;
+            if (fogbase < 0) fogbase = paletteGetClosestColorUpToIndex(24, 56, 120, 254);
+            int const sh = clamp(vw_lightshade(bx, by, bz, &tint), 0, numshades - 1);
+            vw_fogcol = ((uint8_t const *)palookup[0])[(sh << 8) + fogbase];
+        }
+    }
+
     auto const &sec = sector[vw_sect];
     if (!waloff[sec.ceilingpicnum]) tileLoad(sec.ceilingpicnum);
 
     int const ydim = ydimen;
     double const t0 = timerGetFractionalTicks();
     for (int x = 0; x < xdimen; x++)
-        vw_drawcolumn(x, vw_cbuf + x*ydim, vw_zbuf + x*ydim);
+        vw_drawcolumn(x, vw_cbuf + x*ydim, vw_zbuf + x*ydim, vw_wcbuf + x*ydim, vw_wzbuf + x*ydim);
     double const t1 = timerGetFractionalTicks();
     vw_transpose();
     double const t2 = timerGetFractionalTicks();
@@ -1384,7 +1658,12 @@ void voxworld_drawworld(void)
     if (++frames == 60)
     {
         if (vw_stats)
-            LOG_F(INFO, "voxworld: columns %.2f ms, transpose %.2f ms (avg of 60 frames, %dx%d)", acc[0]/60, acc[1]/60, xdimen, ydim);
+        {
+            int nwater = 0;
+            for (int i = 0; i < xdimen*ydim; i++) nwater += vw_wzbuf[i] != FLT_MAX;
+            LOG_F(INFO, "voxworld: columns %.2f ms, transpose %.2f ms (avg of 60 frames, %dx%d), %d%% water%s", acc[0]/60, acc[1]/60,
+                  xdimen, ydim, nwater * 100 / (xdimen*ydim), vw_camwater ? " (under)" : "");
+        }
         acc[0] = acc[1] = 0; frames = 0;
     }
 }
@@ -1486,11 +1765,14 @@ static void vw_drawfacesprite(tspriteptr_t tspr, float depth)
             if (c == 255) continue;
 
             uint8_t *const p = &fb[y*bpl + x];
+            float const wd = vw_wzbuf[x*ydimen + y];
+            uint8_t const sc = vw_camwater ? (depth > VW_WATERNEAR ? vw_waterblend(vw_fogcol, lut[c], depth - VW_WATERNEAR) : lut[c])
+                             : wd < depth ? vw_waterblend(vw_wcbuf[x*ydimen + y], lut[c], depth - wd) : lut[c];  // under water
             if (trans)
-                *p = transrev ? trans[(lut[c] << 8) | *p] : trans[(*p << 8) | lut[c]];
+                *p = transrev ? trans[(sc << 8) | *p] : trans[(*p << 8) | sc];
             else
             {
-                *p = lut[c];
+                *p = sc;
                 *zp = depth;
             }
         }
@@ -1661,7 +1943,7 @@ bool voxworld_raycast(const vec3_t *start, int32_t vx, int32_t vy, int32_t vz, f
         if (face >= 0)  // don't count the block we start in
         {
             uint8_t const b = voxworld_get(bx, by, bz);
-            if (b != VW_AIR && bz >= 0)
+            if (b != VW_AIR && bz >= 0 && !(vw_flags(b) & VW_BF_CLEAR))
             {
                 if (hit)
                 {
@@ -1746,7 +2028,9 @@ static void vw_startfall(int bx, int by, int bz)
 {
     if (!vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) return;
     uint8_t const type = vw_colblocks(bx, by)[bz];
-    if (!vw_falls(type) || voxworld_get(bx, by, bz - 1) != VW_AIR || bz == 0) return;
+    if (!vw_falls(type) || bz == 0) return;
+    uint8_t const below = voxworld_get(bx, by, bz - 1);
+    if (below != VW_AIR && !(vw_flags(below) & VW_BF_FLUID)) return;
     for (int i = 0; i < vw_nfallers; i++)
         if (vw_fallers[i].x == bx && vw_fallers[i].y == by && vw_fallers[i].z == bz) return;
     if (vw_nfallers >= VW_MAXFALLERS) return;
@@ -1775,7 +2059,8 @@ static void vw_neighbourchanged(int bx, int by, int bz)
 void voxworld_tick(void)
 {
     if (!vw_active) return;
-    if (++vw_fluidclock >= VW_LAVATICS) { vw_fluidclock = 0; vw_fluidstep(); }
+    for (int k = 0; k < 2; k++)
+        if (++vw_fluidclock[k] >= vw_fluidtics[k]) { vw_fluidclock[k] = 0; vw_fluidstep(k); }
     if (!vw_nfallers) return;
 
     // lowest first, so a falling stack moves as one
@@ -1800,7 +2085,8 @@ void voxworld_tick(void)
             {
                 f.pos -= 1.f;
                 int const nz = f.z - 1;
-                if (nz < 0 || vw_colblocks(f.x, f.y)[nz] != VW_AIR)
+                uint8_t const nb = nz >= 0 ? vw_colblocks(f.x, f.y)[nz] : VW_BEDROCK;
+                if (nb != VW_AIR && !(vw_flags(nb) & VW_BF_FLUID))  // sinks through water and lava
                 {
                     // landed
                     if (vw_eventfn) vw_eventfn(VW_EV_FALLLANDED, f.x, f.y, f.z, f.type, f.vel);
@@ -1852,23 +2138,51 @@ void voxworld_tick(void)
 static void vw_fluidqueue(int bx, int by, int bz)
 {
     if (!vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) return;
-    if (!(vw_flags(vw_colblocks(bx, by)[bz]) & VW_BF_FLUID)) return;
-    if (vw_nfluidq == vw_fluidqcap)
+    uint8_t const t = vw_colblocks(bx, by)[bz];
+    if (!(vw_flags(t) & VW_BF_FLUID)) return;
+    int const k = vw_iswater(t);
+    if (vw_nfluidq[k] == vw_fluidqcap[k])
     {
-        vw_fluidqcap = max<size_t>(vw_fluidqcap * 2, 1024);
-        vw_fluidq = (uint32_t *)Xrealloc(vw_fluidq, vw_fluidqcap * sizeof(uint32_t));
+        vw_fluidqcap[k] = max<size_t>(vw_fluidqcap[k] * 2, 1024);
+        vw_fluidq[k] = (uint32_t *)Xrealloc(vw_fluidq[k], vw_fluidqcap[k] * sizeof(uint32_t));
     }
-    vw_fluidq[vw_nfluidq++] = vw_lidx(bx, by, bz);
+    vw_fluidq[k][vw_nfluidq[k]++] = vw_lidx(bx, by, bz);
 }
 
-static void vw_fluidstep(void)
+// Fluid of kind k (0 lava, 1 water) flows into cell (bx,by,bz) as type nt. Into air it just fills it; where lava
+// and water meet they set: water onto a lava source makes obsidian, onto flowing lava cobblestone, and lava
+// flowing into water makes stone. Returns false if it can't go there.
+static bool vw_flowinto(int k, int bx, int by, int bz, uint8_t nt)
 {
-    if (!vw_nfluidq) return;
+    if (!vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) return false;
+    uint8_t const t = vw_colblocks(bx, by)[bz];
+    if (t == VW_AIR)
+    {
+        voxworld_set(bx, by, bz, nt);
+        vw_fluidqueue(bx, by, bz);
+        return true;
+    }
+    if (k == 1 && vw_islava(t))
+    {
+        voxworld_set(bx, by, bz, t == VW_LAVA ? VW_OBSIDIAN : VW_COBBLE);
+        return true;
+    }
+    if (k == 0 && vw_iswater(t))
+    {
+        voxworld_set(bx, by, bz, VW_STONE);
+        return true;
+    }
+    return false;
+}
+
+static void vw_fluidstep(int k)
+{
+    if (!vw_nfluidq[k]) return;
     // take this step's list (new entries queue up for the next step)
-    size_t const n = vw_nfluidq;
+    size_t const n = vw_nfluidq[k];
     uint32_t *const list = (uint32_t *)Xmalloc(n * sizeof(uint32_t));
-    Bmemcpy(list, vw_fluidq, n * sizeof(uint32_t));
-    vw_nfluidq = 0;
+    Bmemcpy(list, vw_fluidq[k], n * sizeof(uint32_t));
+    vw_nfluidq[k] = 0;
     std::sort(list, list + n);
     uint32_t last = UINT32_MAX;
 
@@ -1878,32 +2192,36 @@ static void vw_fluidstep(void)
         if (idx == last) continue;
         last = idx;
         uint8_t const t = vw_blocks[idx];
-        if (!(vw_flags(t) & VW_BF_FLUID)) continue;
+        if (!(vw_flags(t) & VW_BF_FLUID) || vw_iswater(t) != k) continue;
         int const bz = idx % vw_sz, col = idx / vw_sz, bx = col / vw_sy, by = col % vw_sy;
 
-        if (bz > 0 && vw_blocks[idx - 1] == VW_AIR)
+        // pour down if it can
+        if (bz > 0 && vw_flowinto(k, bx, by, bz - 1, k ? VW_WATER_FALL : VW_LAVA_FALL))
         {
-            voxworld_set(bx, by, bz - 1, VW_LAVA_FALL);  // pour down
-            vw_fluidqueue(bx, by, bz - 1);
+            if (!(vw_flags(vw_blocks[idx - 1]) & VW_BF_FLUID)) vw_fluidqueue(bx, by, bz);  // it set solid: spread next
             continue;
         }
-        // sideways, one level weaker: source/pour -> F3 -> F2 -> F1 -> stops (3 cells)
+        uint8_t const below = bz > 0 ? vw_blocks[idx - 1] : VW_BEDROCK;
+        if ((t == VW_WATER_FALL || t == VW_LAVA_FALL) && (vw_flags(below) & VW_BF_FLUID) && vw_iswater(below) == (bool)k)
+            continue;  // poured into a pool of its own kind: it doesn't spread across the top
+
+        // otherwise sideways, one level weaker: source/pour -> F3 -> F2 -> F1 (lava: 3 cells),
+        // source/pour -> F4 .. F1 (water: 4 cells)
         uint8_t nt;
         switch (t)
         {
             case VW_LAVA: case VW_LAVA_FALL: nt = VW_LAVA_F3; break;
             case VW_LAVA_F3: nt = VW_LAVA_F2; break;
             case VW_LAVA_F2: nt = VW_LAVA_F1; break;
+            case VW_WATER: case VW_WATER_FALL: nt = VW_WATER_F4; break;
+            case VW_WATER_F4: nt = VW_WATER_F3; break;
+            case VW_WATER_F3: nt = VW_WATER_F2; break;
+            case VW_WATER_F2: nt = VW_WATER_F1; break;
             default: continue;
         }
         static const int8_t sdirs[4][2] = { {-1,0}, {1,0}, {0,-1}, {0,1} };
         for (auto const &d : sdirs)
-        {
-            int const nx = bx + d[0], ny = by + d[1];
-            if (!vw_inxy(nx, ny) || vw_colblocks(nx, ny)[bz] != VW_AIR) continue;
-            voxworld_set(nx, ny, bz, nt);
-            vw_fluidqueue(nx, ny, bz);
-        }
+            vw_flowinto(k, bx + d[0], by + d[1], bz, nt);
     }
     Xfree(list);
 }
@@ -2043,6 +2361,11 @@ static int osdcmd_voxdump(osdcmdptr_t parm)
                 rgb[0] = (uint8_t)(60 + t*3/4); rgb[1] = 40; rgb[2] = (uint8_t)(255 - t*3/4);
             }
             if (ore == 3) { rgb[0] = 255; rgb[1] = 220; rgb[2] = 0; }
+            if (c->nwruns && c->wruns[c->nwruns-1].z1 >= top)
+            {
+                int const d = c->wruns[c->nwruns-1].z1 - c->wruns[c->nwruns-1].z0;
+                rgb[0] = 20; rgb[1] = (uint8_t)max(40, 140 - d*8); rgb[2] = (uint8_t)max(90, 240 - d*8);
+            }
             fwrite(rgb, 3, 1, f);
         }
     fclose(f);

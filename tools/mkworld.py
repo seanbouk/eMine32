@@ -124,6 +124,31 @@ def lava():
             im.putpixel((x, y), c)
     return im
 
+def water():
+    """Blue with soft lighter ripples. Tiles seamlessly (the engine scrolls it); it is drawn see-through."""
+    import math
+    rnd = random.Random(19)
+    im = Image.new('RGB', (TEX, TEX))
+    ph = [rnd.uniform(0, 6.28) for _ in range(3)]
+    for y in range(TEX):
+        for x in range(TEX):
+            a = 2 * math.pi * x / TEX
+            b = 2 * math.pi * y / TEX
+            v = (math.sin(a + b + ph[0]) + math.sin(2 * a - b + ph[1]) + math.sin(b * 2 + ph[2])) / 3
+            v += rnd.uniform(-0.1, 0.1)
+            if v > 0.55:
+                c = (110, 160, 235)      # glint
+            elif v > 0.1:
+                c = (52, 104, 200)
+            else:
+                c = (38, 80, 176)
+            im.putpixel((x, y), c)
+    return im
+
+def obsidian():
+    im = noise_tex(20, (34, 22, 48), 0.25, (70, 50, 100), 0.12)
+    return im
+
 # order == voxworld.cpp T_* enum
 TEXTURES = [
     ('grass_top',  lambda: noise_tex(1, (96, 150, 60), 0.2, (70, 120, 40), 0.2)),
@@ -143,6 +168,8 @@ TEXTURES = [
     ('gold_ore',   lambda: ore(16, (240, 200, 60))),
     ('atomic_ore', lambda: ore(17, (120, 255, 90), clusters=7)),  # placeholder glowing ore
     ('lava',       lava),
+    ('water',      water),
+    ('obsidian',   obsidian),
 ]
 
 def write_textures():
