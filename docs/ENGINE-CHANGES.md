@@ -49,17 +49,28 @@ single sector whose `extra` is `0x7E32`; that sector becomes a box of blocks (51
 | `clip.cpp` `clipmove` / `getzrange` / `hitscan` | wrapped: blocks collide (same height rules as Build's sector steps), give floor/ceiling heights, and stop hitscans |
 | `duke3d/src/premap.cpp` | (dev only) loose map files override the GRP even with shareware data |
 | `duke3d/src/emine.cpp` (new) | Duke-side destruction: shots chip blocks, explosions blast craters, destroyed blocks throw scrap drawn in the block's texture + smoke + sound |
-| `duke3d/src/player.cpp` | player hitscan weapons (pistol/shotgun/chaingun) and `A_PostFireHitscan` (enemy fire, custom projectiles) call `Emine_HitscanBlock` |
+| `duke3d/src/player.cpp` | player hitscan weapons (pistol/shotgun/chaingun), the kick (`Proj_HandleKnee`) and `A_PostFireHitscan` (enemy fire, custom projectiles) call `Emine_HitscanBlock`; the weapon sprite darkens a little in caves |
+| `duke3d/src/osdcmds.cpp` | registers eMine32's console commands (`Emine_RegisterOSD`) |
 | `duke3d/src/actors.cpp` | `A_RadiusDamage` calls `Emine_ExplosionBlocks`; scrap debris lands on blocks (`Emine_FloorZ`) |
 
 Renderer: per screen column, a 2D grid walk (DDA) front to back; block columns are stored as vertical solid runs.
 Vertical faces are constant-depth columns (like Build walls), horizontal faces use a per-row reciprocal (like Build
 floors), occlusion is a per-column list of open row intervals, depth goes to a float buffer for sprites. Everything is
 drawn through Build's palette and shade tables (`palookup`), with Build's own distance-shading formula.
-Destruction: per-block damage (hardness per type: leaves 6, sand 10, dirt/grass 12, planks 24, wood 30, cobble 40,
-stone 48, bedrock indestructible); damaged blocks render darker. Sprites with lotag `0x7E00|type` are drawn as chunks
-of that block (debris).
-Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`).
+Destruction: per-block damage (hardness per type: leaves 6, sand 10, dirt/grass 12, gravel 14, planks 24, wood 30,
+cobble 40, stone 48, coal 52, gold 56, iron 64, bedrock indestructible); damaged blocks render darker. Sprites with
+lotag `0x7E00|type` are drawn as chunks of that block (debris).
+Generation (spike, in the engine for now): fbm hills, then wandering tunnels (level with the odd one-block step, since
+Duke can't step up a whole block) with domed caverns, a few tunnels that stair down from the surface (one always just
+ahead of the spawn), ore veins (coal, iron, gold deeper) and gravel pockets, trees. ~25 ms for 256x256x64 in the browser.
+Lighting: Minecraft-style skylight 0..15 per air cell (full light falls straight down, otherwise -1 per block),
+flood-filled at load and spread incrementally when blocks are destroyed (blocks are never placed, so light only ever
+grows). Each face is shaded by the air cell in front of it, sprites by the cell they stand in. Missing light becomes
+extra Build shade (`r_voxdark`, default 20) that fades in with distance (`r_voxlantern`, default 6 blocks), so nearby
+walls stay readable in the dark, like a dark Doom/Duke room.
+Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
+`r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves
+red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave.
 
 Measured (headless Chrome, generated hills + trees, 96-block view): 1720x720 ~6 ms block rendering, ~8.5 ms per frame
 total, holds 75 Hz; 3440x1440 ~17 ms block rendering, ~36 fps.

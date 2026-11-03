@@ -37,6 +37,10 @@ enum vwblock_t : uint8_t
     VW_LEAVES,
     VW_PLANKS,
     VW_COBBLE,
+    VW_GRAVEL,
+    VW_COAL,
+    VW_IRON,
+    VW_GOLD,
     VW_NUMTYPES
 };
 
@@ -97,6 +101,13 @@ typedef void (*vwdestroyfn_t)(int bx, int by, int bz, int type, void *ud);
 int     voxworld_explode(const vec3_t *pos, int32_t radius, int damage, vwdestroyfn_t fn, void *ud);
 // Top of the nearest block at/below z at (x,y), or def if none.
 int32_t voxworld_floorz(int32_t x, int32_t y, int32_t z, int32_t def);
+
+// Lighting: skylight 0..VW_LIGHTMAX per air cell (flood-filled from the sky, Minecraft style), turned into extra
+// Build shade. Returns the extra shade for a point in the world (0 in full daylight).
+#define VW_LIGHTMAX 15
+int     voxworld_lightshade(int32_t x, int32_t y, int32_t z);
+// Dev helper: the nearest spot (feet position) with room to stand whose light is <= maxlight.
+bool    voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out);
 
 // Sprites whose lotag is (VW_DEBRIS_TAG | blocktype) are drawn as chunks of that block's texture.
 #define VW_DEBRIS_TAG 0x7E00

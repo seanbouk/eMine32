@@ -18,4 +18,10 @@ void Emine_ExplosionBlocks(int spriteNum, int blastRadius, int maxDamage);
 // Floor height for falling debris etc.: the nearest block top below, else the sector floor.
 int32_t Emine_FloorZ(int spriteNum, int32_t sectorFloorZ);
 
+// Extra shade from the block world's lighting where this sprite stands (0 outside the block world / in daylight).
+int Emine_LightShade(int spriteNum);
+
+// Console commands (called from registerosdcommands).
+void Emine_RegisterOSD(void);
+
 #endif

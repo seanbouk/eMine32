@@ -84,11 +84,164 @@ uint8_t voxworld_get(int bx, int by, int bz)
     return vw_colblocks(bx, by)[bz];
 }
 
+static void vw_lightopened(int bx, int by, int bz);
+
 void voxworld_set(int bx, int by, int bz, uint8_t type)
 {
     if (!vw_active || !vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) return;
     vw_colblocks(bx, by)[bz] = type;
     vw_rebuildcolumn(bx, by);
+    if (type == VW_AIR) vw_lightopened(bx, by, bz);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Lighting: skylight per air cell, 0..VW_LIGHTMAX. Full skylight falls straight down without fading;
+// everywhere else light drops by one per block it spreads (so it reaches ~15 blocks into a cave mouth).
+// Blocks only ever get removed in play, so light only ever needs to spread, never be taken away.
+//////////////////////////////////////////////////////////////////////////////
+
+static uint8_t  *vw_light;            // same layout as vw_blocks
+static uint32_t *vw_lightq;           // flood queue (cell indices)
+static size_t    vw_lightqcap;
+static int       vw_darkness = 20;    // extra shade at light 0; OSD: r_voxdark
+static uint8_t   vw_lightshadetab[VW_LIGHTMAX + 1];
+
+static void vw_updatelightshades(void)
+{
+    for (int l = 0; l <= VW_LIGHTMAX; l++)
+        vw_lightshadetab[l] = (uint8_t)((vw_darkness * (VW_LIGHTMAX - l) + VW_LIGHTMAX/2) / VW_LIGHTMAX);
+}
+
+static FORCE_INLINE int vw_lightat(int bx, int by, int bz)
+{
+    if (!vw_inxy(bx, by) || bz >= vw_sz) return VW_LIGHTMAX;  // outside the world is open sky
+    if (bz < 0 || !vw_light) return bz < 0 ? 0 : VW_LIGHTMAX;
+    return vw_light[((size_t)bx*vw_sy + by)*vw_sz + bz];
+}
+
+static FORCE_INLINE int vw_lightshade(int bx, int by, int bz) { return vw_lightshadetab[vw_lightat(bx, by, bz)]; }
+
+static void vw_lightpush(size_t &n, uint32_t idx)
+{
+    if (n == vw_lightqcap)
+    {
+        vw_lightqcap = max<size_t>(vw_lightqcap * 2, 65536);
+        vw_lightq = (uint32_t *)Xrealloc(vw_lightq, vw_lightqcap * sizeof(uint32_t));
+    }
+    vw_lightq[n++] = idx;
+}
+
+// Spread light out from the first n queued cells.
+static void vw_lightflood(size_t n)
+{
+    int const sz = vw_sz, sy = vw_sy;
+    for (size_t qi = 0; qi < n; qi++)
+    {
+        uint32_t const idx = vw_lightq[qi];
+        int const l = vw_light[idx];
+        if (l <= 1) continue;
+        int const bz = idx % sz, col = idx / sz, bx = col / sy, by = col % sy;
+
+        static const int8_t dirs[6][3] = { {-1,0,0}, {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1} };
+        for (auto const &d : dirs)
+        {
+            int const nx = bx + d[0], ny = by + d[1], nz = bz + d[2];
+            if (!vw_inxy(nx, ny) || (unsigned)nz >= (unsigned)sz) continue;
+            uint32_t const nidx = (uint32_t)(((size_t)nx*sy + ny)*sz + nz);
+            if (vw_blocks[nidx] != VW_AIR) continue;
+            int const nl = (d[2] < 0 && l == VW_LIGHTMAX) ? VW_LIGHTMAX : l - 1;
+            if (nl > vw_light[nidx])
+            {
+                vw_light[nidx] = (uint8_t)nl;
+                vw_lightpush(n, nidx);
+            }
+        }
+    }
+}
+
+static void vw_computelight(void)
+{
+    size_t const total = (size_t)vw_sx*vw_sy*vw_sz;
+    Xfree(vw_light);
+    vw_light = (uint8_t *)Xcalloc(total, 1);
+
+    // Open sky: everything above each column's top block. skyfloor = lowest such layer.
+    auto skyfloor = [](int bx, int by) -> int {
+        if (!vw_inxy(bx, by)) return 0;
+        vwcolumn_t const *c = vw_col(bx, by);
+        return c->nruns ? c->runs[c->nruns-1].z1 : 0;
+    };
+    for (int bx = 0; bx < vw_sx; bx++)
+        for (int by = 0; by < vw_sy; by++)
+        {
+            uint8_t *l = &vw_light[((size_t)bx*vw_sy + by)*vw_sz];
+            for (int z = skyfloor(bx, by); z < vw_sz; z++) l[z] = VW_LIGHTMAX;
+        }
+
+    // Seed the flood with sky cells that sit beside a non-sky cell (cave mouths, overhangs).
+    size_t n = 0;
+    for (int bx = 0; bx < vw_sx; bx++)
+        for (int by = 0; by < vw_sy; by++)
+        {
+            int const f = skyfloor(bx, by);
+            int const top = max(max(skyfloor(bx-1, by), skyfloor(bx+1, by)), max(skyfloor(bx, by-1), skyfloor(bx, by+1)));
+            for (int z = f; z < top; z++)
+                vw_lightpush(n, (uint32_t)(((size_t)bx*vw_sy + by)*vw_sz + z));
+        }
+    vw_lightflood(n);
+}
+
+// A block was removed: light the new air cell from its neighbours and spread from there.
+static void vw_lightopened(int bx, int by, int bz)
+{
+    if (!vw_light) return;
+    int best = vw_lightat(bx, by, bz + 1);
+    if (best != VW_LIGHTMAX) best--;  // full skylight from straight above doesn't fade
+    best = max(best, vw_lightat(bx-1, by, bz) - 1);
+    best = max(best, vw_lightat(bx+1, by, bz) - 1);
+    best = max(best, vw_lightat(bx, by-1, bz) - 1);
+    best = max(best, vw_lightat(bx, by+1, bz) - 1);
+    best = max(best, vw_lightat(bx, by, bz - 1) - 1);
+    uint32_t const idx = (uint32_t)(((size_t)bx*vw_sy + by)*vw_sz + bz);
+    vw_light[idx] = (uint8_t)max(best, 0);
+    size_t n = 0;
+    vw_lightpush(n, idx);
+    vw_lightflood(n);
+}
+
+bool voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out)
+{
+    if (!vw_active || !vw_light) return false;
+    int cx, cy, cz;
+    voxworld_toblock(x, y, 0, &cx, &cy, &cz);
+    // nearest column first (square rings), lowest suitable cell in it
+    for (int r = 0; r < max(vw_sx, vw_sy); r++)
+        for (int bx = cx - r; bx <= cx + r; bx++)
+            for (int by = cy - r; by <= cy + r; by++)
+            {
+                if (max(abs(bx - cx), abs(by - cy)) != r || !vw_inxy(bx, by)) continue;
+                uint8_t const *b = vw_colblocks(bx, by);
+                uint8_t const *l = &vw_light[((size_t)bx*vw_sy + by)*vw_sz];
+                for (int z = 1; z + 2 < vw_sz; z++)
+                    if (b[z-1] != VW_AIR && b[z] == VW_AIR && b[z+1] == VW_AIR && b[z+2] == VW_AIR && l[z] <= maxlight)
+                    {
+                        out->x = vw_x0 + bx*VW_BLOCKXY + VW_BLOCKXY/2;
+                        out->y = vw_y0 + by*VW_BLOCKXY + VW_BLOCKXY/2;
+                        out->z = vw_zbot - z*VW_BLOCKZ;
+                        return true;
+                    }
+            }
+    return false;
+}
+
+int voxworld_lightshade(int32_t x, int32_t y, int32_t z)
+{
+    if (!vw_active) return 0;
+    int bx, by, bz;
+    voxworld_toblock(x, y, z, &bx, &by, &bz);
+    // standing inside a block (feet on a step edge etc.): use the cell above
+    if (vw_inxy(bx, by) && (unsigned)bz < (unsigned)vw_sz && vw_colblocks(bx, by)[bz] != VW_AIR) bz++;
+    return vw_lightshade(bx, by, bz);
 }
 
 bool voxworld_toblock(int32_t x, int32_t y, int32_t z, int *bx, int *by, int *bz)
@@ -109,6 +262,7 @@ static FORCE_INLINE int32_t vw_layertop(int layer) { return vw_zbot - layer*VW_B
 enum
 {
     T_GRASS_TOP, T_GRASS_SIDE, T_DIRT, T_STONE, T_BEDROCK, T_SAND, T_WOOD_SIDE, T_WOOD_TOP, T_LEAVES, T_PLANKS, T_COBBLE,
+    T_GRAVEL, T_COAL, T_IRON, T_GOLD,
     T_COUNT
 };
 
@@ -127,6 +281,10 @@ static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
     { T_LEAVES, T_LEAVES, T_LEAVES, 6 },            // leaves
     { T_PLANKS, T_PLANKS, T_PLANKS, 24 },           // planks
     { T_COBBLE, T_COBBLE, T_COBBLE, 40 },           // cobble
+    { T_GRAVEL, T_GRAVEL, T_GRAVEL, 14 },           // gravel
+    { T_COAL, T_COAL, T_COAL, 52 },                 // coal ore
+    { T_IRON, T_IRON, T_IRON, 64 },                 // iron ore
+    { T_GOLD, T_GOLD, T_GOLD, 56 },                 // gold ore
 };
 
 // Accumulated damage per block, same layout as vw_blocks (allocated on first damage).
@@ -221,9 +379,117 @@ static int vw_surface(int x, int y)
     return -1;
 }
 
+// Small deterministic RNG for generation.
+struct vwrng_t
+{
+    uint32_t s;
+    uint32_t next() { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return s; }
+    float    f() { return (next() & 0xffffff) * (1.f / 16777216.f); }
+    int      range(int a, int b) { return b <= a ? a : a + (int)(next() % (uint32_t)(b - a + 1)); }
+};
+
+static int *vw_hmap;  // generation only: top solid layer of the original terrain per column
+
+static FORCE_INLINE int vw_height(int x, int y)
+{
+    x = clamp(x, 0, vw_sx-1); y = clamp(y, 0, vw_sy-1);
+    return vw_hmap[x*vw_sy + y];
+}
+
+static void vw_carve(int x, int y, int z)
+{
+    if (!vw_inxy(x, y) || z < 1 || z >= vw_sz) return;
+    // keep the spawn point and the test arch intact
+    int const dx = x - (vw_sx/2 + 3), dy = y - vw_sy/2;
+    if (dx*dx + dy*dy < 10*10 && z > vw_height(x, y) - 9) return;
+    uint8_t &b = vw_colblocks(x, y)[z];
+    if (b != VW_BEDROCK) b = VW_AIR;
+}
+
+// Tunnel cross-section: a disc of radius r with a flat floor, `height` layers tall, a layer taller in the middle.
+static void vw_carveslice(float cx, float cy, int floor, float r, int height)
+{
+    for (int x = (int)floorf(cx - r); x <= (int)floorf(cx + r); x++)
+        for (int y = (int)floorf(cy - r); y <= (int)floorf(cy + r); y++)
+        {
+            float const ex = x + 0.5f - cx, ey = y + 0.5f - cy, d2 = ex*ex + ey*ey;
+            if (d2 > r*r) continue;
+            int const h = height + (d2 < r*r*0.3f);
+            for (int z = floor; z < floor + h; z++) vw_carve(x, y, z);
+        }
+}
+
+// A cavern: flat floor, domed roof.
+static void vw_room(vwrng_t &rng, float cx, float cy, int floor)
+{
+    float const rx = 4.f + rng.f()*5.f, ry = 4.f + rng.f()*5.f;
+    int const hgt = rng.range(3, 6);
+    for (int x = (int)floorf(cx - rx); x <= (int)floorf(cx + rx); x++)
+        for (int y = (int)floorf(cy - ry); y <= (int)floorf(cy + ry); y++)
+        {
+            float const ex = (x + 0.5f - cx) / rx, ey = (y + 0.5f - cy) / ry, e = ex*ex + ey*ey;
+            if (e > 1.f) continue;
+            int const h = 2 + (int)(hgt * sqrtf(1.f - e) + 0.5f);
+            for (int z = floor; z < floor + h; z++) vw_carve(x, y, z);
+        }
+}
+
+// A wandering tunnel. Mostly level (Duke can't step up a whole block), with the odd one-block step.
+// Entrance tunnels start at the surface and stair down into the ground first.
+static void vw_worm(vwrng_t &rng, float x, float y, int floor, int len, bool entrance, float yaw = -1.f)
+{
+    if (yaw < 0.f) yaw = rng.f() * 2.f * fPI;
+    float dyaw = 0.f, r = 1.3f + rng.f();
+    for (int i = 0; i < len; i++)
+    {
+        dyaw = (dyaw + (rng.f() - 0.5f) * 0.3f) * 0.85f;
+        yaw += dyaw;
+        x += cosf(yaw) * 0.8f;
+        y += sinf(yaw) * 0.8f;
+        if (x < 1 || y < 1 || x >= vw_sx - 1 || y >= vw_sy - 1) break;
+        r = clamp(r + (rng.f() - 0.5f) * 0.2f, 1.2f, 2.6f);
+
+        int const h = vw_height((int)x, (int)y);
+        if (entrance)
+        {
+            if (floor > h - 10) { if (i & 1) floor--; }
+            else entrance = false;
+            floor = min(floor, h);
+        }
+        else
+        {
+            if (rng.f() < 0.04f) floor += rng.f() < 0.5f ? -1 : 1;
+            if (floor > h - 4) floor--;  // stay underground (mostly: valleys still get the odd skylight)
+        }
+        floor = clamp(floor, 2, vw_sz - 5);
+
+        vw_carveslice(x, y, floor, r, 3);
+        if (!entrance && rng.f() < 0.006f) vw_room(rng, x, y, floor);
+    }
+}
+
+// Replace stone (and optionally dirt) along a short random walk: ore veins, gravel pockets.
+static void vw_vein(vwrng_t &rng, uint8_t type, int x, int y, int z, int size, bool anysoil)
+{
+    for (int k = 0; k < size; k++)
+    {
+        if (vw_inxy(x, y) && z >= 1 && z < vw_sz)
+        {
+            uint8_t &b = vw_colblocks(x, y)[z];
+            if (b == VW_STONE || (anysoil && b == VW_DIRT)) b = type;
+        }
+        switch (rng.next() % 6)
+        {
+            case 0: x--; break; case 1: x++; break; case 2: y--; break;
+            case 3: y++; break; case 4: z--; break; default: z++; break;
+        }
+    }
+}
+
 static void vw_generate(void)
 {
     int const sea = vw_sz/4;
+    vw_hmap = (int *)Xmalloc(sizeof(int) * vw_sx * vw_sy);
 
     for (int x = 0; x < vw_sx; x++)
         for (int y = 0; y < vw_sy; y++)
@@ -241,7 +507,36 @@ static void vw_generate(void)
                 else if (z > h - 4) t = (h <= sea + 1) ? VW_SAND : (z == h ? VW_GRASS : VW_DIRT);
                 b[z] = t;
             }
+            vw_hmap[x*vw_sy + y] = h;
         }
+
+    // Caves: wandering tunnels with the odd cavern, a few of them opening onto the surface.
+    vwrng_t rng = { vw_seed * 2654435761u + 12345u };
+    rng.next();
+    int const area = vw_sx * vw_sy;
+    for (int i = 0, n = max(1, area / 1100); i < n; i++)
+    {
+        float const x = rng.range(4, vw_sx - 5) + 0.5f, y = rng.range(4, vw_sy - 5) + 0.5f;
+        int const h = vw_height((int)x, (int)y);
+        vw_worm(rng, x, y, rng.range(3, max(3, h - 8)), rng.range(60, 180), false);
+    }
+    for (int i = 0, n = max(1, area / 4000); i < n; i++)
+    {
+        // the first cave mouth is just ahead of the spawn point (a little to the left), so there's always one to find
+        float const x = i ? rng.range(8, vw_sx - 9) + 0.5f : vw_sx/2 + 16.5f;
+        float const y = i ? rng.range(8, vw_sy - 9) + 0.5f : vw_sy/2 - 5.5f;
+        vw_worm(rng, x, y, vw_height((int)x, (int)y) - 1, rng.range(80, 200), true, i ? -1.f : 0.f);
+    }
+
+    // Ores and gravel (only replace stone, so they line cave walls rather than floating in them).
+    for (int i = 0, n = area / 35; i < n; i++)
+        vw_vein(rng, VW_COAL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(2, vw_sz*6/10), rng.range(5, 10), false);
+    for (int i = 0, n = area / 70; i < n; i++)
+        vw_vein(rng, VW_IRON, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(2, sea), rng.range(4, 8), false);
+    for (int i = 0, n = area / 350; i < n; i++)
+        vw_vein(rng, VW_GOLD, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(1, max(2, sea/2)), rng.range(3, 6), false);
+    for (int i = 0, n = area / 250; i < n; i++)
+        vw_vein(rng, VW_GRAVEL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(2, sea + 8), rng.range(15, 30), true);
 
     // Trees.
     for (int x = 3; x < vw_sx - 3; x++)
@@ -283,6 +578,9 @@ static void vw_generate(void)
     for (int x = 0; x < vw_sx; x++)
         for (int y = 0; y < vw_sy; y++)
             vw_rebuildcolumn(x, y);
+
+    DO_FREE_AND_NULL(vw_hmap);
+    vw_computelight();
 }
 
 // Highest walkable surface z (Build coords) at a world position, or INT32_MAX if none.
@@ -328,6 +626,7 @@ void voxworld_onmapload(vec3_t *dapos)
     vw_blocks = (uint8_t *)Xcalloc((size_t)vw_sx*vw_sy*vw_sz, 1);
     vw_cols   = (vwcolumn_t *)Xcalloc((size_t)vw_sx*vw_sy, sizeof(vwcolumn_t));
 
+    vw_updatelightshades();
     vw_active = true;  // generation uses voxworld_get
     double const t0 = timerGetFractionalTicks();
     vw_generate();
@@ -419,9 +718,20 @@ static FORCE_INLINE int vw_clip(vwgap_t *gaps, int &ng, int a, int b, vwgap_t *v
     return nv;
 }
 
-static FORCE_INLINE uint8_t const *vw_shadetab(int shade, float depth)
+// "Lantern": darkness from missing light fades in with distance, so what's right in front of you is always visible
+// (the look of a dark Doom/Duke room) while deep caves still fall away to black.
+static int   vw_lantern = 6;       // blocks until darkness is at full strength (0 = off); OSD: r_voxlantern
+static float vw_lanterninv;        // 1 / lantern distance in xy units
+
+static FORCE_INLINE int vw_lanterned(int light, float depth)
 {
-    int s = shade + (int)(depth * vw_visk);
+    float const f = depth * vw_lanterninv;
+    return f >= 1.f ? light : (int)(light * f);
+}
+
+static FORCE_INLINE uint8_t const *vw_shadetab(int shade, int light, float depth)
+{
+    int s = shade + vw_lanterned(light, depth) + (int)(depth * vw_visk);
     s = clamp(s, 0, numshades - 1);
     return (uint8_t const *)palookup[0] + (s << 8);
 }
@@ -430,7 +740,7 @@ static FORCE_INLINE int vw_rowof(float y) { return (int)ceilf(y - 0.5f); }  // f
 
 // Horizontal face (top or bottom) at height hz/vw_ky above/below the eye, between depths [d0, d1].
 static __attribute__((noinline)) void vw_drawflat(uint8_t *col, float *zc, vwgap_t const *vis, int nv, float hz, float d0, float d1,
-                                     float dx, float dy, uint8_t const *tex, int faceshade)
+                                     float dx, float dy, uint8_t const *tex, int faceshade, int light)
 {
     float const ox = vw_cx - vw_x0, oy = vw_cy - vw_y0;
     uint8_t const *const pal0 = (uint8_t const *)palookup[0];
@@ -443,7 +753,7 @@ static __attribute__((noinline)) void vw_drawflat(uint8_t *col, float *zc, vwgap
             d = d < d0 ? d0 : (d > d1 ? d1 : d);
             int const u = ((int)(ox + dx*d) >> 5) & (VW_TEXSIZE-1);
             int const v = ((int)(oy + dy*d) >> 5) & (VW_TEXSIZE-1);
-            int s = faceshade + (int)(d * vw_visk);
+            int s = faceshade + vw_lanterned(light, d) + (int)(d * vw_visk);
             s = s > maxshade ? maxshade : s;
             col[y] = pal0[(s << 8) + tex[u*VW_TEXSIZE + v]];
             zc[y] = d;
@@ -551,6 +861,8 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                 uint8_t const *pal = nullptr;
                                 int const ucol = u*VW_TEXSIZE;
                                 size_t const colidx = vw_index(gx, gy, 0);
+                                // the face is lit by the cell in front of it (the one the ray came from)
+                                int const lx = gx - (side == 0) + (side == 1), ly = gy - (side == 2) + (side == 3);
 
                                 // Height above the world floor in 16.16 texels, stepping down the screen.
                                 float const zperrow = din / vw_ky;
@@ -576,7 +888,8 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                         {
                                             curlayer = layer;
                                             tex = vw_tex[vw_blockdefs[cb[layer]].side] + ucol;
-                                            pal = vw_shadetab(vw_faceshade[side] + vw_dmgshade(colidx + layer, cb[layer]), din);
+                                            pal = vw_shadetab(vw_faceshade[side] + vw_dmgshade(colidx + layer, cb[layer]),
+                                                              vw_lightshade(lx, ly, layer), din);
                                         }
                                         col[y] = pal[tex[VW_TEXSIZE-1 - (t & (VW_TEXSIZE-1))]];
                                         zc[y] = din;
@@ -598,7 +911,8 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                             if (nv)
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
                                             vw_tex[vw_blockdefs[cb[r.z1-1]].top],
-                                            vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]));
+                                            vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]),
+                                            vw_lightshade(gx, gy, r.z1));
                         }
                     }
 
@@ -614,7 +928,8 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                             if (nv)
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
                                             vw_tex[vw_blockdefs[cb[r.z0]].bottom],
-                                            vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]));
+                                            vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]),
+                                            vw_lightshade(gx, gy, r.z0 - 1));
                         }
                     }
 
@@ -695,6 +1010,7 @@ static void vw_setupcamera(void)
     vw_visk = 256.f * vw_vrf * (float)xdimscale * (float)globvis / (float)(1ll << 43);
 
     vw_maxdist = (float)vw_viewdist * VW_BLOCKXY;
+    vw_lanterninv = vw_lantern > 0 ? 1.f / (vw_lantern * VW_BLOCKXY) : 1e9f;
 
     for (int y = 0; y < ydimen; y++)
     {
@@ -815,7 +1131,7 @@ static void vw_drawfacesprite(tspriteptr_t tspr, float depth)
 
     int pal = tspr->pal;
     if (palookup[pal] == NULL) pal = 0;
-    int shade = tspr->shade + (int)(depth * vw_visk);
+    int shade = tspr->shade + (int)(depth * vw_visk) + vw_lanterned(voxworld_lightshade(tspr->x, tspr->y, tspr->z - VW_BLOCKZ/2), depth);
     shade = clamp(shade, 0, numshades - 1);
     uint8_t const *const lut = (uint8_t const *)palookup[pal] + (shade << 8);
 
@@ -1173,12 +1489,66 @@ static int osdcmd_voxdist(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+static int osdcmd_voxdark(osdcmdptr_t parm)
+{
+    if (parm->numparms == 1)
+    {
+        vw_darkness = clamp(Batol(parm->parms[0]), 0, 31);
+        vw_updatelightshades();
+    }
+    OSD_Printf("r_voxdark %d (extra shade where no skylight reaches)\n", vw_darkness);
+    return OSDCMD_OK;
+}
+
+// Debug: write a top-down map of the world as a PPM: terrain height in grey, caves tinted by depth
+// (red = shallow, blue = deep), ores as dots. `r_voxdump [file]`.
+static int osdcmd_voxdump(osdcmdptr_t parm)
+{
+    if (!vw_active) return OSDCMD_OK;
+    char const *fn = parm->numparms >= 1 ? parm->parms[0] : "voxmap.ppm";
+    FILE *f = fopen(fn, "wb");
+    if (!f) { OSD_Printf("r_voxdump: can't write %s\n", fn); return OSDCMD_OK; }
+    fprintf(f, "P6\n%d %d\n255\n", vw_sx, vw_sy);
+    int caves = 0;
+    for (int by = 0; by < vw_sy; by++)
+        for (int bx = 0; bx < vw_sx; bx++)
+        {
+            uint8_t const *b = vw_colblocks(bx, by);
+            vwcolumn_t const *c = vw_col(bx, by);
+            int top = c->nruns ? c->runs[c->nruns-1].z1 : 0;
+            while (top > 0 && (b[top-1] == VW_LEAVES || b[top-1] == VW_WOOD || b[top-1] == VW_AIR)) top--;  // ignore trees
+            int g = top * 255 / vw_sz;
+            uint8_t rgb[3] = { (uint8_t)g, (uint8_t)g, (uint8_t)g };
+            int deepest = -1, ore = 0;
+            for (int z = 1; z < top; z++)
+            {
+                if (b[z] == VW_AIR) { if (deepest < 0) deepest = z; caves++; }
+                else if (b[z] == VW_GOLD) ore = 3;
+                else if (b[z] == VW_IRON && ore < 2) ore = 2;
+            }
+            if (deepest >= 0)
+            {
+                int const t = deepest * 255 / vw_sz;
+                rgb[0] = (uint8_t)(60 + t*3/4); rgb[1] = 40; rgb[2] = (uint8_t)(255 - t*3/4);
+            }
+            if (ore == 3) { rgb[0] = 255; rgb[1] = 220; rgb[2] = 0; }
+            fwrite(rgb, 3, 1, f);
+        }
+    fclose(f);
+    OSD_Printf("r_voxdump: wrote %s (%d cave cells)\n", fn, caves);
+    return OSDCMD_OK;
+}
+
 static void vw_registerosd(void)
 {
     static bool done;
     if (done) return;
     done = true;
     OSD_RegisterFunction("r_voxdist", "r_voxdist <blocks>: block world view distance", osdcmd_voxdist);
+    OSD_RegisterFunction("r_voxdark", "r_voxdark <0-31>: how dark caves get", osdcmd_voxdark);
+    static osdcvardata_t cvl = { "r_voxlantern", "blocks until cave darkness is at full strength (0 = off)", (void *)&vw_lantern, CVAR_INT, 0, 64 };
+    OSD_RegisterCvar(&cvl, osdcmd_cvar_set);
+    OSD_RegisterFunction("r_voxdump", "r_voxdump [file]: write a top-down debug map of the block world (PPM)", osdcmd_voxdump);
     static osdcvardata_t cv = { "r_voxstats", "block world render timing in the log every 60 frames", (void *)&vw_stats, CVAR_BOOL, 0, 1 };
     OSD_RegisterCvar(&cv, osdcmd_cvar_set);
 #ifdef __EMSCRIPTEN__

@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "cmdline.h"
 #include "demo.h"  // g_firstDemoFile[]
 #include "duke3d.h"
+#include "emine.h"
 #include "menus.h"
 //#include "minicoro.h"
 #include "osdfuncs.h"
@@ -1588,6 +1589,7 @@ static int osdcmd_locale(osdcmdptr_t parm)
 int32_t registerosdcommands(void)
 {
     FX_InitCvars();
+    Emine_RegisterOSD();  // eMine32
 
     static osdcvardata_t cvars_game[] =
     {

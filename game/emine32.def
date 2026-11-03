@@ -10,3 +10,7 @@ tilefromtexture 7007 { file "textures/blocks/wood_top.png" }
 tilefromtexture 7008 { file "textures/blocks/leaves.png" }
 tilefromtexture 7009 { file "textures/blocks/planks.png" }
 tilefromtexture 7010 { file "textures/blocks/cobble.png" }
+tilefromtexture 7011 { file "textures/blocks/gravel.png" }
+tilefromtexture 7012 { file "textures/blocks/coal_ore.png" }
+tilefromtexture 7013 { file "textures/blocks/iron_ore.png" }
+tilefromtexture 7014 { file "textures/blocks/gold_ore.png" }

@@ -2273,7 +2273,8 @@ void P_DisplayWeapon(void)
     int weaponX       = (160) - 90;
     int weaponY       = klabs(pPlayer->look_ang) / 9;
     int weaponYOffset = 80 - (pPlayer->weapon_pos * pPlayer->weapon_pos);
-    int weaponShade   = sprite[pPlayer->i].shade <= 24 ? sprite[pPlayer->i].shade : 24;
+    int weaponShade   = sprite[pPlayer->i].shade + Emine_LightShade(pPlayer->i) / 4;  // eMine32: a touch darker in caves
+    weaponShade       = weaponShade <= 24 ? weaponShade : 24;
 
     // fixes trying to interpolate between the weapon_pos 0 and fully lowered positions when placing tripbombs
     // FFS, WEAPON_POS_RAISE gets set in P_DoCounters() and then P_ProcessWeapon() decrements it before we can check for it when drawing

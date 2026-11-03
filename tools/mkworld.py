@@ -75,12 +75,38 @@ def cobble():
                     im.putpixel((x, y), (70, 70, 72))
     return im
 
+def stone():
+    return noise_tex(3, (128, 128, 128), 0.12, (100, 100, 104), 0.2)
+
+def ore(seed, colour, clusters=5):
+    """Stone with a few clumps of coloured nuggets."""
+    im = stone()
+    rnd = random.Random(seed)
+    for _ in range(clusters):
+        cx, cy = rnd.randrange(1, TEX - 2), rnd.randrange(1, TEX - 2)
+        for _ in range(rnd.randrange(3, 6)):
+            x, y = cx + rnd.randrange(-1, 2), cy + rnd.randrange(-1, 2)
+            f = rnd.uniform(0.75, 1.15)
+            im.putpixel((x % TEX, y % TEX), tuple(max(0, min(255, int(ch * f))) for ch in colour))
+    return im
+
+def gravel():
+    im = noise_tex(12, (126, 118, 112), 0.1)
+    rnd = random.Random(13)
+    for _ in range(26):
+        x, y = rnd.randrange(TEX), rnd.randrange(TEX)
+        c = rnd.choice([(88, 84, 82), (160, 150, 142), (110, 100, 96)])
+        for dx, dy in ((0, 0), (1, 0), (0, 1)):
+            if rnd.random() < 0.8:
+                im.putpixel(((x + dx) % TEX, (y + dy) % TEX), c)
+    return im
+
 # order == voxworld.cpp T_* enum
 TEXTURES = [
     ('grass_top',  lambda: noise_tex(1, (96, 150, 60), 0.2, (70, 120, 40), 0.2)),
     ('grass_side', grass_side),
     ('dirt',       lambda: noise_tex(2, (121, 85, 58), 0.18, (90, 64, 44), 0.15)),
-    ('stone',      lambda: noise_tex(3, (128, 128, 128), 0.12, (100, 100, 104), 0.2)),
+    ('stone',      stone),
     ('bedrock',    lambda: noise_tex(4, (70, 70, 70), 0.35)),
     ('sand',       lambda: noise_tex(5, (219, 207, 160), 0.07)),
     ('wood_side',  wood_side),
@@ -88,6 +114,10 @@ TEXTURES = [
     ('leaves',     lambda: noise_tex(8, (60, 120, 40), 0.3, (40, 80, 25), 0.3)),
     ('planks',     planks),
     ('cobble',     cobble),
+    ('gravel',     gravel),
+    ('coal_ore',   lambda: ore(14, (34, 34, 36))),
+    ('iron_ore',   lambda: ore(15, (196, 150, 118))),
+    ('gold_ore',   lambda: ore(16, (240, 200, 60))),
 ]
 
 def write_textures():

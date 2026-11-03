@@ -73,3 +73,37 @@ int32_t Emine_FloorZ(int spriteNum, int32_t sectorFloorZ)
     auto const &s = sprite[spriteNum];
     return voxworld_floorz(s.x, s.y, s.z, sectorFloorZ);
 }
+
+// Dev console: `emine_cave [maxlight]` teleports the player to the nearest dark cave floor.
+static int osdcmd_emine_cave(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (!voxworld_active() || p->i < 0) return OSDCMD_OK;
+    int const maxlight = parm->numparms >= 1 ? clamp(Batol(parm->parms[0]), 0, VW_LIGHTMAX) : 2;
+    vec3_t feet;
+    if (!voxworld_findcave(p->pos.x, p->pos.y, maxlight, &feet))
+    {
+        OSD_Printf("emine_cave: no cave found\n");
+        return OSDCMD_OK;
+    }
+    p->pos   = { feet.x, feet.y, feet.z - PHEIGHT };
+    p->opos  = p->pos;
+    p->bobpos = { feet.x, feet.y };
+    p->vel   = { 0, 0, 0 };
+    setsprite(p->i, &feet);
+    OSD_Printf("emine_cave: moved to %d, %d, %d\n", feet.x, feet.y, feet.z);
+    return OSDCMD_OK;
+}
+
+void Emine_RegisterOSD(void)
+{
+    OSD_RegisterFunction("emine_cave", "emine_cave [maxlight 0-15]: dev - teleport to the nearest dark cave", osdcmd_emine_cave);
+}
+
+int Emine_LightShade(int spriteNum)
+{
+    if (!voxworld_active() || sprite[spriteNum].sectnum != voxworld_sector())
+        return 0;
+    auto const &s = sprite[spriteNum];
+    return voxworld_lightshade(s.x, s.y, s.z - VW_BLOCKZ/2);
+}
