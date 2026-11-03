@@ -110,11 +110,23 @@ explosions break them, and one goes when the block under it does. Shots go on th
 the way to whatever they hit (the hitscan notes the plant cells it crosses; `voxworld_smashplants` is called after gun
 and custom hitscan shots, and after a kick within its reach, not after aiming/sight hitscans). Generation puts them on ~30% of open grass:
 mostly tall grass, thicker in meadow patches; flowers are rare (~3% of plants), in sparse clumps of one colour.
+Streaming: the world is as big as the map's box (the default map is 2032x2032 blocks, about Build's coordinate limit
+of +-524288); only a 256x256-block window of it (whole 16x16 chunks) is in memory, with the same layout and code as
+the old fixed world (window-local block coordinates; `vw_x0/vw_y0` move with the window). `voxworld_stream(x, y)`,
+called each tic with the player's position, slides the window by whole chunks once they're more than 1.5 chunks
+from its centre (the arrays shift in memory: ~5-7 ms in the browser), saves chunks changed in play as they leave
+(run-length coded, in memory for the session) and generates or restores the incoming ones a few per tic (~1 ms
+each), nearest first; until then a chunk is solid bedrock, out of sight. Chunks right by the player load at once
+(teleports). Generation is per chunk and order-independent: each chunk is built with a 2-block apron in a scratch
+buffer from global noise, plus caves and ore/gravel veins seeded per 32-block cell of the world (cave worms are walked
+once per cell and kept as carving steps, replayed wherever they reach); trees come from the apron. A new chunk is lit
+from its own sky and emitters plus the light of its loaded neighbours; `r_voxlightcheck` (dev) compares that with a
+full relight (it matches). Startup builds the whole window: ~240 ms.
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
 `r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves
 red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave, `emine_glow [minlight]` (dev) teleports next to the nearest glowing block, `emine_drop [height] [type]` (dev) drops a
 block on you (type 20 is water), `emine_water [shore]` (dev) drops you into the nearest open water (or stands you
-beside it, facing it), `emine_where` (dev) prints the blocks at your eye/body/feet. The test arch's end wall (facing the spawn) is gravel topped with sand.
+beside it, facing it), `emine_where` (dev) prints the blocks at your eye/body/feet, `emine_go <dx> <dy>` (dev) moves you that many blocks across the world. The test arch's end wall (facing the spawn) is gravel topped with sand.
 
 Measured (headless Chrome, generated hills + trees, 96-block view): 1720x720 ~6 ms block rendering, ~8.5 ms per frame
 total, holds 75 Hz; 3440x1440 ~17 ms block rendering, ~36 fps.

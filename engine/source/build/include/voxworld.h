@@ -163,6 +163,9 @@ typedef bool (*vweventfn_t)(int event, int bx, int by, int bz, int type, float s
 void    voxworld_seteventfn(vweventfn_t fn);
 // Advance falling blocks by one game tic.
 void    voxworld_tick(void);
+// Streaming: call each tic with the player's position. Keeps the resident window of the world (VW_WINDOW blocks
+// square) centred on them and generates/restores the chunks coming into it.
+void    voxworld_stream(int32_t x, int32_t y);
 
 // Sprites whose lotag is (VW_DEBRIS_TAG | blocktype) are drawn as chunks of that block's texture.
 #define VW_DEBRIS_TAG 0x7E00

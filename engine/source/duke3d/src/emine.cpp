@@ -291,9 +291,10 @@ void Emine_Tick(void)
 {
     emine_tic++;
     Emine_LavaBurn();
-    voxworld_tick();
 
     auto const p = g_player[myconnectindex].ps;
+    if (p->i >= 0) voxworld_stream(p->pos.x, p->pos.y);
+    voxworld_tick();
 
     if (emine_where && p->i >= 0 && emine_tic % 15 == 0)
     {
@@ -341,6 +342,29 @@ static int osdcmd_emine_water(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+// Dev console: `emine_go <dx> <dy>` moves the player that many blocks across the world, onto the ground there.
+static int osdcmd_emine_go(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (!voxworld_active() || p->i < 0 || parm->numparms < 2) return OSDCMD_SHOWHELP;
+    int32_t const x = p->pos.x + Batol(parm->parms[0]) * VW_BLOCKXY, y = p->pos.y + Batol(parm->parms[1]) * VW_BLOCKXY;
+    voxworld_stream(x, y);  // bring the world there in
+    int bx, by, bz;
+    if (!voxworld_toblock(x, y, sector[voxworld_sector()].floorz - 1, &bx, &by, &bz))
+    {
+        OSD_Printf("emine_go: that's outside the world\n");
+        return OSDCMD_OK;
+    }
+    vec3_t const feet = { x, y, voxworld_floorz(x, y, sector[voxworld_sector()].ceilingz + 1024, sector[voxworld_sector()].floorz) };
+    p->pos   = { feet.x, feet.y, feet.z - PHEIGHT };
+    p->opos  = p->pos;
+    p->bobpos = { feet.x, feet.y };
+    p->vel   = { 0, 0, 0 };
+    setsprite(p->i, &feet);
+    OSD_Printf("emine_go: moved to %d, %d, %d\n", feet.x, feet.y, feet.z);
+    return OSDCMD_OK;
+}
+
 // Dev console: `emine_where` toggles printing what the player is standing/swimming in.
 static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 {
@@ -350,6 +374,7 @@ static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 
 void Emine_RegisterOSD(void)
 {
+    OSD_RegisterFunction("emine_go", "emine_go <dx> <dy>: dev - move that many blocks across the world", osdcmd_emine_go);
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);
     voxworld_seteventfn(Emine_OnWorldEvent);

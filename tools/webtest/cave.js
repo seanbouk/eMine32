@@ -1,7 +1,8 @@
 // Cave test: run console commands (e.g. emine_cave to teleport into a cave), then look/walk and screenshot.
 // usage: node cave.js <url> <outPrefix> "<console cmd>;<console cmd>" [step...]
 //   step: <ms> forward, B<ms> back, L/R<ms> turn, S/D<ms> strafe left/right, U/N<ms> look up/down, J/C<ms> jump/crouch
-//         (swim up/down), K<ms> forward+jump, W<ms> wait, Q kick, F fire
+//         (swim up/down), K<ms> forward+jump,
+//         :<console command>, W<ms> wait, Q kick, F fire
 const { chromium } = require('playwright-core');
 (async () => {
   const [url, out, cmds, ...steps] = process.argv.slice(2);
@@ -30,6 +31,7 @@ const { chromium } = require('playwright-core');
     const keys = { S: 'a', D: 'd', L: 'ArrowLeft', R: 'ArrowRight', U: 'Home', N: 'End', J: 'Space', C: 'ControlLeft', B: 's' };
     if (keys[w[0]]) await hold(keys[w[0]], ms);
     else if (w[0] === 'W') await page.waitForTimeout(ms);
+    else if (w[0] === ':') { await hold('Backquote'); await type(w.slice(1)); await hold('Enter'); await hold('Backquote'); }
     else if (w[0] === 'K') { await page.keyboard.down('w'); await page.keyboard.down('Space'); await page.waitForTimeout(ms);
                              await page.keyboard.up('Space'); await page.keyboard.up('w'); }
     else if (w === 'Q') await hold('q', 100);

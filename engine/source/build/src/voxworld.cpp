@@ -24,6 +24,8 @@
 #include <math.h>
 #include <float.h>
 #include <algorithm>
+#include <unordered_map>
+#include <vector>
 
 
 static void vw_registerosd(void);
@@ -58,6 +60,22 @@ static int32_t     vw_zbot;                  // Build z of the bottom of layer 0
 static uint8_t    *vw_blocks;                // [(x*sy + y)*sz + z]
 static vwcolumn_t *vw_cols;                  // [x*sy + y]
 static int         vw_nfallers;              // falling blocks in flight (see voxworld_tick)
+
+// The world and the resident window. The world is vw_wsx x vw_wsy blocks (global block coordinates); only a
+// vw_sx x vw_sy window of it, in whole chunks, is in memory, at global block offset (vw_ox, vw_oy). Everything else in
+// this file works in window (local) block coordinates: local = global - offset, and vw_x0/vw_y0 are the Build
+// coordinates of the window's corner, so world <-> block conversion is the same as for a fixed world. See
+// "Streaming" for how the window follows the player.
+#define VW_CHUNK  16   // chunk edge in blocks (columns are generated, saved and lit a chunk at a time)
+#define VW_WINDOW 256  // resident window edge in blocks (a multiple of VW_CHUNK)
+static int         vw_wsx, vw_wsy;           // world size in blocks
+static int         vw_ox, vw_oy;             // window origin, in global blocks (multiples of VW_CHUNK)
+static int32_t     vw_wx0, vw_wy0;           // Build coords of global block (0,0)
+static int         vw_ncx, vw_ncy;           // window size in chunks
+static uint8_t    *vw_cready;                // [cx*vw_ncy + cy]: chunk generated (else a solid placeholder)
+static uint8_t    *vw_cdirty;                // changed since generated/restored: saved when it leaves the window
+static int         vw_sea, vw_amp, vw_depth, vw_lavaline;  // generation constants (layers)
+static FORCE_INLINE int vw_chunkof(int bx, int by) { return (bx / VW_CHUNK) * vw_ncy + by / VW_CHUNK; }
 
 // Fluids: kind 0 is lava, kind 1 water. Each has its own queue and pace.
 static const int   vw_fluidtics[2] = { 12, 5 }; // tics between flow steps (lava is slow)
@@ -140,6 +158,7 @@ void voxworld_set(int bx, int by, int bz, uint8_t type)
     uint8_t const old = b;
     if (old == type) return;
     b = type;
+    if (vw_cdirty) vw_cdirty[vw_chunkof(bx, by)] = 1;
     vw_rebuildcolumn(bx, by);
     bool const op = vw_lightpass(old), np = vw_lightpass(type);
     if (np && !op)
@@ -738,19 +757,6 @@ static float vw_fbm(float x, float y, uint32_t s, int oct)
     return sum / norm;
 }
 
-static void vw_put(int x, int y, int z, uint8_t t)
-{
-    if (vw_inxy(x, y) && (unsigned)z < (unsigned)vw_sz) vw_colblocks(x, y)[z] = t;
-}
-
-static int vw_surface(int x, int y)
-{
-    uint8_t const *b = vw_colblocks(x, y);
-    for (int z = vw_sz-1; z >= 0; z--)
-        if (b[z] != VW_AIR && b[z] != VW_LEAVES) return z;
-    return -1;
-}
-
 // Small deterministic RNG for generation.
 struct vwrng_t
 {
@@ -760,25 +766,75 @@ struct vwrng_t
     int      range(int a, int b) { return b <= a ? a : a + (int)(next() % (uint32_t)(b - a + 1)); }
 };
 
-static int *vw_hmap;  // generation only: top solid layer of the original terrain per column
+//////////////////////////////////////////////////////////////////////////////
+// Terrain generation, a chunk at a time. Every chunk comes out the same whichever order chunks are made in: the
+// chunk plus an apron of VW_APRON blocks round it is built in a scratch buffer (things that spill a little way,
+// like tree leaves, come from the apron), from global noise and from caves and veins that are seeded per cell of
+// the world and replayed wherever they reach. Coordinates here are global blocks.
+//////////////////////////////////////////////////////////////////////////////
 
-static FORCE_INLINE int vw_height(int x, int y)
+#define VW_APRON 2
+#define VW_GENW  (VW_CHUNK + 2*VW_APRON)
+
+static uint8_t *vw_gbuf;                 // scratch: [((x*VW_GENW) + y)*vw_sz + z]
+static int      vw_gx0, vw_gy0;          // global block coords of the scratch's (0,0)
+static int      vw_gh[VW_GENW*VW_GENW];  // terrain height per scratch column
+
+// Height (top solid layer) of the untouched terrain at a global column.
+static int vw_terrainh(int x, int y)
 {
-    x = clamp(x, 0, vw_sx-1); y = clamp(y, 0, vw_sy-1);
-    return vw_hmap[x*vw_sy + y];
+    float const hills = vw_fbm(x / 64.f, y / 64.f, vw_seed, 4);
+    float const rough = vw_fbm(x / 16.f, y / 16.f, vw_seed + 7, 3);
+    int h = vw_sea - 4 + (int)(hills*hills * vw_amp * 1.4f + rough * 4.f);
+    // Lakes: where the lake noise is high the ground eases down into a basin below the water line, deepest
+    // in the middle (in hills too: a lake in a valley). None right at the spawn.
+    float const lake = vw_fbm(x / 48.f, y / 48.f, vw_seed + 31, 3);
+    float const sd = sqrtf((float)((x - vw_wsx/2)*(x - vw_wsx/2) + (y - vw_wsy/2)*(y - vw_wsy/2)));
+    float t = clamp((lake - 0.55f) / 0.08f, 0.f, 1.f) * clamp((sd - 24.f) / 10.f, 0.f, 1.f);
+    if (t > 0.f)
+    {
+        t = t*t*(3.f - 2.f*t);
+        float const bed = vw_sea - 2 - (lake - 0.55f) * 60.f;
+        h = (int)lrintf(h + (min(bed, (float)h) - h) * t);
+    }
+    return clamp(h, 6, vw_sz - 12);
+}
+
+static FORCE_INLINE bool vw_ging(int x, int y) { return (unsigned)(x - vw_gx0) < VW_GENW && (unsigned)(y - vw_gy0) < VW_GENW; }
+static FORCE_INLINE uint8_t *vw_gcol(int x, int y) { return &vw_gbuf[((size_t)(x - vw_gx0)*VW_GENW + (y - vw_gy0))*vw_sz]; }
+static FORCE_INLINE int vw_height(int x, int y) { return vw_ging(x, y) ? vw_gh[(x - vw_gx0)*VW_GENW + (y - vw_gy0)] : vw_terrainh(x, y); }
+
+static void vw_put(int x, int y, int z, uint8_t t)
+{
+    if (vw_ging(x, y) && (unsigned)z < (unsigned)vw_sz) vw_gcol(x, y)[z] = t;
+}
+
+static uint8_t vw_gget(int x, int y, int z)
+{
+    return (vw_ging(x, y) && (unsigned)z < (unsigned)vw_sz) ? vw_gcol(x, y)[z] : (uint8_t)VW_AIR;
+}
+
+static int vw_surface(int x, int y)
+{
+    uint8_t const *b = vw_gcol(x, y);
+    for (int z = vw_sz-1; z >= 0; z--)
+        if (b[z] != VW_AIR && b[z] != VW_LEAVES) return z;
+    return -1;
 }
 
 static void vw_carve(int x, int y, int z)
 {
-    if (!vw_inxy(x, y) || z < 1 || z >= vw_sz) return;
+    if (!vw_ging(x, y) || z < 1 || z >= vw_sz) return;
+    int const h = vw_height(x, y);
     // keep the spawn point and the test arch intact
-    int const dx = x - (vw_sx/2 + 3), dy = y - vw_sy/2;
-    if (dx*dx + dy*dy < 10*10 && z > vw_height(x, y) - 9) return;
-    // don't open caves up into lakes (the water would hang there until something disturbed it)
-    auto wet = [](int x, int y, int z) { return vw_inxy(x, y) && z < vw_sz && vw_iswater(vw_colblocks(x, y)[z]); };
+    int const dx = x - (vw_wsx/2 + 3), dy = y - vw_wsy/2;
+    if (dx*dx + dy*dy < 10*10 && z > h - 9) return;
+    // don't open caves up into lakes (the water would hang there until something disturbed it). The water table
+    // fills each column from its terrain height up to the sea line.
+    auto wet = [](int x, int y, int z) { return z < vw_sea && z > vw_height(x, y); };
     if (wet(x, y, z) || wet(x, y, z + 1) || wet(x - 1, y, z) || wet(x + 1, y, z) || wet(x, y - 1, z) || wet(x, y + 1, z))
         return;
-    uint8_t &b = vw_colblocks(x, y)[z];
+    uint8_t &b = vw_gcol(x, y)[z];
     if (b != VW_BEDROCK) b = VW_AIR;
 }
 
@@ -788,6 +844,7 @@ static void vw_carveslice(float cx, float cy, int floor, float r, int height)
     for (int x = (int)floorf(cx - r); x <= (int)floorf(cx + r); x++)
         for (int y = (int)floorf(cy - r); y <= (int)floorf(cy + r); y++)
         {
+            if (!vw_ging(x, y)) continue;
             float const ex = x + 0.5f - cx, ey = y + 0.5f - cy, d2 = ex*ex + ey*ey;
             if (d2 > r*r) continue;
             int const h = height + (d2 < r*r*0.3f);
@@ -796,13 +853,12 @@ static void vw_carveslice(float cx, float cy, int floor, float r, int height)
 }
 
 // A cavern: flat floor, domed roof.
-static void vw_room(vwrng_t &rng, float cx, float cy, int floor)
+static void vw_room(float cx, float cy, int floor, float rx, float ry, int hgt)
 {
-    float const rx = 4.f + rng.f()*5.f, ry = 4.f + rng.f()*5.f;
-    int const hgt = rng.range(3, 6);
     for (int x = (int)floorf(cx - rx); x <= (int)floorf(cx + rx); x++)
         for (int y = (int)floorf(cy - ry); y <= (int)floorf(cy + ry); y++)
         {
+            if (!vw_ging(x, y)) continue;
             float const ex = (x + 0.5f - cx) / rx, ey = (y + 0.5f - cy) / ry, e = ex*ex + ey*ey;
             if (e > 1.f) continue;
             int const h = 2 + (int)(hgt * sqrtf(1.f - e) + 0.5f);
@@ -810,22 +866,35 @@ static void vw_room(vwrng_t &rng, float cx, float cy, int floor)
         }
 }
 
+// Caves are seeded per VW_CAVECELL-square cell of the world. A cell's worms are walked once and kept as a list of
+// carving steps (tunnel slices and caverns) with their bounds; every chunk they reach replays the steps it overlaps.
+#define VW_CAVECELL  32
+#define VW_CAVEREACH 172  // furthest a worm carves from where it starts: 200 steps of 0.8, plus a cavern
+struct vwcaveop_t { float x, y, a, b; int16_t floor; uint8_t room, hgt; };  // tunnel: radius a; cavern: radii a, b
+struct vwworm_t { float x0, y0, x1, y1; std::vector<vwcaveop_t> ops; };
+static std::unordered_map<uint32_t, std::vector<vwworm_t>> vw_cavecells;
+
 // A wandering tunnel. Mostly level (Duke can't step up a whole block), with the odd one-block step.
 // Entrance tunnels start at the surface and stair down into the ground first.
-static void vw_worm(vwrng_t &rng, float x, float y, int floor, int len, bool entrance, float yaw = -1.f)
+static void vw_worm(std::vector<vwworm_t> &out, vwrng_t &rng, float x, float y, int floor, int len, bool entrance, float yaw = -1.f)
 {
     if (yaw < 0.f) yaw = rng.f() * 2.f * fPI;
     float dyaw = 0.f, r = 1.3f + rng.f();
+    vwworm_t w;
+    w.x0 = w.y0 = FLT_MAX; w.x1 = w.y1 = -FLT_MAX;
+    auto grow = [&](float x, float y, float rx, float ry) {
+        w.x0 = min(w.x0, x - rx - 1); w.y0 = min(w.y0, y - ry - 1); w.x1 = max(w.x1, x + rx + 1); w.y1 = max(w.y1, y + ry + 1);
+    };
     for (int i = 0; i < len; i++)
     {
         dyaw = (dyaw + (rng.f() - 0.5f) * 0.3f) * 0.85f;
         yaw += dyaw;
         x += cosf(yaw) * 0.8f;
         y += sinf(yaw) * 0.8f;
-        if (x < 1 || y < 1 || x >= vw_sx - 1 || y >= vw_sy - 1) break;
+        if (x < 1 || y < 1 || x >= vw_wsx - 1 || y >= vw_wsy - 1) break;
         r = clamp(r + (rng.f() - 0.5f) * 0.2f, 1.2f, 2.6f);
 
-        int const h = vw_height((int)x, (int)y);
+        int const h = vw_terrainh((int)x, (int)y);
         if (entrance)
         {
             if (floor > h - 16) { if (i & 1) floor--; }
@@ -839,9 +908,54 @@ static void vw_worm(vwrng_t &rng, float x, float y, int floor, int len, bool ent
         }
         floor = clamp(floor, 5, vw_sz - 5);  // never into the bedrock layers
 
-        vw_carveslice(x, y, floor, r, 3);
-        if (!entrance && rng.f() < 0.006f) vw_room(rng, x, y, floor);
+        w.ops.push_back({ x, y, r, r, (int16_t)floor, 0, 3 });
+        grow(x, y, r, r);
+        if (!entrance && rng.f() < 0.006f)
+        {
+            float const rx = 4.f + rng.f()*5.f, ry = 4.f + rng.f()*5.f;
+            int const hgt = rng.range(3, 6);
+            w.ops.push_back({ x, y, rx, ry, (int16_t)floor, 1, (uint8_t)hgt });
+            grow(x, y, rx, ry);
+        }
     }
+    if (!w.ops.empty()) out.push_back(std::move(w));
+}
+
+static std::vector<vwworm_t> const &vw_cavecell(int cx, int cy)
+{
+    uint32_t const key = ((uint32_t)(uint16_t)cx << 16) | (uint16_t)cy;
+    auto it = vw_cavecells.find(key);
+    if (it != vw_cavecells.end()) return it->second;
+    if (vw_cavecells.size() > 2048) vw_cavecells.clear();  // keep the cache bounded (the window needs ~400 cells)
+
+    std::vector<vwworm_t> worms;
+    vwrng_t rng = { vw_hash(cx, cy, vw_seed + 1234) | 1u };
+    rng.next();
+    int const bx = cx * VW_CAVECELL, by = cy * VW_CAVECELL;
+    auto count = [&](float mean) { int n = (int)mean; return n + (rng.f() < mean - n); };
+
+    // tunnels (the same density as the old whole-map generator: area * depth / 1100)
+    for (int i = 0, n = count(VW_CAVECELL*VW_CAVECELL * vw_depth / 1100.f); i < n; i++)
+    {
+        float const x = bx + rng.range(0, VW_CAVECELL - 1) + 0.5f, y = by + rng.range(0, VW_CAVECELL - 1) + 0.5f;
+        int const floor = rng.range(5, max(5, vw_terrainh((int)x, (int)y) - 8)), len = rng.range(60, 180);
+        if (x < 4 || y < 4 || x >= vw_wsx - 4 || y >= vw_wsy - 4) continue;
+        vw_worm(worms, rng, x, y, floor, len, false);
+    }
+    // entrances from the surface (area / 4000)
+    for (int i = 0, n = count(VW_CAVECELL*VW_CAVECELL / 4000.f); i < n; i++)
+    {
+        float const x = bx + rng.range(0, VW_CAVECELL - 1) + 0.5f, y = by + rng.range(0, VW_CAVECELL - 1) + 0.5f;
+        int const len = rng.range(80, 200);
+        if (x < 8 || y < 8 || x >= vw_wsx - 8 || y >= vw_wsy - 8) continue;
+        vw_worm(worms, rng, x, y, vw_terrainh((int)x, (int)y) - 1, len, true);
+    }
+    // there's always a cave mouth just ahead of the spawn point (a little to the left)
+    int const sx = vw_wsx/2 + 16, sy = vw_wsy/2 - 6;
+    if (sx >= bx && sx < bx + VW_CAVECELL && sy >= by && sy < by + VW_CAVECELL)
+        vw_worm(worms, rng, sx + 0.5f, sy + 0.5f, vw_terrainh(sx, sy) - 1, rng.range(80, 200), true, 0.f);
+
+    return vw_cavecells.emplace(key, std::move(worms)).first->second;
 }
 
 // Replace stone (and optionally dirt) along a short random walk: ore veins, gravel pockets.
@@ -849,9 +963,9 @@ static void vw_vein(vwrng_t &rng, uint8_t type, int x, int y, int z, int size, b
 {
     for (int k = 0; k < size; k++)
     {
-        if (vw_inxy(x, y) && z >= 1 && z < vw_sz)
+        if (vw_ging(x, y) && z >= 1 && z < vw_sz)
         {
-            uint8_t &b = vw_colblocks(x, y)[z];
+            uint8_t &b = vw_gcol(x, y)[z];
             if (b == VW_STONE || (anysoil && b == VW_DIRT)) b = type;
         }
         switch (rng.next() % 6)
@@ -862,35 +976,25 @@ static void vw_vein(vwrng_t &rng, uint8_t type, int x, int y, int z, int size, b
     }
 }
 
-static void vw_generate(void)
+#define VW_VEINCELL  32
+#define VW_VEINREACH 30  // longest vein walk
+
+// Build the chunk whose corner is global block (x0, y0), with its apron, in the scratch buffer.
+static void vw_genscratch(int x0, int y0)
 {
-    // Heights in layers. With the default 160-layer world: lowlands/beaches around 60-64, hills up to ~105,
-    // ~60 layers of underground below the lowlands, and the sky above.
-    int const sea   = min(64, vw_sz*2/5);              // lowland level; beaches at or below it
-    int const amp   = max(8, min(44, vw_sz - sea - 24)); // hill height range (leaves room for trees)
-    int const depth = max(1, sea / 16);                // underground volume relative to the old 64-layer world
-    vw_hmap = (int *)Xmalloc(sizeof(int) * vw_sx * vw_sy);
+    if (!vw_gbuf) vw_gbuf = (uint8_t *)Xmalloc((size_t)VW_GENW*VW_GENW*vw_sz);
+    vw_gx0 = x0 - VW_APRON;
+    vw_gy0 = y0 - VW_APRON;
+    int const sea = vw_sea, x1 = vw_gx0 + VW_GENW, y1 = vw_gy0 + VW_GENW;
 
-    for (int x = 0; x < vw_sx; x++)
-        for (int y = 0; y < vw_sy; y++)
+    // Terrain, and the water table: lakes and ponds up to layer sea-1.
+    for (int x = vw_gx0; x < x1; x++)
+        for (int y = vw_gy0; y < y1; y++)
         {
-            float const hills = vw_fbm(x / 64.f, y / 64.f, vw_seed, 4);
-            float const rough = vw_fbm(x / 16.f, y / 16.f, vw_seed + 7, 3);
-            int h = sea - 4 + (int)(hills*hills * amp * 1.4f + rough * 4.f);
-            // Lakes: where the lake noise is high the ground eases down into a basin below the water line, deepest
-            // in the middle (in hills too: a lake in a valley). None right at the spawn.
-            float const lake = vw_fbm(x / 48.f, y / 48.f, vw_seed + 31, 3);
-            float const sd = sqrtf((float)((x - vw_sx/2)*(x - vw_sx/2) + (y - vw_sy/2)*(y - vw_sy/2)));
-            float t = clamp((lake - 0.55f) / 0.08f, 0.f, 1.f) * clamp((sd - 24.f) / 10.f, 0.f, 1.f);
-            if (t > 0.f)
-            {
-                t = t*t*(3.f - 2.f*t);
-                float const bed = sea - 2 - (lake - 0.55f) * 60.f;
-                h = (int)lrintf(h + (min(bed, (float)h) - h) * t);
-            }
-            h = clamp(h, 6, vw_sz - 12);
-
-            uint8_t *b = vw_colblocks(x, y);
+            int const h = vw_terrainh(x, y);
+            vw_gh[(x - vw_gx0)*VW_GENW + (y - vw_gy0)] = h;
+            uint8_t *b = vw_gcol(x, y);
+            Bmemset(b, VW_AIR, vw_sz);
             for (int z = 0; z <= h; z++)
             {
                 uint8_t t = VW_STONE;
@@ -905,59 +1009,65 @@ static void vw_generate(void)
                 if (z == 0 || (z <= 4 && (int)(vw_hash(x * 5 + z, y, vw_seed + 17) % 5) < 5 - z)) t = VW_BEDROCK;
                 b[z] = t;
             }
-            for (int z = h + 1; z < sea; z++) b[z] = VW_WATER;  // the water table: lakes and ponds up to layer sea-1
-            vw_hmap[x*vw_sy + y] = h;
+            for (int z = h + 1; z < sea; z++) b[z] = VW_WATER;
         }
 
-    // Caves: wandering tunnels with the odd cavern, a few of them opening onto the surface.
-    vwrng_t rng = { vw_seed * 2654435761u + 12345u };
-    rng.next();
-    int const area = vw_sx * vw_sy;
-    for (int i = 0, n = max(1, area * depth / 1100); i < n; i++)
-    {
-        float const x = rng.range(4, vw_sx - 5) + 0.5f, y = rng.range(4, vw_sy - 5) + 0.5f;
-        int const h = vw_height((int)x, (int)y);
-        vw_worm(rng, x, y, rng.range(5, max(5, h - 8)), rng.range(60, 180), false);
-    }
-    for (int i = 0, n = max(1, area / 4000); i < n; i++)
-    {
-        // the first cave mouth is just ahead of the spawn point (a little to the left), so there's always one to find
-        float const x = i ? rng.range(8, vw_sx - 9) + 0.5f : vw_sx/2 + 16.5f;
-        float const y = i ? rng.range(8, vw_sy - 9) + 0.5f : vw_sy/2 - 5.5f;
-        vw_worm(rng, x, y, vw_height((int)x, (int)y) - 1, rng.range(80, 200), true, i ? -1.f : 0.f);
-    }
+    // Caves: every worm from cells near enough to reach the scratch carves the bits that land in it.
+    for (int cx = max(0, (vw_gx0 - VW_CAVEREACH) / VW_CAVECELL); cx <= (x1 + VW_CAVEREACH) / VW_CAVECELL; cx++)
+        for (int cy = max(0, (vw_gy0 - VW_CAVEREACH) / VW_CAVECELL); cy <= (y1 + VW_CAVEREACH) / VW_CAVECELL; cy++)
+        {
+            if (cx * VW_CAVECELL >= vw_wsx || cy * VW_CAVECELL >= vw_wsy) continue;
+            for (auto const &w : vw_cavecell(cx, cy))
+            {
+                if (w.x1 < vw_gx0 || w.y1 < vw_gy0 || w.x0 > x1 || w.y0 > y1) continue;
+                for (auto const &o : w.ops)
+                {
+                    if (o.x + o.a + 1 < vw_gx0 || o.y + o.b + 1 < vw_gy0 || o.x - o.a - 1 > x1 || o.y - o.b - 1 > y1) continue;
+                    if (o.room) vw_room(o.x, o.y, o.floor, o.a, o.b, o.hgt);
+                    else vw_carveslice(o.x, o.y, o.floor, o.a, o.hgt);
+                }
+            }
+        }
 
     // Lava: open cave below the lava line fills with lava (still sources; it only flows once you dig).
-    int const lavaline = max(6, sea / 6);  // ~layer 10 in the default world
-    for (int x = 0; x < vw_sx; x++)
-        for (int y = 0; y < vw_sy; y++)
+    for (int x = vw_gx0; x < x1; x++)
+        for (int y = vw_gy0; y < y1; y++)
         {
-            uint8_t *b = vw_colblocks(x, y);
-            for (int z = 5; z <= lavaline; z++)
+            uint8_t *b = vw_gcol(x, y);
+            for (int z = 5; z <= vw_lavaline; z++)
                 if (b[z] == VW_AIR) b[z] = VW_LAVA;
         }
 
-    // Ores and gravel (only replace stone, so they line cave walls rather than floating in them).
-    // Depth bands (with the default world): coal anywhere in the rock, iron in the lower two thirds,
-    // gold only in the deepest third.
-    for (int i = 0, n = area * depth / 35; i < n; i++)
-        vw_vein(rng, VW_COAL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, sea + amp/2), rng.range(5, 10), false);
-    for (int i = 0, n = area * depth / 70; i < n; i++)
-        vw_vein(rng, VW_IRON, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, sea*2/3), rng.range(4, 8), false);
-    for (int i = 0, n = area * depth / 500; i < n; i++)
-        vw_vein(rng, VW_GOLD, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, max(6, sea/3)), rng.range(3, 6), false);
-    for (int i = 0, n = area * depth / 2500; i < n; i++)
-        vw_vein(rng, VW_ATOMIC, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, max(6, sea/4)), rng.range(2, 4), false);
-    for (int i = 0, n = area * depth / 250; i < n; i++)
-        vw_vein(rng, VW_GRAVEL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, sea + 8), rng.range(15, 30), true);
+    // Ores and gravel (only replace stone, so they line cave walls rather than floating in them), seeded per cell
+    // and laid in the same order everywhere. Depth bands (with the default world): coal anywhere in the rock, iron
+    // in the lower two thirds, gold only in the deepest third.
+    for (int cx = max(0, (vw_gx0 - VW_VEINREACH) / VW_VEINCELL); cx <= (x1 + VW_VEINREACH) / VW_VEINCELL; cx++)
+        for (int cy = max(0, (vw_gy0 - VW_VEINREACH) / VW_VEINCELL); cy <= (y1 + VW_VEINREACH) / VW_VEINCELL; cy++)
+        {
+            vwrng_t rng = { vw_hash(cx, cy, vw_seed + 2345) | 1u };
+            rng.next();
+            float const area = VW_VEINCELL * VW_VEINCELL * vw_depth;
+            auto count = [&](float mean) { int n = (int)mean; return n + (rng.f() < mean - n); };
+            int const bx = cx * VW_VEINCELL, by = cy * VW_VEINCELL, c = VW_VEINCELL - 1;
+            for (int i = 0, n = count(area / 35); i < n; i++)
+                vw_vein(rng, VW_COAL, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea + vw_amp/2), rng.range(5, 10), false);
+            for (int i = 0, n = count(area / 70); i < n; i++)
+                vw_vein(rng, VW_IRON, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea*2/3), rng.range(4, 8), false);
+            for (int i = 0, n = count(area / 500); i < n; i++)
+                vw_vein(rng, VW_GOLD, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, max(6, sea/3)), rng.range(3, 6), false);
+            for (int i = 0, n = count(area / 2500); i < n; i++)
+                vw_vein(rng, VW_ATOMIC, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, max(6, sea/4)), rng.range(2, 4), false);
+            for (int i = 0, n = count(area / 250); i < n; i++)
+                vw_vein(rng, VW_GRAVEL, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea + 8), rng.range(15, 30), true);
+        }
 
-    // Trees.
-    for (int x = 3; x < vw_sx - 3; x++)
-        for (int y = 3; y < vw_sy - 3; y++)
+    // Trees (a tree's leaves reach 2 blocks, which is why the scratch has an apron of 2).
+    for (int x = max(vw_gx0, 3); x < min(x1, vw_wsx - 3); x++)
+        for (int y = max(vw_gy0, 3); y < min(y1, vw_wsy - 3); y++)
         {
             if (vw_hash(x, y, vw_seed + 99) % 97) continue;
             int const s = vw_surface(x, y);
-            if (s < 0 || vw_colblocks(x, y)[s] != VW_GRASS) continue;
+            if (s < 0 || vw_gcol(x, y)[s] != VW_GRASS) continue;
             int const trunk = 4 + vw_hash(x, y, vw_seed + 5) % 3;
             for (int z = 1; z <= trunk; z++) vw_put(x, y, s + z, VW_WOOD);
             for (int dz = trunk - 2; dz <= trunk + 1; dz++)
@@ -965,20 +1075,18 @@ static void vw_generate(void)
                 int const r = (dz > trunk - 1) ? 1 : 2;
                 for (int dx = -r; dx <= r; dx++)
                     for (int dy = -r; dy <= r; dy++)
-                        if ((dx || dy || dz > trunk) && abs(dx) + abs(dy) <= r + 1 && voxworld_get(x+dx, y+dy, s+dz) == VW_AIR)
+                        if ((dx || dy || dz > trunk) && abs(dx) + abs(dy) <= r + 1 && vw_gget(x+dx, y+dy, s+dz) == VW_AIR)
                             vw_put(x + dx, y + dy, s + dz, VW_LEAVES);
             }
         }
 
     // Plants on open grass: mostly tall grass, thicker in meadow patches; the odd sparse clump of flowers of one colour.
-    int ngrass = 0, nplants = 0, nflowers = 0;
-    for (int x = 0; x < vw_sx; x++)
-        for (int y = 0; y < vw_sy; y++)
+    for (int x = vw_gx0; x < x1; x++)
+        for (int y = vw_gy0; y < y1; y++)
         {
-            uint8_t *b = vw_colblocks(x, y);
+            uint8_t *b = vw_gcol(x, y);
             int const s = vw_height(x, y);
             if (s + 1 >= vw_sz || b[s] != VW_GRASS || b[s+1] != VW_AIR) continue;
-            ngrass++;
             uint32_t const h = vw_hash(x, y, vw_seed + 61) % 1000;
             float const meadow = vw_fbm(x / 24.f, y / 24.f, vw_seed + 63, 2);
             float const flowers = vw_fbm(x / 10.f, y / 10.f, vw_seed + 67, 2);
@@ -986,42 +1094,34 @@ static void vw_generate(void)
                 b[s+1] = (vw_fbm(x / 40.f, y / 40.f, vw_seed + 71, 1) > 0.5f) ? VW_FLOWER_RED : VW_FLOWER_YELLOW;
             else if (h < (int)(150 + clamp((meadow - 0.4f) * 1500.f, 0.f, 450.f)))
                 b[s+1] = VW_TALLGRASS;
-            nplants += b[s+1] != VW_AIR;
-            nflowers += b[s+1] == VW_FLOWER_RED || b[s+1] == VW_FLOWER_YELLOW;
         }
-    LOG_F(INFO, "voxworld: plants on %d of %d open grass blocks (%d flowers)", nplants, ngrass, nflowers);
 
-    // A test structure near the centre: a planks arch with a cobble floor, to show overhangs.
+    // A test structure by the spawn: a planks arch with a cobble floor, to show overhangs.
     {
-        int const cx = vw_sx/2 + 6, cy = vw_sy/2;
-        int const s = vw_surface(cx, cy) + 1;
-        for (int dx = -4; dx <= 4; dx++)
+        int const cx = vw_wsx/2 + 6, cy = vw_wsy/2;
+        if (cx + 4 >= vw_gx0 && cx - 4 < x1 && cy + 7 >= vw_gy0 && cy - 1 < y1)
+        {
+            int const s = vw_terrainh(cx, cy) + 1;
+            for (int dx = -4; dx <= 4; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    vw_put(cx + dx, cy + dy, s - 1, VW_COBBLE);
+                    for (int z = s; z < s + 6; z++) vw_put(cx + dx, cy + dy, z, VW_AIR);
+                    vw_put(cx + dx, cy + dy, s + 4, VW_PLANKS);
+                    if (abs(dx) == 4) for (int z = s; z < s + 4; z++) vw_put(cx + dx, cy + dy, z, VW_PLANKS);
+                }
+            // The middle of the end wall facing the spawn is gravel with sand on top: shoot it to see blocks fall.
             for (int dy = -1; dy <= 1; dy++)
             {
-                vw_put(cx + dx, cy + dy, s - 1, VW_COBBLE);
-                for (int z = s; z < s + 6; z++) vw_put(cx + dx, cy + dy, z, VW_AIR);
-                vw_put(cx + dx, cy + dy, s + 4, VW_PLANKS);
-                if (abs(dx) == 4) for (int z = s; z < s + 4; z++) vw_put(cx + dx, cy + dy, z, VW_PLANKS);
+                for (int z = s; z <= s + 4; z++) vw_put(cx - 4, cy + dy, z, VW_GRAVEL);
+                for (int z = s + 5; z <= s + 6; z++) vw_put(cx - 4, cy + dy, z, VW_SAND);
             }
-        // The middle of the end wall facing the spawn is gravel with sand on top: shoot it to see blocks fall.
-        // (the full width of the wall, so it is right under the spawn crosshair)
-        for (int dy = -1; dy <= 1; dy++)
-        {
-            for (int z = s; z <= s + 4; z++) vw_put(cx - 4, cy + dy, z, VW_GRAVEL);
-            for (int z = s + 5; z <= s + 6; z++) vw_put(cx - 4, cy + dy, z, VW_SAND);
+            // a floating slab to look up at
+            for (int dx = -2; dx <= 2; dx++)
+                for (int dy = 4; dy <= 7; dy++)
+                    vw_put(cx + dx, cy + dy, s + 3, VW_STONE);
         }
-        // a floating slab to look up at
-        for (int dx = -2; dx <= 2; dx++)
-            for (int dy = 4; dy <= 7; dy++)
-                vw_put(cx + dx, cy + dy, s + 3, VW_STONE);
     }
-
-    for (int x = 0; x < vw_sx; x++)
-        for (int y = 0; y < vw_sy; y++)
-            vw_rebuildcolumn(x, y);
-
-    DO_FREE_AND_NULL(vw_hmap);
-    vw_computelight();
 }
 
 // Highest walkable surface z (Build coords) at a world position, or INT32_MAX if none.
@@ -1034,6 +1134,9 @@ static int32_t vw_groundz(int32_t x, int32_t y)
     if (!c->nsruns) return INT32_MAX;
     return vw_layertop(c->sruns[c->nsruns-1].z1);
 }
+
+static void vw_loadchunk(int lcx, int lcy, bool light);
+static std::unordered_map<uint32_t, std::vector<uint8_t>> vw_saved;  // see Streaming
 
 void voxworld_onmapload(vec3_t *dapos)
 {
@@ -1053,28 +1156,57 @@ void voxworld_onmapload(vec3_t *dapos)
     }
 
     vw_sect = 0;
-    vw_x0   = minx;
-    vw_y0   = miny;
-    vw_sx   = clamp((maxx - minx) / VW_BLOCKXY, 1, 1024);
-    vw_sy   = clamp((maxy - miny) / VW_BLOCKXY, 1, 1024);
+    vw_wsx  = clamp((maxx - minx) / VW_BLOCKXY, VW_CHUNK, 4096);
+    vw_wsy  = clamp((maxy - miny) / VW_BLOCKXY, VW_CHUNK, 4096);
+    vw_sx   = min(VW_WINDOW, vw_wsx / VW_CHUNK * VW_CHUNK);
+    vw_sy   = min(VW_WINDOW, vw_wsy / VW_CHUNK * VW_CHUNK);
+    vw_ncx  = vw_sx / VW_CHUNK;
+    vw_ncy  = vw_sy / VW_CHUNK;
     vw_sz   = clamp((sec.floorz - sec.ceilingz) / VW_BLOCKZ - 2, 8, 255);
     vw_zbot = sec.floorz;
     vw_seed = (uint16_t)sec.hitag;
+    vw_wx0  = minx;
+    vw_wy0  = miny;
+
+    // Heights in layers. With the default 160-layer world: lowlands/beaches around 60-64, hills up to ~105,
+    // ~60 layers of underground below the lowlands, and the sky above.
+    vw_sea      = min(64, vw_sz*2/5);                    // lowland level; beaches at or below it
+    vw_amp      = max(8, min(44, vw_sz - vw_sea - 24));  // hill height range (leaves room for trees)
+    vw_depth    = max(1, vw_sea / 16);                   // underground volume relative to the old 64-layer world
+    vw_lavaline = max(6, vw_sea / 6);                    // ~layer 10 in the default world
+
+    // The window starts centred on the player's start (whole chunks, inside the world).
+    int const sbx = dapos ? (dapos->x - minx) / VW_BLOCKXY : vw_wsx / 2, sby = dapos ? (dapos->y - miny) / VW_BLOCKXY : vw_wsy / 2;
+    vw_ox = clamp((sbx - vw_sx/2) / VW_CHUNK * VW_CHUNK, 0, (vw_wsx - vw_sx) / VW_CHUNK * VW_CHUNK);
+    vw_oy = clamp((sby - vw_sy/2) / VW_CHUNK * VW_CHUNK, 0, (vw_wsy - vw_sy) / VW_CHUNK * VW_CHUNK);
+    vw_x0 = vw_wx0 + vw_ox * VW_BLOCKXY;
+    vw_y0 = vw_wy0 + vw_oy * VW_BLOCKXY;
 
     Xfree(vw_blocks);
     Xfree(vw_cols);
+    Xfree(vw_cready);
+    Xfree(vw_cdirty);
     DO_FREE_AND_NULL(vw_dmg);
     DO_FREE_AND_NULL(vw_ltint);
+    DO_FREE_AND_NULL(vw_gbuf);
+    vw_saved.clear();
+    vw_cavecells.clear();
     vw_nfallers = 0;
     vw_nfluidq[0] = vw_nfluidq[1] = 0;
     vw_blocks = (uint8_t *)Xcalloc((size_t)vw_sx*vw_sy*vw_sz, 1);
     vw_cols   = (vwcolumn_t *)Xcalloc((size_t)vw_sx*vw_sy, sizeof(vwcolumn_t));
+    vw_cready = (uint8_t *)Xcalloc(vw_ncx*vw_ncy, 1);
+    vw_cdirty = (uint8_t *)Xcalloc(vw_ncx*vw_ncy, 1);
 
     vw_updatelightshades();
-    vw_active = true;  // generation uses voxworld_get
+    vw_active = true;
     double const t0 = timerGetFractionalTicks();
-    vw_generate();
-    LOG_F(INFO, "voxworld: %dx%dx%d blocks, seed %u, generated in %.1f ms", vw_sx, vw_sy, vw_sz, vw_seed, timerGetFractionalTicks() - t0);
+    for (int cx = 0; cx < vw_ncx; cx++)
+        for (int cy = 0; cy < vw_ncy; cy++)
+            vw_loadchunk(cx, cy, false);
+    vw_computelight();
+    LOG_F(INFO, "voxworld: world %dx%dx%d blocks, window %dx%d at %d,%d, seed %u, generated in %.1f ms", vw_wsx, vw_wsy, vw_sz,
+          vw_sx, vw_sy, vw_ox, vw_oy, vw_seed, timerGetFractionalTicks() - t0);
 
     // Stand everything that starts in the world on the ground.
     for (int i = 0; i < MAXSPRITES; i++)
@@ -2538,8 +2670,325 @@ static int osdcmd_voxdump(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// Streaming. The window follows the player a chunk at a time: when they're more than a chunk and a half from its
+// centre it slides over (the arrays shift in memory), the chunks that leave are saved if they were changed, and the
+// chunks that come in start as solid placeholders that get generated (or restored) a few per tic, nearest first.
+// With the default view distance that all happens out of sight.
+//////////////////////////////////////////////////////////////////////////////
+
+static FORCE_INLINE uint32_t vw_chunkkey(int gcx, int gcy) { return ((uint32_t)gcx << 16) | (uint32_t)gcy; }
+
+// Saved chunks are run-length coded: (count, type) pairs, column after column.
+static void vw_savechunk(int lcx, int lcy)
+{
+    std::vector<uint8_t> out;
+    out.reserve(VW_CHUNK*VW_CHUNK*16);
+    for (int x = lcx*VW_CHUNK; x < (lcx+1)*VW_CHUNK; x++)
+        for (int y = lcy*VW_CHUNK; y < (lcy+1)*VW_CHUNK; y++)
+        {
+            uint8_t const *b = vw_colblocks(x, y);
+            for (int z = 0; z < vw_sz;)
+            {
+                int n = 1;
+                while (z + n < vw_sz && n < 255 && b[z+n] == b[z]) n++;
+                out.push_back((uint8_t)n);
+                out.push_back(b[z]);
+                z += n;
+            }
+        }
+    vw_saved[vw_chunkkey((vw_ox / VW_CHUNK) + lcx, (vw_oy / VW_CHUNK) + lcy)] = std::move(out);
+}
+
+static bool vw_restorechunk(int lcx, int lcy)
+{
+    auto it = vw_saved.find(vw_chunkkey((vw_ox / VW_CHUNK) + lcx, (vw_oy / VW_CHUNK) + lcy));
+    if (it == vw_saved.end()) return false;
+    uint8_t const *p = it->second.data();
+    for (int x = lcx*VW_CHUNK; x < (lcx+1)*VW_CHUNK; x++)
+        for (int y = lcy*VW_CHUNK; y < (lcy+1)*VW_CHUNK; y++)
+        {
+            uint8_t *b = vw_colblocks(x, y);
+            for (int z = 0; z < vw_sz; p += 2)
+            {
+                Bmemset(b + z, p[1], p[0]);
+                z += p[0];
+            }
+        }
+    return true;
+}
+
+static int vw_skyfloor(int bx, int by)
+{
+    if (!vw_inxy(bx, by)) return 0;
+    vwcolumn_t const *c = vw_col(bx, by);
+    return max(c->nruns ? c->runs[c->nruns-1].z1 : 0, c->nwruns ? c->wruns[c->nwruns-1].z1 : 0);
+}
+
+// Light a freshly loaded chunk: its own sky and emitters, plus whatever light comes in from loaded neighbours (and
+// goes out to them: flooding only ever raises light).
+static void vw_lightchunk(int lcx, int lcy)
+{
+    if (!vw_light) return;
+    int const x0 = lcx*VW_CHUNK, y0 = lcy*VW_CHUNK, x1 = x0 + VW_CHUNK, y1 = y0 + VW_CHUNK;
+    for (int x = x0; x < x1; x++)
+        for (int y = y0; y < y1; y++)
+        {
+            size_t const base = ((size_t)x*vw_sy + y)*vw_sz;
+            Bmemset(&vw_light[base], 0, vw_sz);
+            Bmemset(&vw_ltint[base], 0, vw_sz);
+            for (int z = vw_skyfloor(x, y); z < vw_sz; z++) vw_light[base + z] = VW_LIGHTMAX;
+        }
+
+    for (int ch = 0; ch < 2; ch++)
+    {
+        size_t n = 0;
+        for (int x = x0 - 1; x <= x1; x++)
+            for (int y = y0 - 1; y <= y1; y++)
+            {
+                if (!vw_inxy(x, y)) continue;
+                bool const inside = x >= x0 && x < x1 && y >= y0 && y < y1;
+                if (inside)
+                {
+                    if (ch == 0)
+                    {
+                        // as vw_computelight: sky cells beside non-sky ones, and daylight into a water surface
+                        int const f = vw_skyfloor(x, y);
+                        int const top = max(max(vw_skyfloor(x-1, y), vw_skyfloor(x+1, y)), max(vw_skyfloor(x, y-1), vw_skyfloor(x, y+1)));
+                        for (int z = f; z < min(top, vw_sz); z++) vw_lightpush(n, vw_lidx(x, y, z));
+                        if (f > 0 && f < vw_sz && vw_iswater(vw_colblocks(x, y)[f-1])) vw_lightpush(n, vw_lidx(x, y, f));
+                    }
+                    else
+                    {
+                        uint8_t const *b = vw_colblocks(x, y);
+                        for (int z = 0; z < vw_sz; z++)
+                            if (int const e = vw_emit(b[z]))
+                            {
+                                uint32_t const i = vw_lidx(x, y, z);
+                                vw_lset(i, 1, e);
+                                vw_ltint[i] = vw_emittint(b[z]);
+                                vw_lightpush(n, i);
+                            }
+                    }
+                }
+                else if (vw_cready[vw_chunkof(x, y)])
+                {
+                    // a loaded neighbour's light spreads in
+                    for (int z = 0; z < vw_sz; z++)
+                    {
+                        uint32_t const i = vw_lidx(x, y, z);
+                        if (vw_lget(i, ch) > 1) vw_lightpush(n, i);
+                    }
+                }
+            }
+        vw_lightflood(n, ch);
+    }
+}
+
+// Placeholder for a chunk not generated yet: solid bedrock (nothing can get in, light stays out), unlit.
+static void vw_placeholder(int lcx, int lcy)
+{
+    for (int x = lcx*VW_CHUNK; x < (lcx+1)*VW_CHUNK; x++)
+        for (int y = lcy*VW_CHUNK; y < (lcy+1)*VW_CHUNK; y++)
+        {
+            size_t const base = ((size_t)x*vw_sy + y)*vw_sz;
+            Bmemset(&vw_blocks[base], VW_BEDROCK, vw_sz);
+            if (vw_light) Bmemset(&vw_light[base], 0, vw_sz);
+            if (vw_ltint) Bmemset(&vw_ltint[base], 0, vw_sz);
+            if (vw_dmg) Bmemset(&vw_dmg[base], 0, vw_sz);
+            vw_rebuildcolumn(x, y);
+        }
+    vw_cready[lcx*vw_ncy + lcy] = 0;
+    vw_cdirty[lcx*vw_ncy + lcy] = 0;
+}
+
+// Generate (or restore, if it was changed in play) chunk (lcx, lcy) of the window.
+static void vw_loadchunk(int lcx, int lcy, bool light)
+{
+    bool const restored = vw_restorechunk(lcx, lcy);
+    if (!restored)
+    {
+        int const gx0 = vw_ox + lcx*VW_CHUNK, gy0 = vw_oy + lcy*VW_CHUNK;
+        vw_genscratch(gx0, gy0);
+        for (int x = 0; x < VW_CHUNK; x++)
+            for (int y = 0; y < VW_CHUNK; y++)
+                Bmemcpy(vw_colblocks(lcx*VW_CHUNK + x, lcy*VW_CHUNK + y), vw_gcol(gx0 + x, gy0 + y), vw_sz);
+    }
+    for (int x = lcx*VW_CHUNK; x < (lcx+1)*VW_CHUNK; x++)
+        for (int y = lcy*VW_CHUNK; y < (lcy+1)*VW_CHUNK; y++)
+        {
+            vw_rebuildcolumn(x, y);
+            if (vw_dmg) Bmemset(&vw_dmg[((size_t)x*vw_sy + y)*vw_sz], 0, vw_sz);
+        }
+    vw_cready[lcx*vw_ncy + lcy] = 1;
+    vw_cdirty[lcx*vw_ncy + lcy] = 0;
+    if (light) vw_lightchunk(lcx, lcy);
+
+    // A restored chunk may have been left mid-flow: let any fluid with somewhere to go carry on.
+    if (restored)
+        for (int x = lcx*VW_CHUNK; x < (lcx+1)*VW_CHUNK; x++)
+            for (int y = lcy*VW_CHUNK; y < (lcy+1)*VW_CHUNK; y++)
+            {
+                uint8_t const *b = vw_colblocks(x, y);
+                for (int z = 1; z < vw_sz; z++)
+                {
+                    if (!(vw_flags(b[z]) & VW_BF_FLUID)) continue;
+                    auto open = [](int x, int y, int z) { return vw_inxy(x, y) && vw_isopen(vw_colblocks(x, y)[z]); };
+                    if (vw_isopen(b[z-1]) || open(x-1, y, z) || open(x+1, y, z) || open(x, y-1, z) || open(x, y+1, z))
+                        vw_fluidqueue(x, y, z);
+                }
+            }
+}
+
+// Shift a w x h grid of columns (colbytes each) so the content at (x, y) moves to (x - dx, y - dy).
+static void vw_shiftgrid(void *base, size_t colbytes, int w, int h, int dx, int dy)
+{
+    if (abs(dx) >= w || abs(dy) >= h) return;  // all of it moved out (the caller refills everything)
+    uint8_t *const a = (uint8_t *)base;
+    size_t const row = colbytes * h;
+    if (dx > 0) Bmemmove(a, a + dx*row, (w - dx)*row);
+    else if (dx < 0) Bmemmove(a - dx*row, a, (w + dx)*row);
+    if (dy)
+        for (int x = 0; x < w; x++)
+        {
+            uint8_t *const r = a + x*row;
+            if (dy > 0) Bmemmove(r, r + dy*colbytes, (h - dy)*colbytes);
+            else Bmemmove(r - dy*colbytes, r, (h + dy)*colbytes);
+        }
+}
+
+// Slide the window by (kx, ky) chunks.
+static void vw_movewindow(int kx, int ky)
+{
+    // save the changed chunks that are leaving
+    for (int cx = 0; cx < vw_ncx; cx++)
+        for (int cy = 0; cy < vw_ncy; cy++)
+        {
+            int const nx = cx - kx, ny = cy - ky;
+            if ((nx < 0 || nx >= vw_ncx || ny < 0 || ny >= vw_ncy) && vw_cready[cx*vw_ncy + cy] && vw_cdirty[cx*vw_ncy + cy])
+                vw_savechunk(cx, cy);
+        }
+
+    int const dx = kx*VW_CHUNK, dy = ky*VW_CHUNK;
+    size_t const sz = vw_sz;
+    vw_shiftgrid(vw_blocks, sz, vw_sx, vw_sy, dx, dy);
+    vw_shiftgrid(vw_cols, sizeof(vwcolumn_t), vw_sx, vw_sy, dx, dy);
+    if (vw_light) vw_shiftgrid(vw_light, sz, vw_sx, vw_sy, dx, dy);
+    if (vw_ltint) vw_shiftgrid(vw_ltint, sz, vw_sx, vw_sy, dx, dy);
+    if (vw_dmg) vw_shiftgrid(vw_dmg, sz, vw_sx, vw_sy, dx, dy);
+    vw_shiftgrid(vw_cready, 1, vw_ncx, vw_ncy, kx, ky);
+    vw_shiftgrid(vw_cdirty, 1, vw_ncx, vw_ncy, kx, ky);
+
+    vw_ox += dx; vw_oy += dy;
+    vw_x0 = vw_wx0 + vw_ox * VW_BLOCKXY;
+    vw_y0 = vw_wy0 + vw_oy * VW_BLOCKXY;
+
+    // the chunks that came in
+    for (int cx = 0; cx < vw_ncx; cx++)
+        for (int cy = 0; cy < vw_ncy; cy++)
+        {
+            int const ox = cx + kx, oy = cy + ky;
+            if (ox < 0 || ox >= vw_ncx || oy < 0 || oy >= vw_ncy) vw_placeholder(cx, cy);
+        }
+
+    // things that remember window block coordinates
+    for (int i = 0; i < vw_nfallers; i++)
+    {
+        vwfaller_t &f = vw_fallers[i];
+        f.x -= dx; f.y -= dy;
+        if (!vw_inxy(f.x, f.y)) { f = vw_fallers[--vw_nfallers]; i--; }
+    }
+    for (int k = 0; k < 2; k++)
+    {
+        size_t m = 0;
+        for (size_t i = 0; i < vw_nfluidq[k]; i++)
+        {
+            uint32_t const idx = vw_fluidq[k][i];
+            int const bz = idx % vw_sz, col = idx / vw_sz, bx = col / vw_sy - dx, by = col % vw_sy - dy;
+            if (vw_inxy(bx, by)) vw_fluidq[k][m++] = vw_lidx(bx, by, bz);
+        }
+        vw_nfluidq[k] = m;
+    }
+    vw_lasthit.valid = false;
+    vw_nshotplants = 0;
+}
+
+void voxworld_stream(int32_t x, int32_t y)
+{
+    if (!vw_active || (vw_sx >= vw_wsx && vw_sy >= vw_wsy)) return;  // the whole world fits
+    double const t0 = timerGetFractionalTicks();
+
+    // Keep the player within a chunk and a half of the window's centre.
+    int const gbx = (x - vw_wx0) / VW_BLOCKXY, gby = (y - vw_wy0) / VW_BLOCKXY;
+    int const ddx = gbx - (vw_ox + vw_sx/2), ddy = gby - (vw_oy + vw_sy/2);
+    int kx = abs(ddx) > VW_CHUNK*3/2 ? ddx / VW_CHUNK : 0;
+    int ky = abs(ddy) > VW_CHUNK*3/2 ? ddy / VW_CHUNK : 0;
+    kx = clamp(kx, -vw_ox / VW_CHUNK, (vw_wsx - vw_sx) / VW_CHUNK - vw_ox / VW_CHUNK);
+    ky = clamp(ky, -vw_oy / VW_CHUNK, (vw_wsy - vw_sy) / VW_CHUNK - vw_oy / VW_CHUNK);
+    double tmove = 0;
+    if (kx || ky)
+    {
+        vw_movewindow(kx, ky);
+        tmove = timerGetFractionalTicks() - t0;
+    }
+
+    // Generate waiting chunks: right away for any close to the player (after a teleport, say), then the nearest
+    // ones first within a small time budget.
+    int made = 0;
+    int const pcx = (gbx - vw_ox) / VW_CHUNK, pcy = (gby - vw_oy) / VW_CHUNK;
+    for (int cx = max(0, pcx - 2); cx <= min(vw_ncx - 1, pcx + 2); cx++)
+        for (int cy = max(0, pcy - 2); cy <= min(vw_ncy - 1, pcy + 2); cy++)
+            if (!vw_cready[cx*vw_ncy + cy]) { vw_loadchunk(cx, cy, true); made++; }
+    for (; made < 8; made++)
+    {
+        int best = -1, bestd = INT_MAX;
+        for (int cx = 0; cx < vw_ncx; cx++)
+            for (int cy = 0; cy < vw_ncy; cy++)
+                if (!vw_cready[cx*vw_ncy + cy])
+                {
+                    int const d = (cx - pcx)*(cx - pcx) + (cy - pcy)*(cy - pcy);
+                    if (d < bestd) { bestd = d; best = cx*vw_ncy + cy; }
+                }
+        if (best < 0) break;
+        vw_loadchunk(best / vw_ncy, best % vw_ncy, true);
+        if (timerGetFractionalTicks() - t0 > 4.0) { made++; break; }
+    }
+
+    if (vw_stats && (kx || ky || made))
+        LOG_F(INFO, "voxworld: stream: moved %d,%d chunks (%.2f ms), made %d chunks, %.2f ms in all; %d saved chunks",
+              kx, ky, tmove, made, timerGetFractionalTicks() - t0, (int)vw_saved.size());
+}
+
+// Dev check: does the light built up chunk by chunk match lighting the whole window from scratch?
+static int osdcmd_voxlightcheck(osdcmdptr_t UNUSED(parm))
+{
+    if (!vw_active || !vw_light) return OSDCMD_OK;
+    size_t const total = (size_t)vw_sx*vw_sy*vw_sz;
+    uint8_t *const was = (uint8_t *)Xmalloc(total);
+    Bmemcpy(was, vw_light, total);
+    vw_computelight();
+    size_t diff[2] = {}, cells = 0;
+    int worst = 0;
+    for (size_t i = 0; i < total; i++)
+    {
+        int const col = (int)(i / vw_sz), bx = col / vw_sy, by = col % vw_sy;
+        if (!vw_cready[vw_chunkof(bx, by)] || !vw_lightpass(vw_blocks[i])) continue;
+        cells++;
+        for (int ch = 0; ch < 2; ch++)
+        {
+            int const a = ch ? was[i] >> 4 : was[i] & 15, b = vw_lget((uint32_t)i, ch);
+            if (a != b) { diff[ch]++; worst = max(worst, abs(a - b)); }
+        }
+    }
+    Xfree(was);
+    OSD_Printf("voxworld: lightcheck: %d of %d open cells differ in sky light, %d in block light (worst by %d); now relit\n",
+               (int)diff[0], (int)cells, (int)diff[1], worst);
+    return OSDCMD_OK;
+}
+
 static void vw_registerosd(void)
 {
+    OSD_RegisterFunction("r_voxlightcheck", "r_voxlightcheck: dev - compare streamed lighting with a full relight", osdcmd_voxlightcheck);
     static bool done;
     if (done) return;
     done = true;

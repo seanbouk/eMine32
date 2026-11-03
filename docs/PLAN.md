@@ -22,7 +22,8 @@ Engine first: blocks + performance + still feeling like a sprite-based Build sho
 3. Terrain generation (noise heightmap, caves), chunk streaming. (**caves first pass done**: tunnels + caverns,
    ores, skylight lighting with a "lantern" falloff; falling sand/gravel that crushes; 160-layer world with a lumpy bedrock floor; block light with coloured tints; lava (glows, flows, burns,
    floods the deepest caves); water (see-through, lakes, swimming, flows; lava + water make obsidian/cobble/stone);
-   decoration plants (tall grass, flowers) as billboards; next: streaming)
+   decoration plants (tall grass, flowers) as billboards; streaming: a 2032x2032-block world through a 256-block window
+   generated a chunk at a time)
 4. Mining: **done** - weapons (incl. kick) chip blocks, explosions blast craters, Duke-style debris; play-tested. No collecting
    or placing (by design: Duke just destroys things).
 5. Art pass: our own palette, block textures, sprolygon monsters, HUD; remove all Duke data (see PRELAUNCH-CHECKLIST).

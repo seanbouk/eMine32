@@ -222,7 +222,7 @@ def write_textures():
     open(os.path.join(ROOT, 'emine32.def'), 'w').write('\n'.join(lines) + '\n')
 
 # ---------------------------------------------------------------- map (Build v7)
-def write_map(size_blocks=256, height_blocks=160, seed=1234):
+def write_map(size_blocks=2032, height_blocks=160, seed=1234):
     half = size_blocks * 512 // 2
     floorz = 0
     ceilz = floorz - (height_blocks + 2) * 8192
