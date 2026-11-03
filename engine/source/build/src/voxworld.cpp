@@ -1303,14 +1303,17 @@ static __attribute__((noinline)) void vw_drawwatercell(vwcolumn_t const *c, uint
             }
         }
 
-        // Top (the surface, seen from above) and bottom (seen from below, only over open air).
+        // Top (the surface, seen from above, or from below when the camera is under water and there's air over it)
+        // and bottom (seen from below, only over open air).
         for (int face = 0; face < 2; face++)
         {
             float const zf = (float)vw_layertop(face ? r.z0 : r.z1);
-            if (face == 0 ? !(zf > vw_cz) : !(zf < vw_cz && r.z0 > 0 && cb[r.z0-1] == VW_AIR)) continue;
+            bool const under = zf < vw_cz;  // the face is above the eye: seen from below
+            if (face == 0 ? !(!under || (vw_camwater && r.z1 < vw_sz && cb[r.z1] == VW_AIR))
+                          : !(under && r.z0 > 0 && cb[r.z0-1] == VW_AIR)) continue;
             float const hz = (zf - vw_cz) * vw_ky;
-            int const a = max(vw_rowof(vw_horiz + hz / (face ? dclip : dout)), 0);
-            int const b = min(vw_rowof(vw_horiz + hz / (face ? dout : dclip)), ydim);
+            int const a = max(vw_rowof(vw_horiz + hz / (under ? dclip : dout)), 0);
+            int const b = min(vw_rowof(vw_horiz + hz / (under ? dout : dclip)), ydim);
             if (a >= b) continue;
             int ftint;
             int const fl = vw_lightshade(gx, gy, face ? r.z0 - 1 : r.z1, &ftint);
@@ -1326,7 +1329,7 @@ static __attribute__((noinline)) void vw_drawwatercell(vwcolumn_t const *c, uint
                 oc = pal0[(sh << 8) + tex[u*VW_TEXSIZE + v]];
                 oz = d;
             });
-            murky(a, b, dout);
+            if (face || !under) murky(a, b, dout);  // from below, the rows go on up into the air above
         }
     }
 }
@@ -1577,8 +1580,10 @@ next_cell:
     if (vw_camwater)
     {
         // under water: clear close up, fogging into the water's colour further away
+        // under water: clear close up, fogging into the water's colour further away. The surface seen from
+        // below (the only water face drawn from inside) shows over what's above it, then fogs by its own distance.
         for (int y = 0; y < ydim; y++)
-            col[y] = vw_uwfog(col[y], zc[y]);
+            col[y] = wz[y] < zc[y] ? vw_uwfog(vw_waterblend(wcol[y], col[y], VW_WATERCLEAR), wz[y]) : vw_uwfog(col[y], zc[y]);
     }
     else
     {
