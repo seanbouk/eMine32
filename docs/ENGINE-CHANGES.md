@@ -70,9 +70,9 @@ ahead of the spawn), ore veins (coal, iron, gold deeper) and gravel pockets, tre
 Lighting: Minecraft-style skylight 0..15 per air cell (full light falls straight down, otherwise -1 per block),
 flood-filled at load, spread incrementally when a cell opens and removed-then-reflooded when one fills (Minecraft's
 two-pass removal). A second channel, block light, comes from glowing blocks (`emit`/`tint` in `vw_blockdefs`; so far only the placeholder
-atomic ore, green) and carries the emitter's colour. Coloured light draws through tinted shade tables built at startup
-from Build's own (`palookup[0]`): each shaded colour is moved part way towards itself multiplied by the light's colour
-(three strengths, stronger near the source) and matched back to the palette. Sprites without their own palette are
+atomic ore, green) and carries the emitter's colour. Coloured light is additive: the surface is shaded by its ordinary
+(sky/lantern) light, then a tinted shade table built from Build's own (`palookup[0]`) adds the texel's unlit colour times
+the light's colour (five strengths, stronger near the source) and matches the result back to the palette. Sprites without their own palette are
 tinted too. Each face is shaded by the air cell in front of it, sprites by the cell they stand in. Missing light becomes
 extra Build shade (`r_voxdark`, default 20) that fades in with distance (`r_voxlantern`, default 6 blocks), so nearby
 walls stay readable in the dark, like a dark Doom/Duke room.

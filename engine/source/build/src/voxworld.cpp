@@ -142,7 +142,8 @@ static FORCE_INLINE int  vw_lget(uint32_t idx, int ch) { return (vw_light[idx] >
 static FORCE_INLINE void vw_lset(uint32_t idx, int ch, int l) { vw_light[idx] = (uint8_t)((vw_light[idx] & (ch ? 0x0F : 0xF0)) | (l << (ch*4))); }
 static FORCE_INLINE uint32_t vw_lidx(int bx, int by, int bz) { return (uint32_t)(((size_t)bx*vw_sy + by)*vw_sz + bz); }
 
-// Light at a cell: the brighter channel, plus the tint if block light is what's lighting it.
+// Light at a cell, for shading, plus *tint: coloured block light to add on top (colour * 8 + strength 1..5).
+// Coloured light doesn't set the shade: the surface is shaded by its ordinary light and the colour is added to it.
 static FORCE_INLINE int vw_lightat(int bx, int by, int bz, int *tint)
 {
     *tint = 0;
@@ -153,9 +154,12 @@ static FORCE_INLINE int vw_lightat(int bx, int by, int bz, int *tint)
     int const v = vw_light[idx], sky = v & 15, blk = v >> 4;
     if (blk > sky)
     {
-        // tint code: colour * 4 + strength (1..3, stronger nearer the source)
-        if (int const t = vw_ltint[idx]) *tint = t*4 + (blk >= 11 ? 3 : blk >= 6 ? 2 : 1);
-        return blk;
+        if (int const t = vw_ltint[idx])
+        {
+            *tint = t*8 + (blk + 2) / 3;  // strength 1..5, stronger nearer the source
+            return sky;
+        }
+        return blk;  // uncoloured block light just lights
     }
     return sky;
 }
@@ -407,9 +411,9 @@ int voxworld_lightshade(int32_t x, int32_t y, int32_t z)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// Coloured light: a shade table per tint, built from Build's normal one (palookup[0]) by multiplying each shaded
-// colour by the light's colour and taking the nearest palette entry. The look is a saturated multiply, as Ion
-// Fury does for coloured light in the classic renderer.
+// Coloured light: shade tables per light colour and strength, built from Build's normal one (palookup[0]). A
+// surface lit by coloured light is shaded by its ordinary (sky/lantern) light as usual, and the table then adds
+// the light on top: the colour brightens and takes on the light's hue (see vw_buildtints).
 //////////////////////////////////////////////////////////////////////////////
 
 static const uint8_t vw_tintrgb[VW_NUMTINTS][3] =
@@ -418,36 +422,36 @@ static const uint8_t vw_tintrgb[VW_NUMTINTS][3] =
     { 255, 120,  30 },  // lava: orange
     {  80, 255,  60 },  // atomic: green
 };
-static uint8_t *vw_tintlut[VW_NUMTINTS*4];  // [tint*4 + strength][shade*256 + colour]
-static const float vw_tintmix[4] = { 0.f, 0.3f, 0.5f, 0.7f };  // how far each strength moves colours towards the light
+static uint8_t *vw_tintlut[VW_NUMTINTS*8];  // [tint*8 + strength][shade*256 + colour]
 
+// Additive coloured light: each pixel gets its own unlit colour times the light's colour added on top of its shaded
+// colour (so a surface brightens and takes on the colour, more so near the source), then the nearest palette entry.
 static void vw_buildtints(void)
 {
-    if (vw_tintlut[4 + 1] || !palookup[0]) return;
+    if (vw_tintlut[8 + 1] || !palookup[0]) return;
     uint8_t const *const base = (uint8_t const *)palookup[0];
     for (int t = 1; t < VW_NUMTINTS; t++)
     {
-        // the light's colour, scaled so it keeps brightness roughly the same (luma 1)
-        float tr = vw_tintrgb[t][0] / 255.f, tg = vw_tintrgb[t][1] / 255.f, tb = vw_tintrgb[t][2] / 255.f;
-        float const luma = 0.3f*tr + 0.59f*tg + 0.11f*tb;
-        tr /= luma; tg /= luma; tb /= luma;
-
-        for (int st = 1; st <= 3; st++)
+        float const tr = vw_tintrgb[t][0] / 255.f, tg = vw_tintrgb[t][1] / 255.f, tb = vw_tintrgb[t][2] / 255.f;
+        for (int st = 1; st <= 5; st++)
         {
-            float const a = vw_tintmix[st];
+            float const a = 0.8f * st / 5.f;
             uint8_t *lut = (uint8_t *)Xmalloc(numshades * 256);
             for (int s = 0; s < numshades; s++)
+            {
+                float const fade = a * (1.f - 0.5f * s / numshades);  // the added light fades a little with distance too
                 for (int c = 0; c < 256; c++)
                 {
                     if (c == 255) { lut[s*256 + c] = 255; continue; }  // transparent stays transparent
-                    palette_t const p = paletteGetColor(base[s*256 + c]);
-                    // move towards the colour multiplied by the light (a saturated multiply, partly mixed in)
-                    int const r = min(255, (int)(p.r * (1.f - a + a*tr)));
-                    int const g = min(255, (int)(p.g * (1.f - a + a*tg)));
-                    int const b = min(255, (int)(p.b * (1.f - a + a*tb)));
+                    palette_t const lit = paletteGetColor(base[s*256 + c]);  // shaded colour
+                    palette_t const alb = paletteGetColor(c);                // unlit colour
+                    int const r = min(255, (int)(lit.r + alb.r * tr * fade));
+                    int const g = min(255, (int)(lit.g + alb.g * tg * fade));
+                    int const b = min(255, (int)(lit.b + alb.b * tb * fade));
                     lut[s*256 + c] = (uint8_t)paletteGetClosestColorUpToIndex(r, g, b, 254);
                 }
-            vw_tintlut[t*4 + st] = lut;
+            }
+            vw_tintlut[t*8 + st] = lut;
         }
     }
 }
