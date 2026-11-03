@@ -224,7 +224,7 @@ TEXTURES = [
     ('coal_ore',   lambda: ore(14, (34, 34, 36))),
     ('iron_ore',   lambda: ore(15, (196, 150, 118))),
     ('gold_ore',   lambda: ore(16, (240, 200, 60))),
-    ('atomic_ore', lambda: ore(17, (120, 255, 90), clusters=7)),  # placeholder glowing ore
+    ('redstone_ore', lambda: ore(17, (220, 30, 24), clusters=7)),
     ('lava',       lava),
     ('water',      water),
     ('obsidian',   obsidian),
@@ -234,6 +234,8 @@ TEXTURES = [
     ('glass',      glass),
     ('snow',       lambda: noise_tex(32, (238, 242, 248), 0.05, (214, 222, 236), 0.15)),
     ('snow_side',  snow_side),
+    ('lapis_ore',  lambda: ore(33, (36, 70, 190))),
+    ('diamond_ore', lambda: ore(34, (100, 230, 225), clusters=4)),
 ]
 
 def write_textures():

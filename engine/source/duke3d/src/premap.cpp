@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "cmdline.h"
 #include "demo.h"
 #include "duke3d.h"
+#include "emine.h"
 #include "menus.h"
 #include "savegame.h"
 #include "sbar.h"
@@ -884,6 +885,7 @@ void P_ResetWeapons(int playerNum)
     p.weapon_pos        = WEAPON_POS_START;
 
     p.ammo_amount[PISTOL_WEAPON] = min<int16_t>(p.max_ammo_amount[PISTOL_WEAPON], 48);
+    Emine_ResetWeapons(playerNum);  // eMine32
 
     VM_OnEvent(EVENT_RESETWEAPONS, p.i, playerNum);
 }

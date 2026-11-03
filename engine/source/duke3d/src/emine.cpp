@@ -43,6 +43,42 @@ static void Emine_BlockDestroyedFX(int bx, int by, int bz, int type, int ownerSp
     }
 }
 
+// Ores drop ammo, one kind each: the commoner, shallower ores the cheaper ammo. Each ore block drops this many
+// pickups, each worth what Duke's pickup gives (tune here). 0: not an ore.
+static int Emine_OreAmmo(int type, int *count)
+{
+    *count = 1;
+    switch (type)
+    {
+        case VW_COAL:     *count = 3; return AMMO;         // pistol clips (breaking coal takes most of one)
+        case VW_IRON:     *count = 2; return SHOTGUNAMMO;  // shotgun shells
+        case VW_GOLD:     return BATTERYAMMO;  // chaingun ammo
+        case VW_REDSTONE: return HBOMBAMMO;    // pipe bombs
+        case VW_LAPIS:    return FREEZEAMMO;   // freeze thrower
+        case VW_DIAMOND:  return RPGAMMO;      // rockets
+        default:          *count = 0; return 0;
+    }
+}
+
+static bool Emine_OreDrop(int bx, int by, int bz, int type, int ownerSprite)
+{
+    int count;
+    int const tile = Emine_OreAmmo(type, &count);
+    if (!count) return false;
+    vec3_t c;
+    voxworld_blockcenter(bx, by, bz, &c);
+    int const sect = voxworld_sector();
+    for (int i = 0; i < count; i++)
+    {
+        // on the ground where the block was (or whatever's under it now)
+        int32_t const x = c.x + (count > 1 ? (krand() & 127) - 64 : 0), y = c.y + (count > 1 ? (krand() & 127) - 64 : 0);
+        int const j = A_Spawn(ownerSprite, tile);
+        vec3_t const at = { x, y, voxworld_floorz(x, y, c.z, sector[sect].floorz) };
+        setsprite(j, &at);
+    }
+    return true;
+}
+
 void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit)
 {
     int bx, by, bz;
@@ -52,7 +88,11 @@ void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit)
     int const damage = sprite[shotSprite].extra > 0 ? sprite[shotSprite].extra : 6;
     int const type = voxworld_damage(bx, by, bz, damage);
     if (type != VW_AIR)
-        Emine_BlockDestroyedFX(bx, by, bz, type, sprite[shotSprite].owner >= 0 ? sprite[shotSprite].owner : shotSprite, 5, true);
+    {
+        int const owner = sprite[shotSprite].owner >= 0 ? sprite[shotSprite].owner : shotSprite;
+        Emine_BlockDestroyedFX(bx, by, bz, type, owner, 5, true);
+        Emine_OreDrop(bx, by, bz, type, owner);
+    }
 }
 
 // A shot smashes the plants it passes through: a few bits of leaf fly, no smoke or crunch.
@@ -76,7 +116,7 @@ void Emine_ShotPlants(int shooterSprite, const vec3_t *start, int32_t reach)
     voxworld_smashplants(start, reach, Emine_OnPlantSmashed, &shooterSprite);
 }
 
-struct emine_blastctx { int owner, count; };
+struct emine_blastctx { int owner, count, drops; };
 
 static void Emine_OnBlastDestroyed(int bx, int by, int bz, int type, void *ud)
 {
@@ -85,6 +125,9 @@ static void Emine_OnBlastDestroyed(int bx, int by, int bz, int type, void *ud)
     if (ctx.count < 24)
         Emine_BlockDestroyedFX(bx, by, bz, type, ctx.owner, (ctx.count & 1) ? 1 : 2, ctx.count == 0);
     ctx.count++;
+    // ores blown out drop their ammo too, up to a few per blast (a rocket into a coal seam shouldn't carpet the floor)
+    if (ctx.drops < 6 && Emine_OreDrop(bx, by, bz, type, ctx.owner))
+        ctx.drops++;
 }
 
 void Emine_ExplosionBlocks(int spriteNum, int blastRadius, int maxDamage)
@@ -94,7 +137,7 @@ void Emine_ExplosionBlocks(int spriteNum, int blastRadius, int maxDamage)
 
     // Blocks get the explosion's full damage at the centre falling to zero at the edge, scaled up so a
     // rocket digs a proper crater (RPG: ~140 damage, 1780 radius -> ~2 blocks of stone).
-    emine_blastctx ctx = { spriteNum, 0 };
+    emine_blastctx ctx = { spriteNum, 0, 0 };
     voxworld_explode(&sprite[spriteNum].xyz, blastRadius, maxDamage * 2, Emine_OnBlastDestroyed, &ctx);
 }
 
@@ -353,6 +396,27 @@ static int osdcmd_emine_water(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+// Duke has every weapon, all the time; what he can use depends on the ammo he's dug up. He starts with a clip.
+void Emine_ResetWeapons(int playerNum)
+{
+    auto &p = *g_player[playerNum].ps;
+    for (int w = 0; w < MAX_WEAPONS; w++)
+        p.gotweapon |= 1 << w;
+    p.ammo_amount[PISTOL_WEAPON] = min<int16_t>(p.max_ammo_amount[PISTOL_WEAPON], 12);
+}
+
+// Dev console: `emine_ore <blocktype>` drops what breaking that ore would, a couple of blocks in front of the player.
+static int osdcmd_emine_ore(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (!voxworld_active() || p->i < 0 || parm->numparms < 1) return OSDCMD_SHOWHELP;
+    int const ang = fix16_to_int(p->q16ang);
+    int bx, by, bz;
+    voxworld_toblock(p->pos.x + (sintable[(ang + 512) & 2047] >> 4), p->pos.y + (sintable[ang & 2047] >> 4), p->pos.z, &bx, &by, &bz);
+    if (!Emine_OreDrop(bx, by, bz, Batol(parm->parms[0]), p->i)) OSD_Printf("emine_ore: not an ore\n");
+    return OSDCMD_OK;
+}
+
 // Dev console: `emine_go <dx> <dy> [angle]` moves the player that many blocks across the world, onto the ground there.
 static int osdcmd_emine_go(osdcmdptr_t parm)
 {
@@ -407,6 +471,7 @@ static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 void Emine_RegisterOSD(void)
 {
     OSD_RegisterFunction("emine_find", "emine_find <blocktype>: dev - stand on the nearest column topped with that block (31 = snow)", osdcmd_emine_find);
+    OSD_RegisterFunction("emine_ore", "emine_ore <blocktype>: dev - drop what breaking that ore gives (11 coal, 12 iron, 13 gold, 14 redstone, 33 lapis, 34 diamond)", osdcmd_emine_ore);
     OSD_RegisterFunction("emine_go", "emine_go <dx> <dy> [angle]: dev - move that many blocks across the world (and face Build angle 0-2047)", osdcmd_emine_go);
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);

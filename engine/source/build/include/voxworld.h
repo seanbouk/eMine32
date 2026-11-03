@@ -41,7 +41,7 @@ enum vwblock_t : uint8_t
     VW_COAL,
     VW_IRON,
     VW_GOLD,
-    VW_ATOMIC,   // placeholder rare glowing ore (block light test)
+    VW_REDSTONE, // deep ore that glows red (was the placeholder "atomic" ore: same id)
     VW_LAVA,     // lava source (fluid)
     VW_LAVA_FALL,  // lava pouring down
     VW_LAVA_F3,  // lava spreading sideways, 3 = nearest the source
@@ -60,6 +60,8 @@ enum vwblock_t : uint8_t
     VW_GLASS,      // solid, but see-through: light and sight pass, shots break it
     VW_SNOW,       // grass's place on the highest ground (snow on dirt)
     VW_SNOWBLOCK,  // solid snow, on the highest peaks
+    VW_LAPIS,      // rare ore, middling depth
+    VW_DIAMOND,    // rarest ore, deepest
     VW_NUMTYPES
 };
 
@@ -145,7 +147,7 @@ int32_t voxworld_floorz(int32_t x, int32_t y, int32_t z, int32_t def);
 // Build shade. Returns the extra shade for a point in the world (0 in full daylight).
 #define VW_LIGHTMAX 15
 // Colours of block light (each gets a tinted shade table).
-enum { VW_TINT_NONE, VW_TINT_LAVA, VW_TINT_ATOMIC, VW_NUMTINTS };
+enum { VW_TINT_NONE, VW_TINT_LAVA, VW_TINT_REDSTONE, VW_NUMTINTS };
 int     voxworld_lightshade(int32_t x, int32_t y, int32_t z);
 // Dev helper: the nearest spot (feet position) with room to stand whose light is <= maxlight.
 bool    voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out);

@@ -14,7 +14,7 @@ tilefromtexture 7011 { file "textures/blocks/gravel.png" }
 tilefromtexture 7012 { file "textures/blocks/coal_ore.png" }
 tilefromtexture 7013 { file "textures/blocks/iron_ore.png" }
 tilefromtexture 7014 { file "textures/blocks/gold_ore.png" }
-tilefromtexture 7015 { file "textures/blocks/atomic_ore.png" }
+tilefromtexture 7015 { file "textures/blocks/redstone_ore.png" }
 tilefromtexture 7016 { file "textures/blocks/lava.png" }
 tilefromtexture 7017 { file "textures/blocks/water.png" }
 tilefromtexture 7018 { file "textures/blocks/obsidian.png" }
@@ -24,3 +24,5 @@ tilefromtexture 7021 { file "textures/blocks/flower_yellow.png" }
 tilefromtexture 7022 { file "textures/blocks/glass.png" }
 tilefromtexture 7023 { file "textures/blocks/snow.png" }
 tilefromtexture 7024 { file "textures/blocks/snow_side.png" }
+tilefromtexture 7025 { file "textures/blocks/lapis_ore.png" }
+tilefromtexture 7026 { file "textures/blocks/diamond_ore.png" }

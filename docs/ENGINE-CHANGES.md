@@ -115,6 +115,14 @@ and one shot breaks it (Duke's shards and smash sound). Its faces against anythi
 side plus top and bottom, are drawn as cut-outs (frame texels opaque, middle clear) into the same per-column overlay as
 the plants, which now depth-tests, so the nearest of plants and glass wins and everything behind still draws. The
 test arch has a glass window in its far wall and a half-glass floating slab. `emine_go` takes an optional angle.
+Ores (Minecraft's classic set and depth bands, which match our layers): coal anywhere in the rock, iron below ~42,
+gold below 32, lapis around 14-30, redstone and diamond below 16; diamond and lapis rare. Redstone glows red (it
+replaced the placeholder "atomic" ore and kept its block id 14; lapis is 33, diamond 34). The game: each ore drops
+one kind of Duke ammo where it breaks (shots, kicks, and up to 6 per explosion): coal 3 pistol clips, iron 2 boxes of
+shells, gold chaingun ammo, redstone pipe bombs, lapis freeze-thrower ammo, diamond rockets (`Emine_OreAmmo` holds the
+amounts). Duke holds every weapon from the start with one pistol clip and can only pick weapons he has ammo for
+(sector.cpp). The shareware data has no freeze-thrower art, so its pickup and weapon are invisible until the art
+pass. `emine_ore <type>` (dev) drops an ore's ammo in front of you.
 Snow caps (on trial): ground at or above the snowline (sea + 55% of the hill range, ~layer 88, ragged by +-3 layers of
 noise) is topped with snow instead of grass, so no plants or trees grow there; about 10% of columns near the spawn.
 Six layers higher still the top 3 blocks are solid snow blocks (white all round): the highest peaks, ~2% of columns.

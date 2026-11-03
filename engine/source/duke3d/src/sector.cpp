@@ -3092,6 +3092,8 @@ CHECKINV1:
                         case GROW_WEAPON:
                         case SHRINKER_WEAPON:
                         case FLAMETHROWER_WEAPON:
+                            if (pPlayer->ammo_amount[weaponNum] == 0)
+                                break;  // eMine32: Duke holds every weapon; one with no ammo can't be picked
                             if (pPlayer->ammo_amount[weaponNum] == 0 && pPlayer->show_empty_weapon == 0)
                             {
                                 pPlayer->last_full_weapon = pPlayer->curr_weapon;

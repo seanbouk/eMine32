@@ -12,6 +12,7 @@
 // in its `extra` (as Duke's shotsparks do).
 void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit);
 // After a shot's hitscan: smash the plants it went through, within reach (xy distance; 0 = no limit).
+void Emine_ResetWeapons(int playerNum);  // every weapon from the start; ammo comes from ores
 void Emine_ShotPlants(int shooterSprite, const vec3_t *start, int32_t reach);
 
 // An explosion (A_RadiusDamage): blast blocks within the radius.
