@@ -159,9 +159,49 @@ static bool Emine_OnWorldEvent(int event, int bx, int by, int bz, int type, floa
     return false;
 }
 
+// Is this sprite standing in lava (feet or waist)?
+static bool Emine_InLava(spritetype const &s)
+{
+    return (voxworld_blockflags(voxworld_blockat(s.x, s.y, s.z - 512)) & VW_BF_LAVA) ||
+           (voxworld_blockflags(voxworld_blockat(s.x, s.y, s.z - VW_BLOCKZ)) & VW_BF_LAVA);
+}
+
+// Lava burns, Duke hurt-floor style: a few points every few tics, pain sound and a red-orange flash.
+static void Emine_LavaBurn(void)
+{
+    if (!voxworld_active() || emine_tic % 6) return;
+
+    auto const p = g_player[myconnectindex].ps;
+    if (p->i >= 0)
+    {
+        auto &s = sprite[p->i];
+        if (s.extra > 0 && Emine_InLava(s))
+        {
+            if (!ud.god) s.extra -= 3 + (krand() & 3);
+            P_PalFrom(p, 20, 63, 20, 0);
+            if (!A_CheckSoundPlaying(p->i, DUKE_LONGTERM_PAIN))
+                A_PlaySound(DUKE_LONGTERM_PAIN, p->i);
+        }
+    }
+
+    for (int i = headspritestat[STAT_ACTOR]; i >= 0; i = nextspritestat[i])
+    {
+        auto const &s = sprite[i];
+        if (s.extra > 0 && A_CheckEnemySprite(&s) && Emine_InLava(s))
+        {
+            auto &a = actor[i];
+            a.htpicnum = RADIUSEXPLOSION;
+            a.htextra  = 6;
+            a.htowner  = i;
+            a.htang    = s.ang;
+        }
+    }
+}
+
 void Emine_Tick(void)
 {
     emine_tic++;
+    Emine_LavaBurn();
     voxworld_tick();
 }
 

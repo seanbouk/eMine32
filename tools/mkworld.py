@@ -101,6 +101,29 @@ def gravel():
                 im.putpixel(((x + dx) % TEX, (y + dy) % TEX), c)
     return im
 
+def lava():
+    """Bright molten orange with darker crust veins and hot yellow spots. Tiles seamlessly (the engine scrolls it)."""
+    import math
+    rnd = random.Random(18)
+    im = Image.new('RGB', (TEX, TEX))
+    ph = [rnd.uniform(0, 6.28) for _ in range(4)]
+    for y in range(TEX):
+        for x in range(TEX):
+            a = 2 * math.pi * x / TEX
+            b = 2 * math.pi * y / TEX
+            v = (math.sin(a + ph[0]) + math.sin(b * 2 + ph[1]) + math.sin(a + b + ph[2]) + math.sin(a * 2 - b + ph[3])) / 4
+            v += rnd.uniform(-0.12, 0.12)
+            if v < -0.35:
+                c = (120, 30, 10)        # crust
+            elif v < 0.0:
+                c = (200, 60, 10)
+            elif v < 0.4:
+                c = (245, 120, 20)
+            else:
+                c = (255, 200, 60)       # hot
+            im.putpixel((x, y), c)
+    return im
+
 # order == voxworld.cpp T_* enum
 TEXTURES = [
     ('grass_top',  lambda: noise_tex(1, (96, 150, 60), 0.2, (70, 120, 40), 0.2)),
@@ -119,6 +142,7 @@ TEXTURES = [
     ('iron_ore',   lambda: ore(15, (196, 150, 118))),
     ('gold_ore',   lambda: ore(16, (240, 200, 60))),
     ('atomic_ore', lambda: ore(17, (120, 255, 90), clusters=7)),  # placeholder glowing ore
+    ('lava',       lava),
 ]
 
 def write_textures():

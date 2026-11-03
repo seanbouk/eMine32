@@ -42,7 +42,21 @@ enum vwblock_t : uint8_t
     VW_IRON,
     VW_GOLD,
     VW_ATOMIC,   // placeholder rare glowing ore (block light test)
+    VW_LAVA,     // lava source (fluid)
+    VW_LAVA_FALL,  // lava pouring down
+    VW_LAVA_F3,  // lava spreading sideways, 3 = nearest the source
+    VW_LAVA_F2,
+    VW_LAVA_F1,
     VW_NUMTYPES
+};
+
+// Block type flags (voxworld_blockflags).
+enum
+{
+    VW_BF_NONSOLID   = 1,  // drawn, hit by shots, blocks sight, but you can walk into it (fluids)
+    VW_BF_FLUID      = 2,
+    VW_BF_FULLBRIGHT = 4,  // drawn without lighting (glows)
+    VW_BF_LAVA       = 8,  // burns
 };
 
 // First tile number used for block faces; see game/emine32.def. Tile layout per block type is in
@@ -88,6 +102,10 @@ struct vwhit_t
 bool    voxworld_raycast(const vec3_t *start, int32_t vx, int32_t vy, int32_t vz, float maxt, vwhit_t *hit);
 // Line of sight between two points (true if no block in between).
 bool    voxworld_cansee(int32_t x1, int32_t y1, int32_t z1, int32_t x2, int32_t y2, int32_t z2);
+
+int     voxworld_blockflags(int type);
+// Block type at a world position (VW_AIR outside the world).
+int     voxworld_blockat(int32_t x, int32_t y, int32_t z);
 
 // Destruction.
 // hitscan() remembers which block it hit; voxworld_lasthit returns it if pos is that hit's position.

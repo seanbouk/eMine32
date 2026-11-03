@@ -20,8 +20,8 @@ Engine first: blocks + performance + still feeling like a sprite-based Build sho
    world, walkable. Native + web. (**first pass done**: 256x256x64 generated world, sprites depth-tested, block
    collision/hitscan/line-of-sight; needs play-testing + more renderer speed for full-res 21:9)
 3. Terrain generation (noise heightmap, caves), chunk streaming. (**caves first pass done**: tunnels + caverns,
-   ores, skylight lighting with a "lantern" falloff; falling sand/gravel that crushes; 160-layer world with a lumpy bedrock floor; block light with coloured tints; next: water and lava
-   with lakes, decoration blocks (tall grass, flowers), then streaming)
+   ores, skylight lighting with a "lantern" falloff; falling sand/gravel that crushes; 160-layer world with a lumpy bedrock floor; block light with coloured tints; lava (glows, flows, burns,
+   floods the deepest caves); next: water with lakes, decoration blocks (tall grass, flowers), then streaming)
 4. Mining: **done** - weapons (incl. kick) chip blocks, explosions blast craters, Duke-style debris; play-tested. No collecting
    or placing (by design: Duke just destroys things).
 5. Art pass: our own palette, block textures, sprolygon monsters, HUD; remove all Duke data (see PRELAUNCH-CHECKLIST).

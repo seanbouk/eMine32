@@ -81,6 +81,13 @@ down the grid a cell at a time under gravity (`voxworld_tick`, once per game tic
 is always an ordinary block. The game gets events through `voxworld_seteventfn`: before a block moves into a cell it
 asks whether an actor is there (eMine32 crushes players/enemies, explosion-style damage that grows with fall speed,
 and the block bursts into debris), plus a landing event (thud).
+Lava: a fluid block (flags `VW_BF_*`: non-solid, fluid, fullbright, burns). Columns keep two run lists, visible runs
+(rendering, light, hitscan, sight) and solid runs (collision), so you wade into lava and stand on the floor under it.
+Lava draws fullbright with a slowly scrolling texture, gives off orange block light, can't be destroyed, and flows:
+every 12 tics fluid next to an opened cell pours down into open space, otherwise spreads sideways one level weaker
+(source/pour -> 3 cells). Sources never go away (blocks are only ever removed), so flow never retreats. Generation
+floods open cave below the lava line (~layer 10). The game burns players (Duke hurt-floor style: damage, pain sound,
+orange flash) and enemies standing in it.
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
 `r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves
 red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave, `emine_glow [minlight]` (dev) teleports next to the nearest glowing block, `emine_drop [height] [type]` (dev) drops a

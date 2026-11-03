@@ -34,12 +34,14 @@ static void vw_registerosd(void);
 
 #define VW_MAXRUNS 32  // max separate solid runs per block column (deep cave systems stack up a lot of them)
 
-struct vwrun_t { uint8_t z0, z1; };  // solid layers [z0, z1)
+struct vwrun_t { uint8_t z0, z1; };  // non-air layers [z0, z1)
 
 struct vwcolumn_t
 {
-    uint8_t  nruns;
+    uint8_t  nruns;              // visible blocks (anything not air): rendering, light
+    uint8_t  nsruns;             // solid blocks (not fluids): collision
     vwrun_t  runs[VW_MAXRUNS];
+    vwrun_t  sruns[VW_MAXRUNS];
 };
 
 static bool        vw_active;
@@ -51,26 +53,40 @@ static uint8_t    *vw_blocks;                // [(x*sy + y)*sz + z]
 static vwcolumn_t *vw_cols;                  // [x*sy + y]
 static int         vw_nfallers;              // falling blocks in flight (see voxworld_tick)
 
+#define VW_LAVATICS 12                       // tics between lava flow steps (lava is slow)
+static uint32_t   *vw_fluidq;                // fluid cells to update next flow step (see vw_fluidstep)
+static size_t      vw_nfluidq, vw_fluidqcap;
+static int         vw_fluidclock;
+static void        vw_fluidstep(void);
+
 static FORCE_INLINE uint8_t *vw_colblocks(int bx, int by) { return &vw_blocks[((size_t)bx*vw_sy + by)*vw_sz]; }
 static FORCE_INLINE vwcolumn_t *vw_col(int bx, int by) { return &vw_cols[(size_t)bx*vw_sy + by]; }
 static FORCE_INLINE bool vw_inxy(int bx, int by) { return (unsigned)bx < (unsigned)vw_sx && (unsigned)by < (unsigned)vw_sy; }
+
+static bool vw_issolid(uint8_t type);
 
 static void vw_rebuildcolumn(int bx, int by)
 {
     uint8_t const *b = vw_colblocks(bx, by);
     vwcolumn_t *c = vw_col(bx, by);
-    c->nruns = 0;
-    int z = 0;
-    while (z < vw_sz)
+    for (int pass = 0; pass < 2; pass++)
     {
-        while (z < vw_sz && b[z] == VW_AIR) z++;
-        if (z >= vw_sz) break;
-        int const z0 = z;
-        while (z < vw_sz && b[z] != VW_AIR) z++;
-        if (c->nruns < VW_MAXRUNS)
-            c->runs[c->nruns++] = { (uint8_t)z0, (uint8_t)z };
-        else
-            c->runs[VW_MAXRUNS-1].z1 = (uint8_t)z;  // merge overflow into the top run (rare)
+        vwrun_t *runs = pass ? c->sruns : c->runs;
+        uint8_t &n = pass ? c->nsruns : c->nruns;
+        auto in = [&](int z) { return pass ? vw_issolid(b[z]) : b[z] != VW_AIR; };
+        n = 0;
+        int z = 0;
+        while (z < vw_sz)
+        {
+            while (z < vw_sz && !in(z)) z++;
+            if (z >= vw_sz) break;
+            int const z0 = z;
+            while (z < vw_sz && in(z)) z++;
+            if (n < VW_MAXRUNS)
+                runs[n++] = { (uint8_t)z0, (uint8_t)z };
+            else
+                runs[VW_MAXRUNS-1].z1 = (uint8_t)z;  // merge overflow into the top run (rare)
+        }
     }
 }
 
@@ -382,7 +398,7 @@ bool voxworld_findspot(int32_t x, int32_t y, int maxlight, int minblocklight, ve
                 uint8_t const *b = vw_colblocks(bx, by);
                 uint8_t const *l = &vw_light[((size_t)bx*vw_sy + by)*vw_sz];
                 for (int z = 1; z + 2 < vw_sz; z++)
-                    if (b[z-1] != VW_AIR && b[z] == VW_AIR && b[z+1] == VW_AIR && b[z+2] == VW_AIR &&
+                    if (vw_issolid(b[z-1]) && b[z] == VW_AIR && b[z+1] == VW_AIR && b[z+2] == VW_AIR &&
                         (l[z] & 15) <= maxlight && (minblocklight ? (l[z] >> 4) >= minblocklight : (l[z] >> 4) <= maxlight))
                     {
                         out->x = vw_x0 + bx*VW_BLOCKXY + VW_BLOCKXY/2;
@@ -479,13 +495,15 @@ static FORCE_INLINE int32_t vw_layertop(int layer) { return vw_zbot - layer*VW_B
 enum
 {
     T_GRASS_TOP, T_GRASS_SIDE, T_DIRT, T_STONE, T_BEDROCK, T_SAND, T_WOOD_SIDE, T_WOOD_TOP, T_LEAVES, T_PLANKS, T_COBBLE,
-    T_GRAVEL, T_COAL, T_IRON, T_GOLD, T_ATOMIC,
+    T_GRAVEL, T_COAL, T_IRON, T_GOLD, T_ATOMIC, T_LAVA,
     T_COUNT
 };
 
 // hardness: damage points to destroy (0 = indestructible). Duke's pistol does ~6 per shot.
-// emit: light level given off (0 = none, up to VW_LIGHTMAX); tint: its colour (VW_TINT_*).
-struct vwblockdef_t { uint8_t top, side, bottom, hardness, emit, tint; };
+// emit: light level given off (0 = none, up to VW_LIGHTMAX); tint: its colour (VW_TINT_*); flags: VW_BF_*.
+struct vwblockdef_t { uint8_t top, side, bottom, hardness, emit = 0, tint = 0, flags = 0; };
+
+#define VW_LAVAFLAGS (VW_BF_NONSOLID | VW_BF_FLUID | VW_BF_FULLBRIGHT | VW_BF_LAVA)
 
 static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
 {
@@ -504,9 +522,17 @@ static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
     { T_IRON, T_IRON, T_IRON, 64 },                 // iron ore
     { T_GOLD, T_GOLD, T_GOLD, 56 },                 // gold ore
     { T_ATOMIC, T_ATOMIC, T_ATOMIC, 60, 11, VW_TINT_ATOMIC },  // atomic ore: glows green
+    { T_LAVA, T_LAVA, T_LAVA, 0, 15, VW_TINT_LAVA, VW_LAVAFLAGS },  // lava source
+    { T_LAVA, T_LAVA, T_LAVA, 0, 15, VW_TINT_LAVA, VW_LAVAFLAGS },  // lava falling
+    { T_LAVA, T_LAVA, T_LAVA, 0, 14, VW_TINT_LAVA, VW_LAVAFLAGS },  // lava flowing 3
+    { T_LAVA, T_LAVA, T_LAVA, 0, 13, VW_TINT_LAVA, VW_LAVAFLAGS },  // lava flowing 2
+    { T_LAVA, T_LAVA, T_LAVA, 0, 12, VW_TINT_LAVA, VW_LAVAFLAGS },  // lava flowing 1
 };
 
 static int     vw_emit(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].emit : 0; }
+static bool    vw_issolid(uint8_t type) { return type != VW_AIR && !(type < VW_NUMTYPES && (vw_blockdefs[type].flags & VW_BF_NONSOLID)); }
+static FORCE_INLINE int vw_flags(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].flags : 0; }
+int voxworld_blockflags(int type) { return (unsigned)type < VW_NUMTYPES ? vw_blockdefs[type].flags : 0; }
 static uint8_t vw_emittint(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].tint : 0; }
 
 // Accumulated damage per block, same layout as vw_blocks (allocated on first damage).
@@ -525,6 +551,20 @@ static FORCE_INLINE int vw_dmgshade(size_t idx, uint8_t type)
 // Texel data for each face tile, column-major (Build tile order): tex[u*VW_TEXSIZE + v].
 // Falls back to a generated checker if the tile isn't present or isn't VW_TEXSIZE square.
 static uint8_t vw_tex[T_COUNT][VW_TEXSIZE*VW_TEXSIZE];
+static uint8_t vw_lavabase[VW_TEXSIZE*VW_TEXSIZE];  // lava as loaded; vw_tex[T_LAVA] is it scrolled (vw_animate)
+
+// Slowly churn the lava texture: scroll it, with each column drifting at its own pace.
+static void vw_animate(void)
+{
+    int const t = (int)totalclock / 6;  // totalclock: 120 ticks a second
+    for (int u = 0; u < VW_TEXSIZE; u++)
+    {
+        int const du = (u + t/3) & (VW_TEXSIZE-1);
+        int const dv = (t + ((u * 5) & 7) / 3) & (VW_TEXSIZE-1);
+        for (int v = 0; v < VW_TEXSIZE; v++)
+            vw_tex[T_LAVA][u*VW_TEXSIZE + v] = vw_lavabase[du*VW_TEXSIZE + ((v + dv) & (VW_TEXSIZE-1))];
+    }
+}
 
 static void vw_loadtextures(void)
 {
@@ -536,6 +576,7 @@ static void vw_loadtextures(void)
         if (tilesiz[tile].x == VW_TEXSIZE && tilesiz[tile].y == VW_TEXSIZE && tileLoad(tile) && waloff[tile])
         {
             Bmemcpy(dst, (void *)waloff[tile], VW_TEXSIZE*VW_TEXSIZE);
+            if (t == T_LAVA) Bmemcpy(vw_lavabase, dst, sizeof(vw_lavabase));
             continue;
         }
 
@@ -755,6 +796,16 @@ static void vw_generate(void)
         vw_worm(rng, x, y, vw_height((int)x, (int)y) - 1, rng.range(80, 200), true, i ? -1.f : 0.f);
     }
 
+    // Lava: open cave below the lava line fills with lava (still sources; it only flows once you dig).
+    int const lavaline = max(6, sea / 6);  // ~layer 10 in the default world
+    for (int x = 0; x < vw_sx; x++)
+        for (int y = 0; y < vw_sy; y++)
+        {
+            uint8_t *b = vw_colblocks(x, y);
+            for (int z = 5; z <= lavaline; z++)
+                if (b[z] == VW_AIR) b[z] = VW_LAVA;
+        }
+
     // Ores and gravel (only replace stone, so they line cave walls rather than floating in them).
     // Depth bands (with the default world): coal anywhere in the rock, iron in the lower two thirds,
     // gold only in the deepest third.
@@ -828,8 +879,8 @@ static int32_t vw_groundz(int32_t x, int32_t y)
     voxworld_toblock(x, y, 0, &bx, &by, &bz);
     if (!vw_inxy(bx, by)) return INT32_MAX;
     vwcolumn_t const *c = vw_col(bx, by);
-    if (!c->nruns) return INT32_MAX;
-    return vw_layertop(c->runs[c->nruns-1].z1);
+    if (!c->nsruns) return INT32_MAX;
+    return vw_layertop(c->sruns[c->nsruns-1].z1);
 }
 
 void voxworld_onmapload(vec3_t *dapos)
@@ -863,6 +914,7 @@ void voxworld_onmapload(vec3_t *dapos)
     DO_FREE_AND_NULL(vw_dmg);
     DO_FREE_AND_NULL(vw_ltint);
     vw_nfallers = 0;
+    vw_nfluidq = 0;
     vw_blocks = (uint8_t *)Xcalloc((size_t)vw_sx*vw_sy*vw_sz, 1);
     vw_cols   = (vwcolumn_t *)Xcalloc((size_t)vw_sx*vw_sy, sizeof(vwcolumn_t));
 
@@ -1127,9 +1179,14 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                         {
                                             curlayer = layer;
                                             tex = vw_tex[vw_blockdefs[cb[layer]].side] + ucol;
-                                            int ltint;
-                                            int const ls = vw_lightshade(lx, ly, layer, &ltint);
-                                            pal = vw_shadetab(vw_faceshade[side] + vw_dmgshade(colidx + layer, cb[layer]), ls, din, ltint);
+                                            if (vw_flags(cb[layer]) & VW_BF_FULLBRIGHT)
+                                                pal = vw_shadetab(0, 0, din, 0);
+                                            else
+                                            {
+                                                int ltint;
+                                                int const ls = vw_lightshade(lx, ly, layer, &ltint);
+                                                pal = vw_shadetab(vw_faceshade[side] + vw_dmgshade(colidx + layer, cb[layer]), ls, din, ltint);
+                                            }
                                         }
                                         col[y] = pal[tex[VW_TEXSIZE-1 - (t & (VW_TEXSIZE-1))]];
                                         zc[y] = din;
@@ -1152,9 +1209,11 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                             {
                                 int ftint;
                                 int const fl = vw_lightshade(gx, gy, r.z1, &ftint);
+                                bool const fb = vw_flags(cb[r.z1-1]) & VW_BF_FULLBRIGHT;
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
                                             vw_tex[vw_blockdefs[cb[r.z1-1]].top],
-                                            vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]), fl, vw_tinttable(ftint));
+                                            fb ? 0 : vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]),
+                                            fb ? 0 : fl, vw_tinttable(fb ? 0 : ftint));
                             }
                         }
                     }
@@ -1172,9 +1231,11 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                             {
                                 int ftint;
                                 int const fl = vw_lightshade(gx, gy, r.z0 - 1, &ftint);
+                                bool const fb = vw_flags(cb[r.z0]) & VW_BF_FULLBRIGHT;
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
                                             vw_tex[vw_blockdefs[cb[r.z0]].bottom],
-                                            vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]), fl, vw_tinttable(ftint));
+                                            fb ? 0 : vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]),
+                                            fb ? 0 : fl, vw_tinttable(fb ? 0 : ftint));
                             }
                         }
                     }
@@ -1304,6 +1365,7 @@ void voxworld_drawworld(void)
 
     vw_setupcamera();
     vw_buildtints();
+    vw_animate();
 
     auto const &sec = sector[vw_sect];
     if (!waloff[sec.ceilingpicnum]) tileLoad(sec.ceilingpicnum);
@@ -1471,9 +1533,9 @@ static bool vw_colblocks_z(int bx, int by, int32_t ztop, int32_t zbot)
 {
     if (!vw_inxy(bx, by)) return false;
     vwcolumn_t const *c = vw_col(bx, by);
-    for (int i = 0; i < c->nruns; i++)
+    for (int i = 0; i < c->nsruns; i++)
     {
-        int32_t const rt = vw_layertop(c->runs[i].z1), rb = vw_layertop(c->runs[i].z0);
+        int32_t const rt = vw_layertop(c->sruns[i].z1), rb = vw_layertop(c->sruns[i].z0);
         if (rt < zbot && rb > ztop) return true;
     }
     return false;
@@ -1558,9 +1620,9 @@ int voxworld_getzrange(const vec3_t *pos, int32_t walldist, int32_t *ceilz, int3
         {
             if (!vw_inxy(gx, gy)) continue;
             vwcolumn_t const *c = vw_col(gx, gy);
-            for (int i = 0; i < c->nruns; i++)
+            for (int i = 0; i < c->nsruns; i++)
             {
-                int32_t const rt = vw_layertop(c->runs[i].z1), rb = vw_layertop(c->runs[i].z0);
+                int32_t const rt = vw_layertop(c->sruns[i].z1), rb = vw_layertop(c->sruns[i].z0);
                 if (rt >= pos->z - tol && rt < *florz) { *florz = rt; ret |= 1; }
                 if (rb <= pos->z + tol && rb > *ceilz) { *ceilz = rb; ret |= 2; }
             }
@@ -1691,8 +1753,15 @@ static void vw_startfall(int bx, int by, int bz)
     vw_fallers[vw_nfallers++] = { (int16_t)bx, (int16_t)by, (int16_t)bz, type, vw_falldelay, 0.f, 0.f };
 }
 
+static void vw_fluidqueue(int bx, int by, int bz);
+
 static void vw_neighbourchanged(int bx, int by, int bz)
 {
+    vw_fluidqueue(bx, by, bz + 1);
+    vw_fluidqueue(bx - 1, by, bz);
+    vw_fluidqueue(bx + 1, by, bz);
+    vw_fluidqueue(bx, by - 1, bz);
+    vw_fluidqueue(bx, by + 1, bz);
     vw_startfall(bx, by, bz + 1);
     vw_startfall(bx - 1, by, bz);
     vw_startfall(bx + 1, by, bz);
@@ -1705,7 +1774,9 @@ static void vw_neighbourchanged(int bx, int by, int bz)
 
 void voxworld_tick(void)
 {
-    if (!vw_active || !vw_nfallers) return;
+    if (!vw_active) return;
+    if (++vw_fluidclock >= VW_LAVATICS) { vw_fluidclock = 0; vw_fluidstep(); }
+    if (!vw_nfallers) return;
 
     // lowest first, so a falling stack moves as one
     std::sort(vw_fallers, vw_fallers + vw_nfallers, [](vwfaller_t const &a, vwfaller_t const &b) { return a.z < b.z; });
@@ -1768,6 +1839,80 @@ void voxworld_tick(void)
         }
     }
     vw_falldelay = 3;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Fluids (lava). Sources are placed by generation and never go away. Every few tics, fluid cells that might be
+// able to spread do: down into an open cell below (pouring), otherwise sideways into open neighbours one level
+// weaker, so lava spreads up to 3 cells from where it lands. Blocks only ever get removed in play, so flow never
+// has to retreat.
+//////////////////////////////////////////////////////////////////////////////
+
+
+static void vw_fluidqueue(int bx, int by, int bz)
+{
+    if (!vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) return;
+    if (!(vw_flags(vw_colblocks(bx, by)[bz]) & VW_BF_FLUID)) return;
+    if (vw_nfluidq == vw_fluidqcap)
+    {
+        vw_fluidqcap = max<size_t>(vw_fluidqcap * 2, 1024);
+        vw_fluidq = (uint32_t *)Xrealloc(vw_fluidq, vw_fluidqcap * sizeof(uint32_t));
+    }
+    vw_fluidq[vw_nfluidq++] = vw_lidx(bx, by, bz);
+}
+
+static void vw_fluidstep(void)
+{
+    if (!vw_nfluidq) return;
+    // take this step's list (new entries queue up for the next step)
+    size_t const n = vw_nfluidq;
+    uint32_t *const list = (uint32_t *)Xmalloc(n * sizeof(uint32_t));
+    Bmemcpy(list, vw_fluidq, n * sizeof(uint32_t));
+    vw_nfluidq = 0;
+    std::sort(list, list + n);
+    uint32_t last = UINT32_MAX;
+
+    for (size_t i = 0; i < n; i++)
+    {
+        uint32_t const idx = list[i];
+        if (idx == last) continue;
+        last = idx;
+        uint8_t const t = vw_blocks[idx];
+        if (!(vw_flags(t) & VW_BF_FLUID)) continue;
+        int const bz = idx % vw_sz, col = idx / vw_sz, bx = col / vw_sy, by = col % vw_sy;
+
+        if (bz > 0 && vw_blocks[idx - 1] == VW_AIR)
+        {
+            voxworld_set(bx, by, bz - 1, VW_LAVA_FALL);  // pour down
+            vw_fluidqueue(bx, by, bz - 1);
+            continue;
+        }
+        // sideways, one level weaker: source/pour -> F3 -> F2 -> F1 -> stops (3 cells)
+        uint8_t nt;
+        switch (t)
+        {
+            case VW_LAVA: case VW_LAVA_FALL: nt = VW_LAVA_F3; break;
+            case VW_LAVA_F3: nt = VW_LAVA_F2; break;
+            case VW_LAVA_F2: nt = VW_LAVA_F1; break;
+            default: continue;
+        }
+        static const int8_t sdirs[4][2] = { {-1,0}, {1,0}, {0,-1}, {0,1} };
+        for (auto const &d : sdirs)
+        {
+            int const nx = bx + d[0], ny = by + d[1];
+            if (!vw_inxy(nx, ny) || vw_colblocks(nx, ny)[bz] != VW_AIR) continue;
+            voxworld_set(nx, ny, bz, nt);
+            vw_fluidqueue(nx, ny, bz);
+        }
+    }
+    Xfree(list);
+}
+
+int voxworld_blockat(int32_t x, int32_t y, int32_t z)
+{
+    int bx, by, bz;
+    if (!vw_active || !voxworld_toblock(x, y, z, &bx, &by, &bz)) return VW_AIR;
+    return vw_colblocks(bx, by)[bz];
 }
 
 int voxworld_damage(int bx, int by, int bz, int amount)
@@ -1839,9 +1984,9 @@ int32_t voxworld_floorz(int32_t x, int32_t y, int32_t z, int32_t def)
     if (!vw_inxy(bx, by)) return def;
     vwcolumn_t const *c = vw_col(bx, by);
     int32_t best = def;
-    for (int i = 0; i < c->nruns; i++)
+    for (int i = 0; i < c->nsruns; i++)
     {
-        int32_t const top = vw_layertop(c->runs[i].z1);
+        int32_t const top = vw_layertop(c->sruns[i].z1);
         if (top >= z - 256 && top < best) best = top;
     }
     return best;
