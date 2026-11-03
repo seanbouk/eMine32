@@ -31,7 +31,7 @@ static void vw_registerosd(void);
 // World storage
 //////////////////////////////////////////////////////////////////////////////
 
-#define VW_MAXRUNS 16  // max separate solid runs per block column
+#define VW_MAXRUNS 32  // max separate solid runs per block column (deep cave systems stack up a lot of them)
 
 struct vwrun_t { uint8_t z0, z1; };  // solid layers [z0, z1)
 
@@ -526,7 +526,7 @@ static void vw_worm(vwrng_t &rng, float x, float y, int floor, int len, bool ent
         int const h = vw_height((int)x, (int)y);
         if (entrance)
         {
-            if (floor > h - 10) { if (i & 1) floor--; }
+            if (floor > h - 16) { if (i & 1) floor--; }
             else entrance = false;
             floor = min(floor, h);
         }
@@ -535,7 +535,7 @@ static void vw_worm(vwrng_t &rng, float x, float y, int floor, int len, bool ent
             if (rng.f() < 0.04f) floor += rng.f() < 0.5f ? -1 : 1;
             if (floor > h - 4) floor--;  // stay underground (mostly: valleys still get the odd skylight)
         }
-        floor = clamp(floor, 2, vw_sz - 5);
+        floor = clamp(floor, 5, vw_sz - 5);  // never into the bedrock layers
 
         vw_carveslice(x, y, floor, r, 3);
         if (!entrance && rng.f() < 0.006f) vw_room(rng, x, y, floor);
@@ -562,7 +562,11 @@ static void vw_vein(vwrng_t &rng, uint8_t type, int x, int y, int z, int size, b
 
 static void vw_generate(void)
 {
-    int const sea = vw_sz/4;
+    // Heights in layers. With the default 160-layer world: lowlands/beaches around 60-64, hills up to ~105,
+    // ~60 layers of underground below the lowlands, and the sky above.
+    int const sea   = min(64, vw_sz*2/5);              // lowland level; beaches at or below it
+    int const amp   = max(8, min(44, vw_sz - sea - 24)); // hill height range (leaves room for trees)
+    int const depth = max(1, sea / 16);                // underground volume relative to the old 64-layer world
     vw_hmap = (int *)Xmalloc(sizeof(int) * vw_sx * vw_sy);
 
     for (int x = 0; x < vw_sx; x++)
@@ -570,15 +574,16 @@ static void vw_generate(void)
         {
             float const hills = vw_fbm(x / 64.f, y / 64.f, vw_seed, 4);
             float const rough = vw_fbm(x / 16.f, y / 16.f, vw_seed + 7, 3);
-            int h = sea + (int)(hills*hills * vw_sz*0.55f + rough * 4.f) - 4;
-            h = clamp(h, 2, vw_sz - 12);
+            int h = sea - 4 + (int)(hills*hills * amp * 1.4f + rough * 4.f);
+            h = clamp(h, 6, vw_sz - 12);
 
             uint8_t *b = vw_colblocks(x, y);
             for (int z = 0; z <= h; z++)
             {
                 uint8_t t = VW_STONE;
-                if (z == 0) t = VW_BEDROCK;
-                else if (z > h - 4) t = (h <= sea + 1) ? VW_SAND : (z == h ? VW_GRASS : VW_DIRT);
+                if (z > h - 4) t = (h <= sea + 1) ? VW_SAND : (z == h ? VW_GRASS : VW_DIRT);
+                // Bedrock: solid at layer 0, then thinning out over layers 1-4 (4/5 .. 1/5), so the floor is lumpy.
+                if (z == 0 || (z <= 4 && (int)(vw_hash(x * 5 + z, y, vw_seed + 17) % 5) < 5 - z)) t = VW_BEDROCK;
                 b[z] = t;
             }
             vw_hmap[x*vw_sy + y] = h;
@@ -588,11 +593,11 @@ static void vw_generate(void)
     vwrng_t rng = { vw_seed * 2654435761u + 12345u };
     rng.next();
     int const area = vw_sx * vw_sy;
-    for (int i = 0, n = max(1, area / 1100); i < n; i++)
+    for (int i = 0, n = max(1, area * depth / 1100); i < n; i++)
     {
         float const x = rng.range(4, vw_sx - 5) + 0.5f, y = rng.range(4, vw_sy - 5) + 0.5f;
         int const h = vw_height((int)x, (int)y);
-        vw_worm(rng, x, y, rng.range(3, max(3, h - 8)), rng.range(60, 180), false);
+        vw_worm(rng, x, y, rng.range(5, max(5, h - 8)), rng.range(60, 180), false);
     }
     for (int i = 0, n = max(1, area / 4000); i < n; i++)
     {
@@ -603,14 +608,16 @@ static void vw_generate(void)
     }
 
     // Ores and gravel (only replace stone, so they line cave walls rather than floating in them).
-    for (int i = 0, n = area / 35; i < n; i++)
-        vw_vein(rng, VW_COAL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(2, vw_sz*6/10), rng.range(5, 10), false);
-    for (int i = 0, n = area / 70; i < n; i++)
-        vw_vein(rng, VW_IRON, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(2, sea), rng.range(4, 8), false);
-    for (int i = 0, n = area / 350; i < n; i++)
-        vw_vein(rng, VW_GOLD, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(1, max(2, sea/2)), rng.range(3, 6), false);
-    for (int i = 0, n = area / 250; i < n; i++)
-        vw_vein(rng, VW_GRAVEL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(2, sea + 8), rng.range(15, 30), true);
+    // Depth bands (with the default world): coal anywhere in the rock, iron in the lower two thirds,
+    // gold only in the deepest third.
+    for (int i = 0, n = area * depth / 35; i < n; i++)
+        vw_vein(rng, VW_COAL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, sea + amp/2), rng.range(5, 10), false);
+    for (int i = 0, n = area * depth / 70; i < n; i++)
+        vw_vein(rng, VW_IRON, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, sea*2/3), rng.range(4, 8), false);
+    for (int i = 0, n = area * depth / 500; i < n; i++)
+        vw_vein(rng, VW_GOLD, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, max(6, sea/3)), rng.range(3, 6), false);
+    for (int i = 0, n = area * depth / 250; i < n; i++)
+        vw_vein(rng, VW_GRAVEL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, sea + 8), rng.range(15, 30), true);
 
     // Trees.
     for (int x = 3; x < vw_sx - 3; x++)

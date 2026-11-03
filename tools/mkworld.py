@@ -107,7 +107,7 @@ TEXTURES = [
     ('grass_side', grass_side),
     ('dirt',       lambda: noise_tex(2, (121, 85, 58), 0.18, (90, 64, 44), 0.15)),
     ('stone',      stone),
-    ('bedrock',    lambda: noise_tex(4, (70, 70, 70), 0.35)),
+    ('bedrock',    lambda: noise_tex(4, (38, 38, 40), 0.35, (104, 104, 108), 0.22)),
     ('sand',       lambda: noise_tex(5, (219, 207, 160), 0.07)),
     ('wood_side',  wood_side),
     ('wood_top',   wood_top),
@@ -130,7 +130,7 @@ def write_textures():
     open(os.path.join(ROOT, 'emine32.def'), 'w').write('\n'.join(lines) + '\n')
 
 # ---------------------------------------------------------------- map (Build v7)
-def write_map(size_blocks=256, height_blocks=64, seed=1234):
+def write_map(size_blocks=256, height_blocks=160, seed=1234):
     half = size_blocks * 512 // 2
     floorz = 0
     ceilz = floorz - (height_blocks + 2) * 8192

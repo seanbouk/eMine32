@@ -25,7 +25,7 @@ const { chromium } = require('playwright-core');
   let i = 1;
   for (const w of steps) {
     const ms = +w.slice(1);
-    const keys = { S: 'Comma', D: 'Period', L: 'ArrowLeft', R: 'ArrowRight', U: 'PageUp', N: 'PageDown' };
+    const keys = { S: 'Comma', D: 'Period', L: 'ArrowLeft', R: 'ArrowRight', U: 'Home', N: 'End' };
     if (keys[w[0]]) await hold(keys[w[0]], ms);
     else if (w === 'Q') await hold('q', 100);
     else if (w === 'F') { await page.mouse.down(); await page.waitForTimeout(60); await page.mouse.up(); }

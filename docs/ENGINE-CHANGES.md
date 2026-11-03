@@ -60,9 +60,13 @@ drawn through Build's palette and shade tables (`palookup`), with Build's own di
 Destruction: per-block damage (hardness per type: leaves 6, sand 10, dirt/grass 12, gravel 14, planks 24, wood 30,
 cobble 40, stone 48, coal 52, gold 56, iron 64, bedrock indestructible); damaged blocks render darker. Sprites with
 lotag `0x7E00|type` are drawn as chunks of that block (debris).
+World height comes from the sector (floor to ceiling, up to 255 layers); the generated map is 256x256x160. Heights
+(default world): lowlands/beaches ~60-64, hills to ~105, ~60 layers of rock below the lowlands. Bedrock is solid at
+layer 0 and thins out over layers 1-4 (a lumpy, indestructible floor). Ore depth bands: coal anywhere in the rock,
+iron in the lower two thirds, gold in the deepest third.
 Generation (spike, in the engine for now): fbm hills, then wandering tunnels (level with the odd one-block step, since
 Duke can't step up a whole block) with domed caverns, a few tunnels that stair down from the surface (one always just
-ahead of the spawn), ore veins (coal, iron, gold deeper) and gravel pockets, trees. ~25 ms for 256x256x64 in the browser.
+ahead of the spawn), ore veins (coal, iron, gold deeper) and gravel pockets, trees. ~40 ms for 256x256x160 in the browser.
 Lighting: Minecraft-style skylight 0..15 per air cell (full light falls straight down, otherwise -1 per block),
 flood-filled at load, spread incrementally when a cell opens and removed-then-reflooded when one fills (Minecraft's
 two-pass removal). Each face is shaded by the air cell in front of it, sprites by the cell they stand in. Missing light becomes
