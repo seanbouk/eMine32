@@ -22,3 +22,5 @@ tilefromtexture 7019 { file "textures/blocks/tallgrass.png" }
 tilefromtexture 7020 { file "textures/blocks/flower_red.png" }
 tilefromtexture 7021 { file "textures/blocks/flower_yellow.png" }
 tilefromtexture 7022 { file "textures/blocks/glass.png" }
+tilefromtexture 7023 { file "textures/blocks/snow.png" }
+tilefromtexture 7024 { file "textures/blocks/snow_side.png" }

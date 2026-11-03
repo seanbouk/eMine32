@@ -196,6 +196,17 @@ def glass():
         im.putpixel((x, y), (232, 244, 250, 255))
     return im
 
+def snow_side():
+    """Dirt with a ragged band of snow along the top."""
+    rnd = random.Random(31)
+    im = noise_tex(2, (121, 85, 58), 0.18, (90, 64, 44), 0.15)
+    for x in range(TEX):
+        depth = 3 + rnd.randint(0, 2)
+        for y in range(depth):
+            v = rnd.uniform(0.92, 1.0)
+            im.putpixel((x, y), tuple(int(c * v) for c in (236, 240, 246)))
+    return im
+
 # order == voxworld.cpp T_* enum
 TEXTURES = [
     ('grass_top',  lambda: noise_tex(1, (96, 150, 60), 0.2, (70, 120, 40), 0.2)),
@@ -221,6 +232,8 @@ TEXTURES = [
     ('flower_red', lambda: flower(22, (210, 40, 36), (60, 30, 20))),
     ('flower_yellow', lambda: flower(23, (250, 214, 48), (200, 130, 20))),
     ('glass',      glass),
+    ('snow',       lambda: noise_tex(32, (238, 242, 248), 0.05, (214, 222, 236), 0.15)),
+    ('snow_side',  snow_side),
 ]
 
 def write_textures():

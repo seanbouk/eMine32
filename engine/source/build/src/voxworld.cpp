@@ -78,6 +78,7 @@ static int         vw_ncx, vw_ncy;           // window size in chunks
 static uint8_t    *vw_cready;                // [cx*vw_ncy + cy]: chunk generated (else a solid placeholder)
 static uint8_t    *vw_cdirty;                // changed since generated/restored: saved when it leaves the window
 static int         vw_sea, vw_amp, vw_depth, vw_lavaline;  // generation constants (layers)
+static int         vw_snowline;              // ground about this high or higher is snow-capped (0: none)
 static FORCE_INLINE int vw_chunkof(int bx, int by) { return (bx / VW_CHUNK) * vw_ncy + by / VW_CHUNK; }
 
 // Fluids: kind 0 is lava, kind 1 water. Each has its own queue and pace.
@@ -485,6 +486,28 @@ bool voxworld_findspot(int32_t x, int32_t y, int maxlight, int minblocklight, ve
     return false;
 }
 
+bool voxworld_findtop(int32_t x, int32_t y, int type, vec3_t *out)
+{
+    if (!vw_active) return false;
+    int cx, cy, cz;
+    voxworld_toblock(x, y, 0, &cx, &cy, &cz);
+    for (int r = 1; r < max(vw_sx, vw_sy); r++)
+        for (int bx = cx - r; bx <= cx + r; bx++)
+            for (int by = cy - r; by <= cy + r; by++)
+            {
+                if (max(abs(bx - cx), abs(by - cy)) != r || !vw_inxy(bx, by)) continue;
+                vwcolumn_t const *c = vw_col(bx, by);
+                if (!c->nsruns) continue;
+                int const top = c->sruns[c->nsruns-1].z1;
+                if (vw_colblocks(bx, by)[top - 1] != type) continue;
+                out->x = vw_x0 + bx*VW_BLOCKXY + VW_BLOCKXY/2;
+                out->y = vw_y0 + by*VW_BLOCKXY + VW_BLOCKXY/2;
+                out->z = vw_zbot - top*VW_BLOCKZ;
+                return true;
+            }
+    return false;
+}
+
 // Top of the open water in column (bx,by), or -1 if its top block isn't water.
 static int vw_openwatertop(int bx, int by)
 {
@@ -617,7 +640,7 @@ enum
 {
     T_GRASS_TOP, T_GRASS_SIDE, T_DIRT, T_STONE, T_BEDROCK, T_SAND, T_WOOD_SIDE, T_WOOD_TOP, T_LEAVES, T_PLANKS, T_COBBLE,
     T_GRAVEL, T_COAL, T_IRON, T_GOLD, T_ATOMIC, T_LAVA, T_WATER, T_OBSIDIAN, T_TALLGRASS, T_FLOWER_RED, T_FLOWER_YELLOW,
-    T_GLASS,
+    T_GLASS, T_SNOW, T_SNOW_SIDE,
     T_COUNT
 };
 
@@ -662,6 +685,7 @@ static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
     { T_FLOWER_RED, T_FLOWER_RED, T_FLOWER_RED, 1, 0, 0, VW_PLANTFLAGS },     // red flower
     { T_FLOWER_YELLOW, T_FLOWER_YELLOW, T_FLOWER_YELLOW, 1, 0, 0, VW_PLANTFLAGS },  // yellow flower
     { T_GLASS, T_GLASS, T_GLASS, 3, 0, 0, VW_BF_GLASS },  // glass: one shot breaks it
+    { T_SNOW, T_SNOW_SIDE, T_DIRT, 12 },            // snow (on dirt, like grass)
 };
 
 static int     vw_emit(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].emit : 0; }
@@ -1009,6 +1033,8 @@ static void vw_genscratch(int x0, int y0)
         {
             int const h = vw_terrainh(x, y);
             vw_gh[(x - vw_gx0)*VW_GENW + (y - vw_gy0)] = h;
+            // snow caps: a ragged snowline, a few layers up or down from column to column
+            bool const snowy = vw_snowline && h + (int)(vw_fbm(x / 6.f, y / 6.f, vw_seed + 81, 2) * 6.f) - 3 >= vw_snowline;
             uint8_t *b = vw_gcol(x, y);
             Bmemset(b, VW_AIR, vw_sz);
             for (int z = 0; z <= h; z++)
@@ -1019,7 +1045,7 @@ static void vw_genscratch(int x0, int y0)
                     if (h < sea - 1)  // lake bed: sand with patches of gravel
                         t = (vw_hash(x >> 2, y >> 2, vw_seed + 41) % 3) ? VW_SAND : VW_GRAVEL;
                     else
-                        t = (h <= sea + 1) ? VW_SAND : (z == h ? VW_GRASS : VW_DIRT);
+                        t = (h <= sea + 1) ? VW_SAND : (z == h ? (snowy ? VW_SNOW : VW_GRASS) : VW_DIRT);
                 }
                 // Bedrock: solid at layer 0, then thinning out over layers 1-4 (4/5 .. 1/5), so the floor is lumpy.
                 if (z == 0 || (z <= 4 && (int)(vw_hash(x * 5 + z, y, vw_seed + 17) % 5) < 5 - z)) t = VW_BEDROCK;
@@ -1193,6 +1219,7 @@ void voxworld_onmapload(vec3_t *dapos)
     vw_amp      = max(8, min(44, vw_sz - vw_sea - 24));  // hill height range (leaves room for trees)
     vw_depth    = max(1, vw_sea / 16);                   // underground volume relative to the old 64-layer world
     vw_lavaline = max(6, vw_sea / 6);                    // ~layer 10 in the default world
+    vw_snowline = vw_sea + vw_amp * 11 / 20;             // ~layer 88: the tops of the higher hills
 
     // The window starts centred on the player's start (whole chunks, inside the world).
     int const sbx = dapos ? (dapos->x - minx) / VW_BLOCKXY : vw_wsx / 2, sby = dapos ? (dapos->y - miny) / VW_BLOCKXY : vw_wsy / 2;
@@ -1224,6 +1251,22 @@ void voxworld_onmapload(vec3_t *dapos)
         for (int cy = 0; cy < vw_ncy; cy++)
             vw_loadchunk(cx, cy, false);
     vw_computelight();
+    {
+        int snow = 0, hist[256] = {};
+        for (int x = 0; x < vw_sx; x++)
+            for (int y = 0; y < vw_sy; y++)
+            {
+                vwcolumn_t const *c = vw_col(x, y);
+                if (!c->nruns) continue;
+                snow += vw_colblocks(x, y)[c->runs[c->nruns-1].z1 - 1] == VW_SNOW;
+                hist[c->runs[c->nruns-1].z1 - 1]++;
+            }
+        int pct[3] = { 90, 99, 100 }, at[3] = {}, acc = 0, k = 0;
+        for (int z = 0; z < 256 && k < 3; z++)
+            for (acc += hist[z]; k < 3 && acc * 100 >= pct[k] * vw_sx * vw_sy; k++) at[k] = z;
+        LOG_F(INFO, "voxworld: %d%% of the window's columns are snow-capped (snowline %d); ground tops: 90%% <= %d, 99%% <= %d, max %d",
+              snow * 100 / (vw_sx*vw_sy), vw_snowline, at[0], at[1], at[2]);
+    }
     LOG_F(INFO, "voxworld: world %dx%dx%d blocks, window %dx%d at %d,%d, seed %u, generated in %.1f ms", vw_wsx, vw_wsy, vw_sz,
           vw_sx, vw_sy, vw_ox, vw_oy, vw_seed, timerGetFractionalTicks() - t0);
 

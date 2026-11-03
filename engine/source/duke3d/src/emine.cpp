@@ -377,6 +377,26 @@ static int osdcmd_emine_go(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+// Dev console: `emine_find <blocktype>` stands the player on the nearest column topped with that block type.
+static int osdcmd_emine_find(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (!voxworld_active() || p->i < 0 || parm->numparms < 1) return OSDCMD_SHOWHELP;
+    vec3_t feet;
+    if (!voxworld_findtop(p->pos.x, p->pos.y, Batol(parm->parms[0]), &feet))
+    {
+        OSD_Printf("emine_find: none nearby\n");
+        return OSDCMD_OK;
+    }
+    p->pos   = { feet.x, feet.y, feet.z - PHEIGHT };
+    p->opos  = p->pos;
+    p->bobpos = { feet.x, feet.y };
+    p->vel   = { 0, 0, 0 };
+    setsprite(p->i, &feet);
+    OSD_Printf("emine_find: moved to %d, %d, %d\n", feet.x, feet.y, feet.z);
+    return OSDCMD_OK;
+}
+
 // Dev console: `emine_where` toggles printing what the player is standing/swimming in.
 static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 {
@@ -386,6 +406,7 @@ static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 
 void Emine_RegisterOSD(void)
 {
+    OSD_RegisterFunction("emine_find", "emine_find <blocktype>: dev - stand on the nearest column topped with that block (31 = snow)", osdcmd_emine_find);
     OSD_RegisterFunction("emine_go", "emine_go <dx> <dy> [angle]: dev - move that many blocks across the world (and face Build angle 0-2047)", osdcmd_emine_go);
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);

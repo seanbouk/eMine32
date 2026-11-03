@@ -58,6 +58,7 @@ enum vwblock_t : uint8_t
     VW_FLOWER_RED,
     VW_FLOWER_YELLOW,
     VW_GLASS,      // solid, but see-through: light and sight pass, shots break it
+    VW_SNOW,       // grass's place on the highest ground
     VW_NUMTYPES
 };
 
@@ -151,6 +152,8 @@ bool    voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out);
 bool    voxworld_findspot(int32_t x, int32_t y, int maxlight, int minblocklight, vec3_t *out);
 // Dev helper: the surface (top centre) of the nearest open water; or with shore, the top of the nearest dry block
 // beside open water (*ang: Build angle facing the water).
+// Dev helper: the top (feet position) of the nearest column whose highest solid block is `type`.
+bool    voxworld_findtop(int32_t x, int32_t y, int type, vec3_t *out);
 bool    voxworld_findwater(int32_t x, int32_t y, bool shore, vec3_t *out, int *ang);
 
 // Falling blocks and other world events. The game supplies the callback.

@@ -115,6 +115,10 @@ and one shot breaks it (Duke's shards and smash sound). Its faces against anythi
 side plus top and bottom, are drawn as cut-outs (frame texels opaque, middle clear) into the same per-column overlay as
 the plants, which now depth-tests, so the nearest of plants and glass wins and everything behind still draws. The
 test arch has a glass window in its far wall and a half-glass floating slab. `emine_go` takes an optional angle.
+Snow caps (on trial): ground at or above the snowline (sea + 55% of the hill range, ~layer 88, ragged by +-3 layers of
+noise) is topped with snow instead of grass, so no plants or trees grow there; about 10% of columns near the spawn.
+The load log reports the snow share and ground-height percentiles. `emine_find <type>` (dev) stands you on the nearest
+column topped with a block type (31 = snow).
 Streaming: the world is as big as the map's box (the default map is 2032x2032 blocks, about Build's coordinate limit
 of +-524288); only a 256x256-block window of it (whole 16x16 chunks) is in memory, with the same layout and code as
 the old fixed world (window-local block coordinates; `vw_x0/vw_y0` move with the window). `voxworld_stream(x, y)`,
