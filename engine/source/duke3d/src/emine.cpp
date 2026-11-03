@@ -297,14 +297,16 @@ static int osdcmd_emine_drop(osdcmdptr_t parm)
 }
 
 // Dev console: `emine_water` drops the player into the nearest open water; `emine_water shore` stands them on the
-// nearest bank, facing the water.
+// nearest bank, facing the water; `emine_water falls` stands them in a cave a lake drains into, facing the fall.
 static int osdcmd_emine_water(osdcmdptr_t parm)
 {
     auto const p = g_player[myconnectindex].ps;
     vec3_t surf;
     int ang;
-    bool const shore = parm->numparms >= 1;
-    if (!voxworld_active() || p->i < 0 || !voxworld_findwater(p->pos.x, p->pos.y, shore, &surf, &ang))
+    bool const falls = parm->numparms >= 1 && !Bstrcasecmp(parm->parms[0], "falls");
+    bool const shore = parm->numparms >= 1;  // shore, or falls: stand dry, facing the water
+    if (!voxworld_active() || p->i < 0 ||
+        !(falls ? voxworld_findfall(p->pos.x, p->pos.y, &surf, &ang) : voxworld_findwater(p->pos.x, p->pos.y, shore, &surf, &ang)))
     {
         OSD_Printf("emine_water: no water found\n");
         return OSDCMD_OK;
@@ -330,7 +332,7 @@ static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 void Emine_RegisterOSD(void)
 {
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
-    OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);
+    OSD_RegisterFunction("emine_water", "emine_water [shore|falls]: dev - jump into the nearest open water (or stand beside it, or by water pouring into a cave)", osdcmd_emine_water);
     voxworld_seteventfn(Emine_OnWorldEvent);
     OSD_RegisterFunction("emine_glow", "emine_glow [minlight 1-15]: dev - teleport next to the nearest glowing block", osdcmd_emine_cave);
     OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);

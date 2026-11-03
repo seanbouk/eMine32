@@ -143,6 +143,7 @@ bool    voxworld_findspot(int32_t x, int32_t y, int maxlight, int minblocklight,
 // Dev helper: the surface (top centre) of the nearest open water; or with shore, the top of the nearest dry block
 // beside open water (*ang: Build angle facing the water).
 bool    voxworld_findwater(int32_t x, int32_t y, bool shore, vec3_t *out, int *ang);
+bool    voxworld_findfall(int32_t x, int32_t y, vec3_t *out, int *ang);  // where a lake pours into a cave
 
 // Falling blocks and other world events. The game supplies the callback.
 enum

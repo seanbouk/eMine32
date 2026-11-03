@@ -48,6 +48,7 @@ struct vwcolumn_t
 };
 
 static bool        vw_active;
+static bool        vw_generating;  // vw_generate running: fluids write blocks directly
 static int         vw_sect = -1;
 static int         vw_sx, vw_sy, vw_sz;      // size in blocks
 static int32_t     vw_x0, vw_y0;             // world coords of block (0,0) corner
@@ -483,6 +484,51 @@ bool voxworld_findwater(int32_t x, int32_t y, bool shore, vec3_t *out, int *ang)
     return false;
 }
 
+// Nearest place where water pours down into a cave: a dry spot on the cave floor a few blocks from where it lands,
+// facing it. (Dev aid.)
+bool voxworld_findfall(int32_t x, int32_t y, vec3_t *out, int *ang)
+{
+    if (!vw_active) return false;
+    int cx, cy, cz;
+    voxworld_toblock(x, y, 0, &cx, &cy, &cz);
+    auto stand = [](int bx, int by, int z) {
+        if (!vw_inxy(bx, by) || z < 1 || z + 2 >= vw_sz) return false;
+        uint8_t const *b = vw_colblocks(bx, by);
+        return vw_issolid(b[z-1]) && b[z] == VW_AIR && b[z+1] == VW_AIR && b[z+2] == VW_AIR;
+    };
+    for (int r = 0; r < max(vw_sx, vw_sy); r++)
+        for (int bx = cx - r; bx <= cx + r; bx++)
+            for (int by = cy - r; by <= cy + r; by++)
+            {
+                if (max(abs(bx - cx), abs(by - cy)) != r || !vw_inxy(bx, by)) continue;
+                uint8_t const *b = vw_colblocks(bx, by);
+                for (int z = 1; z + 2 < vw_sz; z++)
+                {
+                    if (b[z] != VW_WATER_FALL || !vw_issolid(b[z-1])) continue;
+                    int roof = z + 1;  // under cover (in a cave), not just a pond spilling over the ground
+                    while (roof < vw_sz && !vw_issolid(b[roof])) roof++;
+                    if (roof >= vw_sz) continue;
+                    // where it lands; now a dry spot 3-6 blocks away on about the same floor
+                    for (int d = 3; d <= 6; d++)
+                        for (int sx = bx - d; sx <= bx + d; sx++)
+                            for (int sy = by - d; sy <= by + d; sy++)
+                            {
+                                if (max(abs(sx - bx), abs(sy - by)) != d) continue;
+                                for (int sz = z - 1; sz <= z + 1; sz++)
+                                    if (stand(sx, sy, sz))
+                                    {
+                                        out->x = vw_x0 + sx*VW_BLOCKXY + VW_BLOCKXY/2;
+                                        out->y = vw_y0 + sy*VW_BLOCKXY + VW_BLOCKXY/2;
+                                        out->z = vw_zbot - sz*VW_BLOCKZ;
+                                        if (ang) *ang = getangle((bx - sx) * VW_BLOCKXY, (by - sy) * VW_BLOCKXY);
+                                        return true;
+                                    }
+                            }
+                }
+            }
+    return false;
+}
+
 // The cell a sprite at (x,y,z) is lit by.
 static void vw_spritecell(int32_t x, int32_t y, int32_t z, int *bx, int *by, int *bz)
 {
@@ -755,12 +801,9 @@ static void vw_carve(int x, int y, int z)
     // keep the spawn point and the test arch intact
     int const dx = x - (vw_sx/2 + 3), dy = y - vw_sy/2;
     if (dx*dx + dy*dy < 10*10 && z > vw_height(x, y) - 9) return;
-    // don't open caves up into lakes (the water would hang there until something disturbed it)
-    auto wet = [](int x, int y, int z) { return vw_inxy(x, y) && z < vw_sz && vw_iswater(vw_colblocks(x, y)[z]); };
-    if (wet(x, y, z) || wet(x, y, z + 1) || wet(x - 1, y, z) || wet(x + 1, y, z) || wet(x, y - 1, z) || wet(x, y + 1, z))
-        return;
+    // Caves can open into lakes: vw_settlefluids pours the water in afterwards. The water itself stays.
     uint8_t &b = vw_colblocks(x, y)[z];
-    if (b != VW_BEDROCK) b = VW_AIR;
+    if (b != VW_BEDROCK && !vw_iswater(b)) b = VW_AIR;
 }
 
 // Tunnel cross-section: a disc of radius r with a flat floor, `height` layers tall, a layer taller in the middle.
@@ -843,6 +886,44 @@ static void vw_vein(vwrng_t &rng, uint8_t type, int x, int y, int z, int size, b
     }
 }
 
+static void vw_fluidstep(int k);
+static void vw_fluidqueue(int bx, int by, int bz);
+
+// Generation: let all water that has somewhere to go (open cave beside or below it) flow until it stops, writing
+// blocks directly (the world isn't live yet). Water only exists below layer `top`.
+static void vw_settlefluids(int top)
+{
+    for (int x = 0; x < vw_sx; x++)
+        for (int y = 0; y < vw_sy; y++)
+        {
+            uint8_t const *b = vw_colblocks(x, y);
+            for (int z = 1; z < min(top, vw_sz); z++)
+            {
+                if (!vw_iswater(b[z])) continue;
+                auto open = [](int x, int y, int z) { return vw_inxy(x, y) && vw_colblocks(x, y)[z] == VW_AIR; };
+                if (b[z-1] == VW_AIR || open(x-1, y, z) || open(x+1, y, z) || open(x, y-1, z) || open(x, y+1, z))
+                    vw_fluidqueue(x, y, z);
+            }
+        }
+    vw_generating = true;
+    int steps = 0;
+    while (vw_nfluidq[1] && steps++ < 2000) vw_fluidstep(1);
+    while (vw_nfluidq[0] && steps++ < 2500) vw_fluidstep(0);  // lava disturbed by water (none flows on its own)
+    // sand and gravel left hanging over the water that poured out from under them sink through it
+    for (int x = 0; x < vw_sx; x++)
+        for (int y = 0; y < vw_sy; y++)
+        {
+            uint8_t *b = vw_colblocks(x, y);
+            for (int z = 2; z < vw_sz; z++)
+                if ((b[z] == VW_SAND || b[z] == VW_GRAVEL) && (vw_flags(b[z-1]) & VW_BF_FLUID))
+                    for (int zz = z; zz > 1 && (vw_flags(b[zz-1]) & VW_BF_FLUID); zz--) std::swap(b[zz], b[zz-1]);
+        }
+    if (vw_nfluidq[0] || vw_nfluidq[1]) LOG_F(WARNING, "voxworld: fluids still flowing after %d settle steps", steps);
+    else LOG_F(INFO, "voxworld: fluids settled in %d steps", steps);
+    vw_nfluidq[0] = vw_nfluidq[1] = 0;
+    vw_generating = false;
+}
+
 static void vw_generate(void)
 {
     // Heights in layers. With the default 160-layer world: lowlands/beaches around 60-64, hills up to ~105,
@@ -917,6 +998,9 @@ static void vw_generate(void)
             for (int z = 5; z <= lavaline; z++)
                 if (b[z] == VW_AIR) b[z] = VW_LAVA;
         }
+
+    // Lakes that caves opened into drain into them now, so the world starts settled.
+    vw_settlefluids(sea);
 
     // Ores and gravel (only replace stone, so they line cave walls rather than floating in them).
     // Depth bands (with the default world): coal anywhere in the rock, iron in the lower two thirds,
@@ -2195,20 +2279,22 @@ static bool vw_flowinto(int k, int bx, int by, int bz, uint8_t nt)
 {
     if (!vw_inxy(bx, by) || (unsigned)bz >= (unsigned)vw_sz) return false;
     uint8_t const t = vw_colblocks(bx, by)[bz];
+    // while generating, blocks are written directly
+    auto put = [](int bx, int by, int bz, uint8_t t) { if (!vw_generating) voxworld_set(bx, by, bz, t); else vw_colblocks(bx, by)[bz] = t; };
     if (t == VW_AIR)
     {
-        voxworld_set(bx, by, bz, nt);
+        put(bx, by, bz, nt);
         vw_fluidqueue(bx, by, bz);
         return true;
     }
     if (k == 1 && vw_islava(t))
     {
-        voxworld_set(bx, by, bz, t == VW_LAVA ? VW_OBSIDIAN : VW_COBBLE);
+        put(bx, by, bz, t == VW_LAVA ? VW_OBSIDIAN : VW_COBBLE);
         return true;
     }
     if (k == 0 && vw_iswater(t))
     {
-        voxworld_set(bx, by, bz, VW_STONE);
+        put(bx, by, bz, VW_STONE);
         return true;
     }
     return false;

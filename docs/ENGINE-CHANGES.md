@@ -98,15 +98,16 @@ Sprites behind water get the same blend. With the camera under water the view fa
 straight down), shots and sight pass through it. Fluids have two kinds with their own queue and pace (lava every 12
 tics, 3 cells; water every 5 tics, 4 cells); where they meet, water onto a lava source makes obsidian, onto flowing
 lava cobblestone, lava into water stone. Sand and gravel sink through fluids. Generation: a water table at layer
-sea-1 fills every hollow below it, and lake noise eases the ground down into basins (sand/gravel beds); caves aren't
-carved into anything next to water. The game: Duke's own swimming (`ST_2_UNDERWATER` movement) while his body is in
+sea-1 fills every hollow below it, and lake noise eases the ground down into basins (sand/gravel beds); caves can break into
+lakes, and generation then lets the water pour in until it stops (sand/gravel left over it sinks), so the world starts
+settled with waterfalls into some caves. The game: Duke's own swimming (`ST_2_UNDERWATER` movement) while his body is in
 water, slow sinking with no keys held, jump climbs a bank you're facing for up to 1.5 s after leaving the water, drowning with his head under, no fall
 damage into water.
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
 `r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves
 red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave, `emine_glow [minlight]` (dev) teleports next to the nearest glowing block, `emine_drop [height] [type]` (dev) drops a
-block on you (type 20 is water), `emine_water [shore]` (dev) drops you into the nearest open water (or stands you
-beside it, facing it), `emine_where` (dev) prints the blocks at your eye/body/feet. The test arch's end wall (facing the spawn) is gravel topped with sand.
+block on you (type 20 is water), `emine_water [shore|falls]` (dev) drops you into the nearest open water (or stands you
+beside it, facing it, or in a cave a lake pours into), `emine_where` (dev) prints the blocks at your eye/body/feet. The test arch's end wall (facing the spawn) is gravel topped with sand.
 
 Measured (headless Chrome, generated hills + trees, 96-block view): 1720x720 ~6 ms block rendering, ~8.5 ms per frame
 total, holds 75 Hz; 3440x1440 ~17 ms block rendering, ~36 fps.
