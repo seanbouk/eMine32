@@ -129,6 +129,13 @@ def write_map(size_blocks=256, height_blocks=64, seed=1234):
         spr(20 * B, 6 * B, 2000, ang=1024),     # PIGCOP
         spr(4 * B, 2 * B, 51),                  # medkit-ish pickup
         spr(5 * B, -2 * B, 40),                 # ammo
+        # Test weapons by the spawn so every mining weapon is easy to try.
+        spr(2 * B, -2 * B, 28),                 # SHOTGUNSPRITE
+        spr(2 * B, -3 * B, 49),                 # SHOTGUNAMMO
+        spr(3 * B, -2 * B, 22),                 # CHAINGUNSPRITE
+        spr(3 * B, -3 * B, 41),                 # BATTERYAMMO
+        spr(4 * B, -2 * B, 23),                 # RPGSPRITE
+        spr(4 * B, -3 * B, 44),                 # RPGAMMO
     ]
 
     out = struct.pack('<iiiihhH', 7, 0, 0, floorz - 40 * 8192, 0, 0, len(sectors))

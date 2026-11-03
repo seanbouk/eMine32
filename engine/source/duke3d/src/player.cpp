@@ -882,6 +882,8 @@ static void Proj_HandleKnee(hitdata_t *const hitData, int const spriteNum, int c
                 P_ActivateSwitch(playerNum, hitData->wall,0);
         }
     }
+    else
+        Emine_HitscanBlock(kneeSprite, hitData);  // eMine32: kicks break blocks too
 }
 
 #define MinibossScale(i, s) (((s)*sprite[i].yrepeat)/80)
