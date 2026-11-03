@@ -106,8 +106,8 @@ Plants (tall grass, red and yellow flowers): block types drawn as camera-facing 
 cell's centre (so they never leave their cell, and visiting cells in ray order still draws them front to back). Their
 opaque texels go into a per-column overlay that wins over whatever is behind it by depth, so sprites and water sort
 against them too. They count as air for collision, light, sight and shots; fluids wash them away, falling blocks crush
-them, explosions break them, and one goes when the block under it does. Generation puts them on ~20% of open grass:
-thicker in meadow patches, flowers in clumps of one colour.
+them, explosions break them, and one goes when the block under it does. Generation puts them on ~30% of open grass:
+mostly tall grass, thicker in meadow patches; flowers are rare (~3% of plants), in sparse clumps of one colour.
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
 `r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves
 red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave, `emine_glow [minlight]` (dev) teleports next to the nearest glowing block, `emine_drop [height] [type]` (dev) drops a

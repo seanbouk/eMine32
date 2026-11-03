@@ -970,8 +970,8 @@ static void vw_generate(void)
             }
         }
 
-    // Plants on open grass: tall grass everywhere, thicker in meadow patches; flowers in clumps of one colour.
-    int ngrass = 0, nplants = 0;
+    // Plants on open grass: mostly tall grass, thicker in meadow patches; the odd sparse clump of flowers of one colour.
+    int ngrass = 0, nplants = 0, nflowers = 0;
     for (int x = 0; x < vw_sx; x++)
         for (int y = 0; y < vw_sy; y++)
         {
@@ -982,13 +982,14 @@ static void vw_generate(void)
             uint32_t const h = vw_hash(x, y, vw_seed + 61) % 1000;
             float const meadow = vw_fbm(x / 24.f, y / 24.f, vw_seed + 63, 2);
             float const flowers = vw_fbm(x / 10.f, y / 10.f, vw_seed + 67, 2);
-            if (flowers > 0.62f && h < 220)
+            if (flowers > 0.68f && h < 60)
                 b[s+1] = (vw_fbm(x / 40.f, y / 40.f, vw_seed + 71, 1) > 0.5f) ? VW_FLOWER_RED : VW_FLOWER_YELLOW;
-            else if (h < (int)(60 + clamp((meadow - 0.45f) * 1500.f, 0.f, 380.f)))
+            else if (h < (int)(150 + clamp((meadow - 0.4f) * 1500.f, 0.f, 450.f)))
                 b[s+1] = VW_TALLGRASS;
             nplants += b[s+1] != VW_AIR;
+            nflowers += b[s+1] == VW_FLOWER_RED || b[s+1] == VW_FLOWER_YELLOW;
         }
-    LOG_F(INFO, "voxworld: plants on %d of %d open grass blocks", nplants, ngrass);
+    LOG_F(INFO, "voxworld: plants on %d of %d open grass blocks (%d flowers)", nplants, ngrass, nflowers);
 
     // A test structure near the centre: a planks arch with a cobble floor, to show overhangs.
     {
