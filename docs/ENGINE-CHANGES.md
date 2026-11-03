@@ -110,6 +110,11 @@ explosions break them, and one goes when the block under it does. Shots go on th
 the way to whatever they hit (the hitscan notes the plant cells it crosses; `voxworld_smashplants` is called after gun
 and custom hitscan shots, and after a kick within its reach, not after aiming/sight hitscans). Generation puts them on ~30% of open grass:
 mostly tall grass, thicker in meadow patches; flowers are rare (~3% of plants), in sparse clumps of one colour.
+Glass: a solid block that light (full skylight straight down, like air) and sight pass through; hitscans stop at it
+and one shot breaks it (Duke's shards and smash sound). Its faces against anything that isn't glass, near and far
+side plus top and bottom, are drawn as cut-outs (frame texels opaque, middle clear) into the same per-column overlay as
+the plants, which now depth-tests, so the nearest of plants and glass wins and everything behind still draws. The
+test arch has a glass window in its far wall and a half-glass floating slab. `emine_go` takes an optional angle.
 Streaming: the world is as big as the map's box (the default map is 2032x2032 blocks, about Build's coordinate limit
 of +-524288); only a 256x256-block window of it (whole 16x16 chunks) is in memory, with the same layout and code as
 the old fixed world (window-local block coordinates; `vw_x0/vw_y0` move with the window). `voxworld_stream(x, y)`,

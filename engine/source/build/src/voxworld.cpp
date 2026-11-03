@@ -37,6 +37,7 @@ static void vw_registerosd(void);
 #define VW_MAXRUNS 32  // max separate solid runs per block column (deep cave systems stack up a lot of them)
 #define VW_MAXWRUNS 8  // max separate see-through (water) runs per column
 #define VW_MAXPLANTS 4 // max plants (billboard blocks) per column
+#define VW_MAXGRUNS 8  // max separate glass runs per column
 
 struct vwrun_t { uint8_t z0, z1; };  // non-air layers [z0, z1)
 
@@ -50,6 +51,8 @@ struct vwcolumn_t
     vwrun_t  wruns[VW_MAXWRUNS];
     uint8_t  nplants;            // plant layers, lowest first: drawn as billboards
     uint8_t  plants[VW_MAXPLANTS];
+    uint8_t  ngruns;             // glass: solid, drawn as cut-out faces
+    vwrun_t  gruns[VW_MAXGRUNS];
 };
 
 static bool        vw_active;
@@ -89,8 +92,11 @@ static FORCE_INLINE bool vw_islava(uint8_t t) { return t >= VW_LAVA && t <= VW_L
 static FORCE_INLINE bool vw_isplant(uint8_t t) { return t >= VW_TALLGRASS && t <= VW_FLOWER_YELLOW; }
 // air, or as good as: plants don't block anything
 static FORCE_INLINE bool vw_isopen(uint8_t t) { return t == VW_AIR || vw_isplant(t); }
-// light passes through air and water (water dims it a little)
-static FORCE_INLINE bool vw_lightpass(uint8_t t) { return vw_isopen(t) || vw_iswater(t); }
+static FORCE_INLINE bool vw_isglass(uint8_t t) { return t == VW_GLASS; }
+// light goes straight through: full skylight falls down through these without fading
+static FORCE_INLINE bool vw_skyclear(uint8_t t) { return vw_isopen(t) || vw_isglass(t); }
+// light passes through air, glass and water (water dims it a little)
+static FORCE_INLINE bool vw_lightpass(uint8_t t) { return vw_skyclear(t) || vw_iswater(t); }
 
 static FORCE_INLINE uint8_t *vw_colblocks(int bx, int by) { return &vw_blocks[((size_t)bx*vw_sy + by)*vw_sz]; }
 static FORCE_INLINE vwcolumn_t *vw_col(int bx, int by) { return &vw_cols[(size_t)bx*vw_sy + by]; }
@@ -102,12 +108,20 @@ static void vw_rebuildcolumn(int bx, int by)
 {
     uint8_t const *b = vw_colblocks(bx, by);
     vwcolumn_t *c = vw_col(bx, by);
-    for (int pass = 0; pass < 3; pass++)
+    for (int pass = 0; pass < 4; pass++)
     {
-        vwrun_t *runs = pass == 0 ? c->runs : pass == 1 ? c->sruns : c->wruns;
-        uint8_t &n = pass == 0 ? c->nruns : pass == 1 ? c->nsruns : c->nwruns;
-        int const maxn = pass == 2 ? VW_MAXWRUNS : VW_MAXRUNS;
-        auto in = [&](int z) { return pass == 0 ? (!vw_isopen(b[z]) && !vw_iswater(b[z])) : pass == 1 ? vw_issolid(b[z]) : vw_iswater(b[z]); };
+        vwrun_t *runs = pass == 0 ? c->runs : pass == 1 ? c->sruns : pass == 2 ? c->wruns : c->gruns;
+        uint8_t &n = pass == 0 ? c->nruns : pass == 1 ? c->nsruns : pass == 2 ? c->nwruns : c->ngruns;
+        int const maxn = pass == 2 ? VW_MAXWRUNS : pass == 3 ? VW_MAXGRUNS : VW_MAXRUNS;
+        auto in = [&](int z) {
+            switch (pass)
+            {
+                case 0: return !vw_lightpass(b[z]);  // opaque: not air, plants, glass or water
+                case 1: return vw_issolid(b[z]);
+                case 2: return vw_iswater(b[z]);
+                default: return vw_isglass(b[z]);
+            }
+        };
         n = 0;
         int z = 0;
         while (z < vw_sz)
@@ -270,7 +284,7 @@ static void vw_lightflood(size_t n, int ch)
             uint8_t const nb = vw_blocks[nidx];
             if (!vw_lightpass(nb)) continue;
             // full skylight goes straight down through air without fading; water dims it
-            int const nl = (ch == 0 && d[2] < 0 && l == VW_LIGHTMAX && vw_isopen(nb)) ? VW_LIGHTMAX : l - 1;
+            int const nl = (ch == 0 && d[2] < 0 && l == VW_LIGHTMAX && vw_skyclear(nb)) ? VW_LIGHTMAX : l - 1;
             if (nl > vw_lget(nidx, ch))
             {
                 vw_lset(nidx, ch, nl);
@@ -394,13 +408,13 @@ static void vw_lightopened(int bx, int by, int bz, uint8_t oldtype)
     if (vw_emit(oldtype)) vw_lightremove(idx, 1, vw_lget(idx, 1));  // an emitter went: its light goes with it
 
     // sky: full skylight from straight above doesn't fade (unless this is water); anything else loses one
-    bool const air = vw_isopen(vw_blocks[idx]);
+    bool const air = vw_skyclear(vw_blocks[idx]);
     int best = 0;
     if (bz + 1 >= vw_sz) best = air ? VW_LIGHTMAX : VW_LIGHTMAX - 1;
     else
     {
         uint32_t const above = vw_lidx(bx, by, bz + 1);
-        if (air && vw_isopen(vw_blocks[above]) && (vw_light[above] & 15) == VW_LIGHTMAX) best = VW_LIGHTMAX;
+        if (air && vw_skyclear(vw_blocks[above]) && (vw_light[above] & 15) == VW_LIGHTMAX) best = VW_LIGHTMAX;
     }
     // block light (and its colour) from the brightest neighbour
     int bbest = 0, btint = 0;
@@ -603,6 +617,7 @@ enum
 {
     T_GRASS_TOP, T_GRASS_SIDE, T_DIRT, T_STONE, T_BEDROCK, T_SAND, T_WOOD_SIDE, T_WOOD_TOP, T_LEAVES, T_PLANKS, T_COBBLE,
     T_GRAVEL, T_COAL, T_IRON, T_GOLD, T_ATOMIC, T_LAVA, T_WATER, T_OBSIDIAN, T_TALLGRASS, T_FLOWER_RED, T_FLOWER_YELLOW,
+    T_GLASS,
     T_COUNT
 };
 
@@ -646,6 +661,7 @@ static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
     { T_TALLGRASS, T_TALLGRASS, T_TALLGRASS, 1, 0, 0, VW_PLANTFLAGS },        // tall grass
     { T_FLOWER_RED, T_FLOWER_RED, T_FLOWER_RED, 1, 0, 0, VW_PLANTFLAGS },     // red flower
     { T_FLOWER_YELLOW, T_FLOWER_YELLOW, T_FLOWER_YELLOW, 1, 0, 0, VW_PLANTFLAGS },  // yellow flower
+    { T_GLASS, T_GLASS, T_GLASS, 3, 0, 0, VW_BF_GLASS },  // glass: one shot breaks it
 };
 
 static int     vw_emit(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].emit : 0; }
@@ -1110,16 +1126,19 @@ static void vw_genscratch(int x0, int y0)
                     vw_put(cx + dx, cy + dy, s + 4, VW_PLANKS);
                     if (abs(dx) == 4) for (int z = s; z < s + 4; z++) vw_put(cx + dx, cy + dy, z, VW_PLANKS);
                 }
+            // a glass window in the far end wall
+            for (int dy = -1; dy <= 1; dy++)
+                for (int z = s + 1; z <= s + 2; z++) vw_put(cx + 4, cy + dy, z, VW_GLASS);
             // The middle of the end wall facing the spawn is gravel with sand on top: shoot it to see blocks fall.
             for (int dy = -1; dy <= 1; dy++)
             {
                 for (int z = s; z <= s + 4; z++) vw_put(cx - 4, cy + dy, z, VW_GRAVEL);
                 for (int z = s + 5; z <= s + 6; z++) vw_put(cx - 4, cy + dy, z, VW_SAND);
             }
-            // a floating slab to look up at
+            // a floating slab to look up at, half of it glass
             for (int dx = -2; dx <= 2; dx++)
                 for (int dy = 4; dy <= 7; dy++)
-                    vw_put(cx + dx, cy + dy, s + 3, VW_STONE);
+                    vw_put(cx + dx, cy + dy, s + 3, dy >= 6 ? VW_GLASS : VW_STONE);
         }
     }
 }
@@ -1459,9 +1478,9 @@ static __attribute__((noinline)) void vw_drawwatercell(vwcolumn_t const *c, uint
 
             for (int z = r.z0; z < r.z1;)
             {
-                if (pb && !vw_isopen(pb[z])) { z++; continue; }  // water beyond water: no face; solid: can't see it
+                if (pb && !vw_skyclear(pb[z])) { z++; continue; }  // water beyond water: no face; solid: can't see it
                 int z1 = z + 1;
-                while (z1 < r.z1 && !(pb && !vw_isopen(pb[z1]))) z1++;
+                while (z1 < r.z1 && !(pb && !vw_skyclear(pb[z1]))) z1++;
                 int ltint;
                 int const ls = vw_lightshade(px, py, z1 - 1, &ltint);
                 uint8_t const *const pal = vw_shadetab(vw_faceshade[side], ls, din, ltint);
@@ -1483,8 +1502,8 @@ static __attribute__((noinline)) void vw_drawwatercell(vwcolumn_t const *c, uint
         {
             float const zf = (float)vw_layertop(face ? r.z0 : r.z1);
             bool const under = zf < vw_cz;  // the face is above the eye: seen from below
-            if (face == 0 ? !(!under || (vw_camwater && r.z1 < vw_sz && vw_isopen(cb[r.z1])))
-                          : !(under && r.z0 > 0 && vw_isopen(cb[r.z0-1]))) continue;
+            if (face == 0 ? !(!under || (vw_camwater && r.z1 < vw_sz && vw_skyclear(cb[r.z1])))
+                          : !(under && r.z0 > 0 && vw_skyclear(cb[r.z0-1]))) continue;
             float const hz = (zf - vw_cz) * vw_ky;
             int const a = max(vw_rowof(vw_horiz + hz / (under ? dclip : dout)), 0);
             int const b = min(vw_rowof(vw_horiz + hz / (under ? dout : dclip)), ydim);
@@ -1539,13 +1558,112 @@ static __attribute__((noinline)) void vw_drawplantcell(vwcolumn_t const *c, uint
             int const ya = max<int>(a, gaps[g].a), yb = min<int>(b, gaps[g].b);
             for (int y = ya; y < yb; y++)
             {
-                if (vw_pz[y] != FLT_MAX) continue;
+                if (d >= vw_pz[y]) continue;  // something nearer (glass, another plant) already there
                 int const t = (int)((zb - (vw_cz + (y + 0.5f - vw_horiz)*zperrow)) * texperz);  // texels up from the bottom
                 uint8_t const texel = tcol[VW_TEXSIZE-1 - clamp(t, 0, VW_TEXSIZE-1)];
                 if (texel == 255) continue;  // transparent
                 vw_pcol[y] = pal[texel];
                 vw_pz[y] = d;
             }
+        }
+    }
+}
+
+// The glass of block column c (cell gx,gy) along this screen column's ray: its faces against anything that isn't
+// glass, on the near side (entered at din through `side`) and the far side (left at dout into cell nx,ny through
+// `nside`), plus tops and bottoms: you see a glass block's whole frame. Opaque texels go into the cut-out overlay
+// with the plants, nearest wins.
+static __attribute__((noinline)) void vw_drawglasscell(vwcolumn_t const *c, uint8_t const *cb, int gx, int gy, int side, float din,
+                                                       int nx, int ny, int nside, float dout, float dx, float dy,
+                                                       vwgap_t const *gaps, int ng)
+{
+    int const ydim = ydimen, maxshade = numshades - 1;
+    uint8_t const *const tex = vw_tex[T_GLASS];
+    float const ox = vw_cx - vw_x0, oy = vw_cy - vw_y0;
+    float const dclip = max(din, VW_NEAR);
+    int const px = gx - (side == 0) + (side == 1), py = gy - (side == 2) + (side == 3);
+    auto glassat = [](int x, int y, int z) { return vw_inxy(x, y) && vw_isglass(vw_colblocks(x, y)[z]); };
+
+    // rows [a,b) that are still open
+    auto rows = [&](int a, int b, auto pix) {
+        for (int g = 0; g < ng; g++)
+        {
+            if (b <= gaps[g].a) break;
+            int const ya = max<int>(a, gaps[g].a), yb = min<int>(b, gaps[g].b);
+            for (int y = ya; y < yb; y++) pix(y);
+        }
+    };
+
+    // layers [z0,z1) of the vertical face at depth d, crossed through side s
+    auto wall = [&](float d, int s, int z0, int z1) {
+        if (d <= VW_NEAR) return;
+        float const inv = vw_ky / d;
+        float const hx = vw_cx + dx*d, hy = vw_cy + dy*d;
+        float const along = (s < 2) ? (hy - vw_y0) : (hx - vw_x0);
+        int u = ((int)along >> 5) & (VW_TEXSIZE-1);
+        if (s == 0 || s == 3) u = VW_TEXSIZE-1 - u;
+        uint8_t const *const tcol = tex + u*VW_TEXSIZE;
+        float const zperrow = d / vw_ky, texperz = (float)VW_TEXSIZE / VW_BLOCKZ;
+        int tint;
+        int const ls = vw_lightshade(gx, gy, z0, &tint);
+        uint8_t const *const pal = vw_shadetab(vw_faceshade[s], ls, d, tint);
+        int const a = max(vw_rowof(vw_horiz + ((float)vw_layertop(z1) - vw_cz)*inv), 0);
+        int const b = min(vw_rowof(vw_horiz + ((float)vw_layertop(z0) - vw_cz)*inv), ydim);
+        rows(a, b, [&](int y) {
+            if (d >= vw_pz[y]) return;
+            int const t = (int)((vw_zbot - (vw_cz + (y + 0.5f - vw_horiz)*zperrow)) * texperz);
+            uint8_t const texel = tcol[VW_TEXSIZE-1 - (t & (VW_TEXSIZE-1))];
+            if (texel == 255) return;
+            vw_pcol[y] = pal[texel];
+            vw_pz[y] = d;
+        });
+    };
+
+    for (int ri = 0; ri < c->ngruns; ri++)
+    {
+        vwrun_t const r = c->gruns[ri];
+
+        // near and far sides, where the neighbour there isn't glass
+        for (int far = 0; far < 2; far++)
+        {
+            int const s = far ? nside : side, fx = far ? nx : px, fy = far ? ny : py;
+            if (s < 0) continue;
+            for (int z = r.z0; z < r.z1;)
+            {
+                if (glassat(fx, fy, z)) { z++; continue; }
+                int z1 = z + 1;
+                while (z1 < r.z1 && !glassat(fx, fy, z1)) z1++;
+                wall(far ? dout : din, s, z, z1);
+                z = z1;
+            }
+        }
+
+        // top and bottom
+        for (int face = 0; face < 2; face++)
+        {
+            if (face ? (r.z0 > 0 && vw_isglass(cb[r.z0-1])) : (r.z1 < vw_sz && vw_isglass(cb[r.z1]))) continue;
+            float const zf = (float)vw_layertop(face ? r.z0 : r.z1);
+            float const hz = (zf - vw_cz) * vw_ky;
+            bool const above = zf < vw_cz;  // the face is above the eye
+            int const a = max(vw_rowof(vw_horiz + hz / (above ? dclip : dout)), 0);
+            int const b = min(vw_rowof(vw_horiz + hz / (above ? dout : dclip)), ydim);
+            if (a >= b) continue;
+            int tint;
+            int const fl = vw_lightshade(gx, gy, face ? r.z0 : r.z1 - 1, &tint);
+            uint8_t const *const pal0 = vw_tinttable(tint);
+            int const fshade = vw_faceshade[face ? 5 : 4];
+            rows(a, b, [&](int y) {
+                float const d = hz * vw_rowrec[y];
+                if (d < dclip || d > dout || d >= vw_pz[y]) return;
+                int const u = ((int)(ox + dx*d) >> 5) & (VW_TEXSIZE-1);
+                int const v = ((int)(oy + dy*d) >> 5) & (VW_TEXSIZE-1);
+                uint8_t const texel = tex[u*VW_TEXSIZE + v];
+                if (texel == 255) return;
+                int sh = fshade + vw_lanterned(fl, d) + (int)(d * vw_visk);
+                sh = sh > maxshade ? maxshade : sh;
+                vw_pcol[y] = pal0[(sh << 8) + texel];
+                vw_pz[y] = d;
+            });
         }
     }
 }
@@ -1577,7 +1695,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
     float const eyelayer = (vw_zbot - vw_cz) / VW_BLOCKZ;
     vwgap_t vis[VW_MAXGAPS];
     for (int y = 0; y < ydim; y++) wz[y] = FLT_MAX;
-    bool plants = false;  // vw_pz is cleared when the first plant cell comes along
+    bool cutouts = false;  // the cut-out overlay (plants, glass: vw_pz/vw_pcol) is cleared when the first one comes along
     vwmurkyq_t mq;  // water rows to close once they're deep enough in murk
     // under water, everything past the fog is fog
     float const maxdist = vw_camwater ? min(vw_maxdist, VW_UWFAR + VW_BLOCKXY) : vw_maxdist;
@@ -1589,12 +1707,12 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
         if (vw_inxy(gx, gy))
         {
             vwcolumn_t const *c = vw_col(gx, gy);
-            int const nr = c->nruns, nw = c->nwruns, np = c->nplants;
+            int const nr = c->nruns, nw = c->nwruns, np = c->nplants, ngl = c->ngruns;
             // Cheap reject: if even the top of this block column projects below every open row, skip it.
             // (The top face's far edge is its highest point when it's below the eye, else the near edge.)
             float const colztop = (float)vw_layertop(max(max(nr ? c->runs[nr-1].z1 : 0, nw ? c->wruns[nw-1].z1 : 0),
-                                                         np ? c->plants[np-1] + 1 : 0));
-            if ((nr || nw || np) && din > VW_NEAR)
+                                                         max(np ? c->plants[np-1] + 1 : 0, ngl ? c->gruns[ngl-1].z1 : 0)));
+            if ((nr || nw || np || ngl) && din > VW_NEAR)
             {
                 float const dz = colztop - vw_cz;
                 float const ytop = vw_horiz + dz * vw_ky / (dz > 0.f ? dout : din);
@@ -1604,11 +1722,15 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
             // water first: it doesn't occlude, and what's in this same cell may be behind it
             if (nw)
                 vw_drawwatercell(c, vw_colblocks(gx, gy), gx, gy, side, din, dout, dx, dy, gaps, ng, wcol, wz, mq);
-            if (np)
+            if ((np || ngl) && !cutouts) { for (int y = 0; y < ydim; y++) vw_pz[y] = FLT_MAX; cutouts = true; }
+            if (ngl)
             {
-                if (!plants) { for (int y = 0; y < ydim; y++) vw_pz[y] = FLT_MAX; plants = true; }
-                vw_drawplantcell(c, vw_colblocks(gx, gy), gx, gy, k, gaps, ng);
+                bool const xnext = tmx < tmy;
+                vw_drawglasscell(c, vw_colblocks(gx, gy), gx, gy, side, din, xnext ? gx + stepx : gx, xnext ? gy : gy + stepy,
+                                 xnext ? (stepx > 0 ? 0 : 1) : (stepy > 0 ? 2 : 3), dout, dx, dy, gaps, ng);
             }
+            if (np)
+                vw_drawplantcell(c, vw_colblocks(gx, gy), gx, gy, k, gaps, ng);
             if (nr)
             {
                 // Runs at/below eye level going down, then above eye level going up: within a cell,
@@ -1799,8 +1921,8 @@ next_cell:
         }
     }
 
-    // Plants in front of what's behind them (they count as the nearest thing there, for sprites and water too).
-    if (plants)
+    // Plants and glass in front of what's behind them (they count as the nearest thing there, for sprites and water too).
+    if (cutouts)
         for (int y = 0; y < ydim; y++)
             if (vw_pz[y] < zc[y]) { col[y] = vw_pcol[y]; zc[y] = vw_pz[y]; }
 
@@ -2219,7 +2341,7 @@ bool voxworld_raycast(const vec3_t *start, int32_t vx, int32_t vy, int32_t vz, f
             uint8_t const b = voxworld_get(bx, by, bz);
             if (hit && vw_isplant(b) && vw_nshotplants < VW_MAXSHOTPLANTS)
                 vw_shotplants[vw_nshotplants++] = { (int16_t)bx, (int16_t)by, (int16_t)bz };
-            if (b != VW_AIR && bz >= 0 && !(vw_flags(b) & VW_BF_CLEAR))
+            if (b != VW_AIR && bz >= 0 && !(vw_flags(b) & VW_BF_CLEAR) && !(!hit && vw_isglass(b)))  // sight sees through glass
             {
                 if (hit)
                 {

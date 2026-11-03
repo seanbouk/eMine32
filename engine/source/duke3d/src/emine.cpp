@@ -13,6 +13,17 @@ static void Emine_BlockDestroyedFX(int bx, int by, int bz, int type, int ownerSp
     voxworld_blockcenter(bx, by, bz, &c);
     int const sect = voxworld_sector();
 
+    if (type == VW_GLASS)
+    {
+        // glass smashes like Duke's windows: shards and that sound
+        int const smoke = A_Spawn(ownerSprite, SMALLSMOKE);
+        setsprite(smoke, &c);
+        sprite[smoke].xrepeat = sprite[smoke].yrepeat = 0;  // just the source of the shards
+        A_SpawnGlass(smoke, numChunks + 4);
+        if (withSound) A_PlaySound(GLASS_BREAKING, smoke);
+        return;
+    }
+
     for (int i = 0; i < numChunks; i++)
     {
         // Same launch as Duke's RANDOMSCRAP, so the existing scrap code flies and spins them.
@@ -342,7 +353,7 @@ static int osdcmd_emine_water(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
-// Dev console: `emine_go <dx> <dy>` moves the player that many blocks across the world, onto the ground there.
+// Dev console: `emine_go <dx> <dy> [angle]` moves the player that many blocks across the world, onto the ground there.
 static int osdcmd_emine_go(osdcmdptr_t parm)
 {
     auto const p = g_player[myconnectindex].ps;
@@ -360,6 +371,7 @@ static int osdcmd_emine_go(osdcmdptr_t parm)
     p->opos  = p->pos;
     p->bobpos = { feet.x, feet.y };
     p->vel   = { 0, 0, 0 };
+    if (parm->numparms >= 3) p->q16ang = fix16_from_int(Batol(parm->parms[2]) & 2047);
     setsprite(p->i, &feet);
     OSD_Printf("emine_go: moved to %d, %d, %d\n", feet.x, feet.y, feet.z);
     return OSDCMD_OK;
@@ -374,7 +386,7 @@ static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 
 void Emine_RegisterOSD(void)
 {
-    OSD_RegisterFunction("emine_go", "emine_go <dx> <dy>: dev - move that many blocks across the world", osdcmd_emine_go);
+    OSD_RegisterFunction("emine_go", "emine_go <dx> <dy> [angle]: dev - move that many blocks across the world (and face Build angle 0-2047)", osdcmd_emine_go);
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);
     voxworld_seteventfn(Emine_OnWorldEvent);

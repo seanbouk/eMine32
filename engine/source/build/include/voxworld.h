@@ -57,6 +57,7 @@ enum vwblock_t : uint8_t
     VW_TALLGRASS,  // plants: drawn as billboards, no collision, light and shots pass through
     VW_FLOWER_RED,
     VW_FLOWER_YELLOW,
+    VW_GLASS,      // solid, but see-through: light and sight pass, shots break it
     VW_NUMTYPES
 };
 
@@ -70,6 +71,7 @@ enum
     VW_BF_WATER      = 16, // you swim in it
     VW_BF_CLEAR      = 32, // see-through (water, plants): light, sight and shots pass through
     VW_BF_PLANT      = 64, // drawn as a camera-facing billboard standing in its cell; breaks if the block under it goes
+    VW_BF_GLASS      = 128,// solid and see-through: light and sight pass, shots stop (and break it); drawn as cut-out faces
 };
 
 // First tile number used for block faces; see game/emine32.def. Tile layout per block type is in

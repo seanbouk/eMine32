@@ -186,6 +186,16 @@ def flower(seed, petal, centre):
     im.putpixel((cx, cy), centre + (255,))
     return im
 
+def glass():
+    """A pale frame with a clear middle and a couple of glints (alpha 0 = see-through)."""
+    im = Image.new('RGBA', (TEX, TEX), (0, 0, 0, 0))
+    for i in range(TEX):
+        for (x, y) in ((i, 0), (i, TEX - 1), (0, i), (TEX - 1, i)):
+            im.putpixel((x, y), (190, 214, 226, 255))
+    for (x, y) in ((3, 5), (4, 4), (5, 3), (9, 12), (10, 11), (11, 10), (12, 9), (11, 11)):
+        im.putpixel((x, y), (232, 244, 250, 255))
+    return im
+
 # order == voxworld.cpp T_* enum
 TEXTURES = [
     ('grass_top',  lambda: noise_tex(1, (96, 150, 60), 0.2, (70, 120, 40), 0.2)),
@@ -210,6 +220,7 @@ TEXTURES = [
     ('tallgrass',  tallgrass),
     ('flower_red', lambda: flower(22, (210, 40, 36), (60, 30, 20))),
     ('flower_yellow', lambda: flower(23, (250, 214, 48), (200, 130, 20))),
+    ('glass',      glass),
 ]
 
 def write_textures():
