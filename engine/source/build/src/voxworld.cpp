@@ -686,6 +686,7 @@ static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
     { T_FLOWER_YELLOW, T_FLOWER_YELLOW, T_FLOWER_YELLOW, 1, 0, 0, VW_PLANTFLAGS },  // yellow flower
     { T_GLASS, T_GLASS, T_GLASS, 3, 0, 0, VW_BF_GLASS },  // glass: one shot breaks it
     { T_SNOW, T_SNOW_SIDE, T_DIRT, 12 },            // snow (on dirt, like grass)
+    { T_SNOW, T_SNOW, T_SNOW, 10 },                 // snow block
 };
 
 static int     vw_emit(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].emit : 0; }
@@ -1034,7 +1035,9 @@ static void vw_genscratch(int x0, int y0)
             int const h = vw_terrainh(x, y);
             vw_gh[(x - vw_gx0)*VW_GENW + (y - vw_gy0)] = h;
             // snow caps: a ragged snowline, a few layers up or down from column to column
-            bool const snowy = vw_snowline && h + (int)(vw_fbm(x / 6.f, y / 6.f, vw_seed + 81, 2) * 6.f) - 3 >= vw_snowline;
+            int const sh = h + (int)(vw_fbm(x / 6.f, y / 6.f, vw_seed + 81, 2) * 6.f) - 3;
+            bool const snowy = vw_snowline && sh >= vw_snowline;
+            bool const peak = vw_snowline && sh >= vw_snowline + 6;  // the highest peaks: solid snow, 3 deep
             uint8_t *b = vw_gcol(x, y);
             Bmemset(b, VW_AIR, vw_sz);
             for (int z = 0; z <= h; z++)
@@ -1045,7 +1048,7 @@ static void vw_genscratch(int x0, int y0)
                     if (h < sea - 1)  // lake bed: sand with patches of gravel
                         t = (vw_hash(x >> 2, y >> 2, vw_seed + 41) % 3) ? VW_SAND : VW_GRAVEL;
                     else
-                        t = (h <= sea + 1) ? VW_SAND : (z == h ? (snowy ? VW_SNOW : VW_GRASS) : VW_DIRT);
+                        t = (h <= sea + 1) ? VW_SAND : peak && z > h - 3 ? VW_SNOWBLOCK : (z == h ? (snowy ? VW_SNOW : VW_GRASS) : VW_DIRT);
                 }
                 // Bedrock: solid at layer 0, then thinning out over layers 1-4 (4/5 .. 1/5), so the floor is lumpy.
                 if (z == 0 || (z <= 4 && (int)(vw_hash(x * 5 + z, y, vw_seed + 17) % 5) < 5 - z)) t = VW_BEDROCK;
@@ -1252,20 +1255,22 @@ void voxworld_onmapload(vec3_t *dapos)
             vw_loadchunk(cx, cy, false);
     vw_computelight();
     {
-        int snow = 0, hist[256] = {};
+        int snow = 0, peaks = 0, hist[256] = {};
         for (int x = 0; x < vw_sx; x++)
             for (int y = 0; y < vw_sy; y++)
             {
                 vwcolumn_t const *c = vw_col(x, y);
                 if (!c->nruns) continue;
-                snow += vw_colblocks(x, y)[c->runs[c->nruns-1].z1 - 1] == VW_SNOW;
+                uint8_t const top = vw_colblocks(x, y)[c->runs[c->nruns-1].z1 - 1];
+                snow += top == VW_SNOW || top == VW_SNOWBLOCK;
+                peaks += top == VW_SNOWBLOCK;
                 hist[c->runs[c->nruns-1].z1 - 1]++;
             }
         int pct[3] = { 90, 99, 100 }, at[3] = {}, acc = 0, k = 0;
         for (int z = 0; z < 256 && k < 3; z++)
             for (acc += hist[z]; k < 3 && acc * 100 >= pct[k] * vw_sx * vw_sy; k++) at[k] = z;
-        LOG_F(INFO, "voxworld: %d%% of the window's columns are snow-capped (snowline %d); ground tops: 90%% <= %d, 99%% <= %d, max %d",
-              snow * 100 / (vw_sx*vw_sy), vw_snowline, at[0], at[1], at[2]);
+        LOG_F(INFO, "voxworld: %d%% of the window's columns are snow-capped (snowline %d), %d.%d%% solid snow peaks; ground tops: 90%% <= %d, 99%% <= %d, max %d",
+              snow * 100 / (vw_sx*vw_sy), vw_snowline, peaks * 100 / (vw_sx*vw_sy), peaks * 1000 / (vw_sx*vw_sy) % 10, at[0], at[1], at[2]);
     }
     LOG_F(INFO, "voxworld: world %dx%dx%d blocks, window %dx%d at %d,%d, seed %u, generated in %.1f ms", vw_wsx, vw_wsy, vw_sz,
           vw_sx, vw_sy, vw_ox, vw_oy, vw_seed, timerGetFractionalTicks() - t0);

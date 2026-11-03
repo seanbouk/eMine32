@@ -58,7 +58,8 @@ enum vwblock_t : uint8_t
     VW_FLOWER_RED,
     VW_FLOWER_YELLOW,
     VW_GLASS,      // solid, but see-through: light and sight pass, shots break it
-    VW_SNOW,       // grass's place on the highest ground
+    VW_SNOW,       // grass's place on the highest ground (snow on dirt)
+    VW_SNOWBLOCK,  // solid snow, on the highest peaks
     VW_NUMTYPES
 };
 
