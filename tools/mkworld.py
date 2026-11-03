@@ -149,6 +149,43 @@ def obsidian():
     im = noise_tex(20, (34, 22, 48), 0.25, (70, 50, 100), 0.12)
     return im
 
+# Plants: drawn as billboards, so the background is transparent (alpha 0 -> Build's transparent colour).
+def tallgrass():
+    """A tuft: lots of blades, close together, the grass-top colours (darker low down)."""
+    rnd = random.Random(21)
+    im = Image.new('RGBA', (TEX, TEX), (0, 0, 0, 0))
+    for i in range(16):
+        x = rnd.randint(1, TEX - 2)
+        h = rnd.randint(6, 15) if 3 <= x <= 12 else rnd.randint(4, 9)
+        lean = rnd.choice((-1, 0, 0, 1))
+        light = rnd.uniform(0.85, 1.25)
+        for k in range(h):
+            xx = x + (lean * k) // 5
+            if not 0 <= xx < TEX:
+                continue
+            f = light * (0.7 + 0.3 * k / h)
+            c = tuple(max(0, min(255, int(ch * f))) for ch in (96, 150, 60))
+            im.putpixel((xx, TEX - 1 - k), c + (255,))
+    return im
+
+def flower(seed, petal, centre):
+    rnd = random.Random(seed)
+    im = Image.new('RGBA', (TEX, TEX), (0, 0, 0, 0))
+    stem = (70, 124, 42, 255)
+    # a few short grass blades at the foot
+    for x in (3, 5, 10, 12):
+        for k in range(rnd.randint(2, 4)):
+            im.putpixel((x, TEX - 1 - k), (88, 142, 54, 255))
+    for k in range(9):  # stem
+        im.putpixel((7, TEX - 1 - k), stem)
+    im.putpixel((8, TEX - 4), stem); im.putpixel((9, TEX - 5), stem)  # leaf
+    im.putpixel((6, TEX - 6), stem)
+    cx, cy = 7, TEX - 11  # flower head
+    for dx, dy in ((0, -2), (-2, 0), (2, 0), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1), (0, -1), (-1, 0), (1, 0), (0, 1)):
+        im.putpixel((cx + dx, cy + dy), petal + (255,))
+    im.putpixel((cx, cy), centre + (255,))
+    return im
+
 # order == voxworld.cpp T_* enum
 TEXTURES = [
     ('grass_top',  lambda: noise_tex(1, (96, 150, 60), 0.2, (70, 120, 40), 0.2)),
@@ -170,6 +207,9 @@ TEXTURES = [
     ('lava',       lava),
     ('water',      water),
     ('obsidian',   obsidian),
+    ('tallgrass',  tallgrass),
+    ('flower_red', lambda: flower(22, (210, 40, 36), (60, 30, 20))),
+    ('flower_yellow', lambda: flower(23, (250, 214, 48), (200, 130, 20))),
 ]
 
 def write_textures():

@@ -18,3 +18,6 @@ tilefromtexture 7015 { file "textures/blocks/atomic_ore.png" }
 tilefromtexture 7016 { file "textures/blocks/lava.png" }
 tilefromtexture 7017 { file "textures/blocks/water.png" }
 tilefromtexture 7018 { file "textures/blocks/obsidian.png" }
+tilefromtexture 7019 { file "textures/blocks/tallgrass.png" }
+tilefromtexture 7020 { file "textures/blocks/flower_red.png" }
+tilefromtexture 7021 { file "textures/blocks/flower_yellow.png" }

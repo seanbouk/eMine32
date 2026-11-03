@@ -102,6 +102,12 @@ sea-1 fills every hollow below it, and lake noise eases the ground down into bas
 carved into anything next to water. The game: Duke's own swimming (`ST_2_UNDERWATER` movement) while his body is in
 water, slow sinking with no keys held, jump climbs a bank you're facing for up to 1.5 s after leaving the water, drowning with his head under, no fall
 damage into water.
+Plants (tall grass, red and yellow flowers): block types drawn as camera-facing billboards a block wide through the
+cell's centre (so they never leave their cell, and visiting cells in ray order still draws them front to back). Their
+opaque texels go into a per-column overlay that wins over whatever is behind it by depth, so sprites and water sort
+against them too. They count as air for collision, light, sight and shots; fluids wash them away, falling blocks crush
+them, explosions break them, and one goes when the block under it does. Generation puts them on ~20% of open grass:
+thicker in meadow patches, flowers in clumps of one colour.
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
 `r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves
 red (shallow) to blue (deep), gold in yellow). Game: `emine_cave [maxlight]` (dev) teleports to the nearest dark cave, `emine_glow [minlight]` (dev) teleports next to the nearest glowing block, `emine_drop [height] [type]` (dev) drops a
