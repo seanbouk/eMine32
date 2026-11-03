@@ -118,6 +118,7 @@ TEXTURES = [
     ('coal_ore',   lambda: ore(14, (34, 34, 36))),
     ('iron_ore',   lambda: ore(15, (196, 150, 118))),
     ('gold_ore',   lambda: ore(16, (240, 200, 60))),
+    ('atomic_ore', lambda: ore(17, (120, 255, 90), clusters=7)),  # placeholder glowing ore
 ]
 
 def write_textures():

@@ -75,13 +75,15 @@ int32_t Emine_FloorZ(int spriteNum, int32_t sectorFloorZ)
 }
 
 // Dev console: `emine_cave [maxlight]` teleports the player to the nearest dark cave floor.
+// `emine_glow [minlight]`: the same, to the nearest dark spot lit by a glowing block.
 static int osdcmd_emine_cave(osdcmdptr_t parm)
 {
     auto const p = g_player[myconnectindex].ps;
     if (!voxworld_active() || p->i < 0) return OSDCMD_OK;
-    int const maxlight = parm->numparms >= 1 ? clamp(Batol(parm->parms[0]), 0, VW_LIGHTMAX) : 2;
+    bool const glow = !Bstrcmp(parm->name, "emine_glow");
+    int const arg = parm->numparms >= 1 ? clamp(Batol(parm->parms[0]), 0, VW_LIGHTMAX) : (glow ? 8 : 2);
     vec3_t feet;
-    if (!voxworld_findcave(p->pos.x, p->pos.y, maxlight, &feet))
+    if (!voxworld_findspot(p->pos.x, p->pos.y, glow ? 4 : arg, glow ? arg : 0, &feet))
     {
         OSD_Printf("emine_cave: no cave found\n");
         return OSDCMD_OK;
@@ -180,6 +182,7 @@ static int osdcmd_emine_drop(osdcmdptr_t parm)
 void Emine_RegisterOSD(void)
 {
     voxworld_seteventfn(Emine_OnWorldEvent);
+    OSD_RegisterFunction("emine_glow", "emine_glow [minlight 1-15]: dev - teleport next to the nearest glowing block", osdcmd_emine_cave);
     OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);
     OSD_RegisterFunction("emine_cave", "emine_cave [maxlight 0-15]: dev - teleport to the nearest dark cave", osdcmd_emine_cave);
 }

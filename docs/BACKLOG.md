@@ -15,6 +15,9 @@ Things we've agreed to do "at some point", not yet scheduled. Newest at the bott
 - Wall- and floor-aligned sprites aren't drawn in the block world yet (decals, some effects).
 - Renderer speed for full-res 21:9: spread screen columns across threads (native; web with SharedArrayBuffer).
 
+- Art pass / palette: Duke's palette has few muted greens, so green-tinted light reads olive. Our own palette should
+  include ramps for the light colours we use (lava orange, atomic green, water blue).
+
 ## Web / QoL
 - Present via WebGL (8-bit frame as a texture + palette lookup in a shader) instead of SDL's per-pixel JS copy; it's
   ~13% of frame time at 3440x1440.

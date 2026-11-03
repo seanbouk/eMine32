@@ -14,6 +14,7 @@
 #include "baselayer.h"
 #include "engine_priv.h"
 #include "palette.h"
+#include "colmatch.h"
 #include "voxworld.h"
 
 #ifdef __EMSCRIPTEN__
@@ -85,8 +86,8 @@ uint8_t voxworld_get(int bx, int by, int bz)
     return vw_colblocks(bx, by)[bz];
 }
 
-static void vw_lightopened(int bx, int by, int bz);
-static void vw_lightclosed(int bx, int by, int bz);
+static void vw_lightopened(int bx, int by, int bz, uint8_t oldtype);
+static void vw_lightclosed(int bx, int by, int bz, uint8_t newtype);
 static void vw_neighbourchanged(int bx, int by, int bz);
 static void vw_startfall(int bx, int by, int bz);
 
@@ -100,26 +101,36 @@ void voxworld_set(int bx, int by, int bz, uint8_t type)
     vw_rebuildcolumn(bx, by);
     if (type == VW_AIR)
     {
-        vw_lightopened(bx, by, bz);
+        vw_lightopened(bx, by, bz, old);
         vw_neighbourchanged(bx, by, bz);  // sand/gravel around it may now fall
     }
     else if (old == VW_AIR)
-        vw_lightclosed(bx, by, bz);
+        vw_lightclosed(bx, by, bz, type);
     if (type != VW_AIR) vw_startfall(bx, by, bz);  // sand put over a gap falls
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// Lighting: skylight per air cell, 0..VW_LIGHTMAX. Full skylight falls straight down without fading;
-// everywhere else light drops by one per block it spreads (so it reaches ~15 blocks into a cave mouth).
-// Opening a cell spreads light into it; filling one (a falling block landing) takes away the light that came
-// through it and re-spreads from whatever still lights the area (Minecraft's two-pass removal).
+// Lighting, Minecraft style, two channels per air cell, each 0..VW_LIGHTMAX:
+//  - sky light: full skylight falls straight down without fading; otherwise -1 per block it spreads
+//    (so it reaches ~15 blocks into a cave mouth)
+//  - block light: from glowing blocks (emitters, see vw_blockdefs), -1 per block, and it carries the
+//    emitter's colour (tint)
+// Opening a cell spreads light into it; filling one (a falling block landing) or removing an emitter takes
+// away the light that depended on it and re-spreads from whatever still lights the area (two-pass removal).
+// Emitters are solid but hold their own level in their cell, which is where their light spreads from.
 //////////////////////////////////////////////////////////////////////////////
 
-static uint8_t  *vw_light;            // same layout as vw_blocks
+static uint8_t  *vw_light;            // same layout as vw_blocks: low nibble sky, high nibble block light
+static uint8_t  *vw_ltint;            // tint of the block light in each cell (VW_TINT_*)
 static uint32_t *vw_lightq;           // flood queue (cell indices)
 static size_t    vw_lightqcap;
+static uint32_t *vw_lightrq;          // removal queue: (cell index << 4) | old level
+static size_t    vw_lightrqcap;
 static int       vw_darkness = 20;    // extra shade at light 0; OSD: r_voxdark
 static uint8_t   vw_lightshadetab[VW_LIGHTMAX + 1];
+
+static int     vw_emit(uint8_t type);      // light level a block type gives off (0 = none)
+static uint8_t vw_emittint(uint8_t type);  // and its colour
 
 static void vw_updatelightshades(void)
 {
@@ -127,14 +138,30 @@ static void vw_updatelightshades(void)
         vw_lightshadetab[l] = (uint8_t)((vw_darkness * (VW_LIGHTMAX - l) + VW_LIGHTMAX/2) / VW_LIGHTMAX);
 }
 
-static FORCE_INLINE int vw_lightat(int bx, int by, int bz)
+static FORCE_INLINE int  vw_lget(uint32_t idx, int ch) { return (vw_light[idx] >> (ch*4)) & 15; }
+static FORCE_INLINE void vw_lset(uint32_t idx, int ch, int l) { vw_light[idx] = (uint8_t)((vw_light[idx] & (ch ? 0x0F : 0xF0)) | (l << (ch*4))); }
+static FORCE_INLINE uint32_t vw_lidx(int bx, int by, int bz) { return (uint32_t)(((size_t)bx*vw_sy + by)*vw_sz + bz); }
+
+// Light at a cell: the brighter channel, plus the tint if block light is what's lighting it.
+static FORCE_INLINE int vw_lightat(int bx, int by, int bz, int *tint)
 {
+    *tint = 0;
     if (!vw_inxy(bx, by) || bz >= vw_sz) return VW_LIGHTMAX;  // outside the world is open sky
-    if (bz < 0 || !vw_light) return bz < 0 ? 0 : VW_LIGHTMAX;
-    return vw_light[((size_t)bx*vw_sy + by)*vw_sz + bz];
+    if (bz < 0) return 0;
+    if (!vw_light) return VW_LIGHTMAX;
+    uint32_t const idx = vw_lidx(bx, by, bz);
+    int const v = vw_light[idx], sky = v & 15, blk = v >> 4;
+    if (blk > sky)
+    {
+        // tint code: colour * 4 + strength (1..3, stronger nearer the source)
+        if (int const t = vw_ltint[idx]) *tint = t*4 + (blk >= 11 ? 3 : blk >= 6 ? 2 : 1);
+        return blk;
+    }
+    return sky;
 }
 
-static FORCE_INLINE int vw_lightshade(int bx, int by, int bz) { return vw_lightshadetab[vw_lightat(bx, by, bz)]; }
+// Extra shade for a face lit by cell (bx,by,bz); *tint gets the light's colour.
+static FORCE_INLINE int vw_lightshade(int bx, int by, int bz, int *tint) { return vw_lightshadetab[vw_lightat(bx, by, bz, tint)]; }
 
 static void vw_lightpush(size_t &n, uint32_t idx)
 {
@@ -146,28 +173,30 @@ static void vw_lightpush(size_t &n, uint32_t idx)
     vw_lightq[n++] = idx;
 }
 
-// Spread light out from the first n queued cells.
-static void vw_lightflood(size_t n)
+static const int8_t vw_dirs[6][3] = { {-1,0,0}, {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1} };
+
+// Spread channel ch out from the first n queued cells.
+static void vw_lightflood(size_t n, int ch)
 {
     int const sz = vw_sz, sy = vw_sy;
     for (size_t qi = 0; qi < n; qi++)
     {
         uint32_t const idx = vw_lightq[qi];
-        int const l = vw_light[idx];
+        int const l = vw_lget(idx, ch);
         if (l <= 1) continue;
         int const bz = idx % sz, col = idx / sz, bx = col / sy, by = col % sy;
 
-        static const int8_t dirs[6][3] = { {-1,0,0}, {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1} };
-        for (auto const &d : dirs)
+        for (auto const &d : vw_dirs)
         {
             int const nx = bx + d[0], ny = by + d[1], nz = bz + d[2];
             if (!vw_inxy(nx, ny) || (unsigned)nz >= (unsigned)sz) continue;
             uint32_t const nidx = (uint32_t)(((size_t)nx*sy + ny)*sz + nz);
             if (vw_blocks[nidx] != VW_AIR) continue;
-            int const nl = (d[2] < 0 && l == VW_LIGHTMAX) ? VW_LIGHTMAX : l - 1;
-            if (nl > vw_light[nidx])
+            int const nl = (ch == 0 && d[2] < 0 && l == VW_LIGHTMAX) ? VW_LIGHTMAX : l - 1;
+            if (nl > vw_lget(nidx, ch))
             {
-                vw_light[nidx] = (uint8_t)nl;
+                vw_lset(nidx, ch, nl);
+                if (ch) vw_ltint[nidx] = vw_ltint[idx];
                 vw_lightpush(n, nidx);
             }
         }
@@ -178,7 +207,9 @@ static void vw_computelight(void)
 {
     size_t const total = (size_t)vw_sx*vw_sy*vw_sz;
     Xfree(vw_light);
+    Xfree(vw_ltint);
     vw_light = (uint8_t *)Xcalloc(total, 1);
+    vw_ltint = (uint8_t *)Xcalloc(total, 1);
 
     // Open sky: everything above each column's top block. skyfloor = lowest such layer.
     auto skyfloor = [](int bx, int by) -> int {
@@ -193,7 +224,7 @@ static void vw_computelight(void)
             for (int z = skyfloor(bx, by); z < vw_sz; z++) l[z] = VW_LIGHTMAX;
         }
 
-    // Seed the flood with sky cells that sit beside a non-sky cell (cave mouths, overhangs).
+    // Seed the sky flood with sky cells that sit beside a non-sky cell (cave mouths, overhangs).
     size_t n = 0;
     for (int bx = 0; bx < vw_sx; bx++)
         for (int by = 0; by < vw_sy; by++)
@@ -201,65 +232,28 @@ static void vw_computelight(void)
             int const f = skyfloor(bx, by);
             int const top = max(max(skyfloor(bx-1, by), skyfloor(bx+1, by)), max(skyfloor(bx, by-1), skyfloor(bx, by+1)));
             for (int z = f; z < top; z++)
-                vw_lightpush(n, (uint32_t)(((size_t)bx*vw_sy + by)*vw_sz + z));
+                vw_lightpush(n, vw_lidx(bx, by, z));
         }
-    vw_lightflood(n);
+    vw_lightflood(n, 0);
+
+    // Block light from every emitter.
+    n = 0;
+    for (size_t i = 0; i < total; i++)
+        if (int const e = vw_emit(vw_blocks[i]))
+        {
+            vw_lset((uint32_t)i, 1, e);
+            vw_ltint[i] = vw_emittint(vw_blocks[i]);
+            vw_lightpush(n, (uint32_t)i);
+        }
+    vw_lightflood(n, 1);
 }
 
-// A block was removed: light the new air cell from its neighbours and spread from there.
-static void vw_lightopened(int bx, int by, int bz)
+// Take away channel ch's light that came through cell idx (whose level was `old`), then re-flood from the
+// edges of the removed area.
+static void vw_lightremove(uint32_t idx, int ch, int old)
 {
-    if (!vw_light) return;
-    int best = vw_lightat(bx, by, bz + 1);
-    if (best != VW_LIGHTMAX) best--;  // full skylight from straight above doesn't fade
-    best = max(best, vw_lightat(bx-1, by, bz) - 1);
-    best = max(best, vw_lightat(bx+1, by, bz) - 1);
-    best = max(best, vw_lightat(bx, by-1, bz) - 1);
-    best = max(best, vw_lightat(bx, by+1, bz) - 1);
-    best = max(best, vw_lightat(bx, by, bz - 1) - 1);
-    uint32_t const idx = (uint32_t)(((size_t)bx*vw_sy + by)*vw_sz + bz);
-    vw_light[idx] = (uint8_t)max(best, 0);
-    size_t n = 0;
-    vw_lightpush(n, idx);
-    vw_lightflood(n);
-}
-
-bool voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out)
-{
-    if (!vw_active || !vw_light) return false;
-    int cx, cy, cz;
-    voxworld_toblock(x, y, 0, &cx, &cy, &cz);
-    // nearest column first (square rings), lowest suitable cell in it
-    for (int r = 0; r < max(vw_sx, vw_sy); r++)
-        for (int bx = cx - r; bx <= cx + r; bx++)
-            for (int by = cy - r; by <= cy + r; by++)
-            {
-                if (max(abs(bx - cx), abs(by - cy)) != r || !vw_inxy(bx, by)) continue;
-                uint8_t const *b = vw_colblocks(bx, by);
-                uint8_t const *l = &vw_light[((size_t)bx*vw_sy + by)*vw_sz];
-                for (int z = 1; z + 2 < vw_sz; z++)
-                    if (b[z-1] != VW_AIR && b[z] == VW_AIR && b[z+1] == VW_AIR && b[z+2] == VW_AIR && l[z] <= maxlight)
-                    {
-                        out->x = vw_x0 + bx*VW_BLOCKXY + VW_BLOCKXY/2;
-                        out->y = vw_y0 + by*VW_BLOCKXY + VW_BLOCKXY/2;
-                        out->z = vw_zbot - z*VW_BLOCKZ;
-                        return true;
-                    }
-            }
-    return false;
-}
-
-// A cell became solid: remove the light that depended on it, then re-flood from the edges of the removed area.
-static uint32_t *vw_lightrq;  // removal queue: (cell index << 4) | old light
-static size_t    vw_lightrqcap;
-
-static void vw_lightclosed(int bx, int by, int bz)
-{
-    if (!vw_light) return;
     int const sz = vw_sz, sy = vw_sy;
-    uint32_t const idx = (uint32_t)(((size_t)bx*sy + by)*sz + bz);
-    int const old = vw_light[idx];
-    vw_light[idx] = 0;
+    vw_lset(idx, ch, 0);
     if (!old) return;
 
     size_t nr = 0, n = 0;
@@ -279,19 +273,22 @@ static void vw_lightclosed(int bx, int by, int bz)
         int const l = vw_lightrq[qi] & 15;
         int const z = i % sz, col = i / sz, x = col / sy, y = col % sy;
 
-        static const int8_t dirs[6][3] = { {-1,0,0}, {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1} };
-        for (auto const &d : dirs)
+        for (auto const &d : vw_dirs)
         {
             int const nx = x + d[0], ny = y + d[1], nz = z + d[2];
             if (!vw_inxy(nx, ny) || (unsigned)nz >= (unsigned)sz) continue;
             uint32_t const ni = (uint32_t)(((size_t)nx*sy + ny)*sz + nz);
-            if (vw_blocks[ni] != VW_AIR) continue;
-            int const nl = vw_light[ni];
+            if (vw_blocks[ni] != VW_AIR)
+            {
+                if (ch && vw_emit(vw_blocks[ni])) vw_lightpush(n, ni);  // a neighbouring emitter shines back in
+                continue;
+            }
+            int const nl = vw_lget(ni, ch);
             if (!nl) continue;
-            bool const fromhere = nl < l || (d[2] < 0 && l == VW_LIGHTMAX && nl == VW_LIGHTMAX);
+            bool const fromhere = nl < l || (ch == 0 && d[2] < 0 && l == VW_LIGHTMAX && nl == VW_LIGHTMAX);
             if (fromhere)
             {
-                vw_light[ni] = 0;
+                vw_lset(ni, ch, 0);
                 rpush(ni, nl);
             }
             else
@@ -300,22 +297,164 @@ static void vw_lightclosed(int bx, int by, int bz)
     }
 
     // the very top layer of an open column is lit by the sky directly
-    for (size_t qi = 0; qi < nr; qi++)
+    if (ch == 0)
+        for (size_t qi = 0; qi < nr; qi++)
+        {
+            uint32_t const i = vw_lightrq[qi] >> 4;
+            if ((int)(i % sz) == sz - 1 && !vw_lget(i, 0)) { vw_lset(i, 0, VW_LIGHTMAX); vw_lightpush(n, i); }
+        }
+    vw_lightflood(n, ch);
+}
+
+// A block was removed (it was `oldtype`): light the new air cell from its neighbours and spread from there.
+static void vw_lightopened(int bx, int by, int bz, uint8_t oldtype)
+{
+    if (!vw_light) return;
+    uint32_t const idx = vw_lidx(bx, by, bz);
+    if (vw_emit(oldtype)) vw_lightremove(idx, 1, vw_lget(idx, 1));  // an emitter went: its light goes with it
+
+    // sky: full skylight from straight above doesn't fade; anything else loses one
+    int best = 0;
+    if (bz + 1 >= vw_sz) best = VW_LIGHTMAX;
+    else
     {
-        uint32_t const i = vw_lightrq[qi] >> 4;
-        if ((int)(i % sz) == sz - 1 && !vw_light[i]) { vw_light[i] = VW_LIGHTMAX; vw_lightpush(n, i); }
+        uint32_t const above = vw_lidx(bx, by, bz + 1);
+        if (vw_blocks[above] == VW_AIR && (vw_light[above] & 15) == VW_LIGHTMAX) best = VW_LIGHTMAX;
     }
-    vw_lightflood(n);
+    // block light (and its colour) from the brightest neighbour
+    int bbest = 0, btint = 0;
+    for (auto const &d : vw_dirs)
+    {
+        int const nx = bx + d[0], ny = by + d[1], nz = bz + d[2];
+        if (nz < 0) continue;
+        if (!vw_inxy(nx, ny) || nz >= vw_sz) { best = max(best, VW_LIGHTMAX - 1); continue; }  // open sky outside
+        uint32_t const ni = vw_lidx(nx, ny, nz);
+        if (vw_blocks[ni] == VW_AIR) best = max(best, (vw_light[ni] & 15) - 1);
+        int const bl = (vw_light[ni] >> 4) - 1;
+        if (bl > bbest && (vw_blocks[ni] == VW_AIR || vw_emit(vw_blocks[ni]))) { bbest = bl; btint = vw_ltint[ni]; }
+    }
+    vw_lset(idx, 0, max(best, 0));
+    vw_lset(idx, 1, bbest);
+    vw_ltint[idx] = (uint8_t)btint;
+
+    size_t n = 0;
+    vw_lightpush(n, idx);
+    vw_lightflood(n, 0);
+    n = 0;
+    vw_lightpush(n, idx);
+    vw_lightflood(n, 1);
+}
+
+// A cell became solid (`newtype`): remove the light that depended on it; an emitter starts shining.
+static void vw_lightclosed(int bx, int by, int bz, uint8_t newtype)
+{
+    if (!vw_light) return;
+    uint32_t const idx = vw_lidx(bx, by, bz);
+    vw_lightremove(idx, 0, vw_lget(idx, 0));
+    vw_lightremove(idx, 1, vw_lget(idx, 1));
+    if (int const e = vw_emit(newtype))
+    {
+        vw_lset(idx, 1, e);
+        vw_ltint[idx] = vw_emittint(newtype);
+        size_t n = 0;
+        vw_lightpush(n, idx);
+        vw_lightflood(n, 1);
+    }
+}
+
+bool voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out) { return voxworld_findspot(x, y, maxlight, 0, out); }
+
+bool voxworld_findspot(int32_t x, int32_t y, int maxlight, int minblocklight, vec3_t *out)
+{
+    if (!vw_active || !vw_light) return false;
+    int cx, cy, cz;
+    voxworld_toblock(x, y, 0, &cx, &cy, &cz);
+    // nearest column first (square rings), lowest suitable cell in it
+    for (int r = 0; r < max(vw_sx, vw_sy); r++)
+        for (int bx = cx - r; bx <= cx + r; bx++)
+            for (int by = cy - r; by <= cy + r; by++)
+            {
+                if (max(abs(bx - cx), abs(by - cy)) != r || !vw_inxy(bx, by)) continue;
+                uint8_t const *b = vw_colblocks(bx, by);
+                uint8_t const *l = &vw_light[((size_t)bx*vw_sy + by)*vw_sz];
+                for (int z = 1; z + 2 < vw_sz; z++)
+                    if (b[z-1] != VW_AIR && b[z] == VW_AIR && b[z+1] == VW_AIR && b[z+2] == VW_AIR &&
+                        (l[z] & 15) <= maxlight && (minblocklight ? (l[z] >> 4) >= minblocklight : (l[z] >> 4) <= maxlight))
+                    {
+                        out->x = vw_x0 + bx*VW_BLOCKXY + VW_BLOCKXY/2;
+                        out->y = vw_y0 + by*VW_BLOCKXY + VW_BLOCKXY/2;
+                        out->z = vw_zbot - z*VW_BLOCKZ;
+                        return true;
+                    }
+            }
+    return false;
+}
+
+// The cell a sprite at (x,y,z) is lit by.
+static void vw_spritecell(int32_t x, int32_t y, int32_t z, int *bx, int *by, int *bz)
+{
+    voxworld_toblock(x, y, z, bx, by, bz);
+    // standing inside a block (feet on a step edge etc.): use the cell above
+    if (vw_inxy(*bx, *by) && (unsigned)*bz < (unsigned)vw_sz && vw_colblocks(*bx, *by)[*bz] != VW_AIR) (*bz)++;
 }
 
 int voxworld_lightshade(int32_t x, int32_t y, int32_t z)
 {
     if (!vw_active) return 0;
-    int bx, by, bz;
-    voxworld_toblock(x, y, z, &bx, &by, &bz);
-    // standing inside a block (feet on a step edge etc.): use the cell above
-    if (vw_inxy(bx, by) && (unsigned)bz < (unsigned)vw_sz && vw_colblocks(bx, by)[bz] != VW_AIR) bz++;
-    return vw_lightshade(bx, by, bz);
+    int bx, by, bz, tint;
+    vw_spritecell(x, y, z, &bx, &by, &bz);
+    return vw_lightshade(bx, by, bz, &tint);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Coloured light: a shade table per tint, built from Build's normal one (palookup[0]) by multiplying each shaded
+// colour by the light's colour and taking the nearest palette entry. The look is a saturated multiply, as Ion
+// Fury does for coloured light in the classic renderer.
+//////////////////////////////////////////////////////////////////////////////
+
+static const uint8_t vw_tintrgb[VW_NUMTINTS][3] =
+{
+    { 255, 255, 255 },  // none
+    { 255, 120,  30 },  // lava: orange
+    {  80, 255,  60 },  // atomic: green
+};
+static uint8_t *vw_tintlut[VW_NUMTINTS*4];  // [tint*4 + strength][shade*256 + colour]
+static const float vw_tintmix[4] = { 0.f, 0.3f, 0.5f, 0.7f };  // how far each strength moves colours towards the light
+
+static void vw_buildtints(void)
+{
+    if (vw_tintlut[4 + 1] || !palookup[0]) return;
+    uint8_t const *const base = (uint8_t const *)palookup[0];
+    for (int t = 1; t < VW_NUMTINTS; t++)
+    {
+        // the light's colour, scaled so it keeps brightness roughly the same (luma 1)
+        float tr = vw_tintrgb[t][0] / 255.f, tg = vw_tintrgb[t][1] / 255.f, tb = vw_tintrgb[t][2] / 255.f;
+        float const luma = 0.3f*tr + 0.59f*tg + 0.11f*tb;
+        tr /= luma; tg /= luma; tb /= luma;
+
+        for (int st = 1; st <= 3; st++)
+        {
+            float const a = vw_tintmix[st];
+            uint8_t *lut = (uint8_t *)Xmalloc(numshades * 256);
+            for (int s = 0; s < numshades; s++)
+                for (int c = 0; c < 256; c++)
+                {
+                    if (c == 255) { lut[s*256 + c] = 255; continue; }  // transparent stays transparent
+                    palette_t const p = paletteGetColor(base[s*256 + c]);
+                    // move towards the colour multiplied by the light (a saturated multiply, partly mixed in)
+                    int const r = min(255, (int)(p.r * (1.f - a + a*tr)));
+                    int const g = min(255, (int)(p.g * (1.f - a + a*tg)));
+                    int const b = min(255, (int)(p.b * (1.f - a + a*tb)));
+                    lut[s*256 + c] = (uint8_t)paletteGetClosestColorUpToIndex(r, g, b, 254);
+                }
+            vw_tintlut[t*4 + st] = lut;
+        }
+    }
+}
+
+static FORCE_INLINE uint8_t const *vw_tinttable(int tint)
+{
+    return (tint && vw_tintlut[tint]) ? vw_tintlut[tint] : (uint8_t const *)palookup[0];
 }
 
 bool voxworld_toblock(int32_t x, int32_t y, int32_t z, int *bx, int *by, int *bz)
@@ -336,12 +475,13 @@ static FORCE_INLINE int32_t vw_layertop(int layer) { return vw_zbot - layer*VW_B
 enum
 {
     T_GRASS_TOP, T_GRASS_SIDE, T_DIRT, T_STONE, T_BEDROCK, T_SAND, T_WOOD_SIDE, T_WOOD_TOP, T_LEAVES, T_PLANKS, T_COBBLE,
-    T_GRAVEL, T_COAL, T_IRON, T_GOLD,
+    T_GRAVEL, T_COAL, T_IRON, T_GOLD, T_ATOMIC,
     T_COUNT
 };
 
 // hardness: damage points to destroy (0 = indestructible). Duke's pistol does ~6 per shot.
-struct vwblockdef_t { uint8_t top, side, bottom, hardness; };
+// emit: light level given off (0 = none, up to VW_LIGHTMAX); tint: its colour (VW_TINT_*).
+struct vwblockdef_t { uint8_t top, side, bottom, hardness, emit, tint; };
 
 static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
 {
@@ -359,7 +499,11 @@ static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
     { T_COAL, T_COAL, T_COAL, 52 },                 // coal ore
     { T_IRON, T_IRON, T_IRON, 64 },                 // iron ore
     { T_GOLD, T_GOLD, T_GOLD, 56 },                 // gold ore
+    { T_ATOMIC, T_ATOMIC, T_ATOMIC, 60, 11, VW_TINT_ATOMIC },  // atomic ore: glows green
 };
+
+static int     vw_emit(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].emit : 0; }
+static uint8_t vw_emittint(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].tint : 0; }
 
 // Accumulated damage per block, same layout as vw_blocks (allocated on first damage).
 static uint8_t *vw_dmg;
@@ -616,6 +760,8 @@ static void vw_generate(void)
         vw_vein(rng, VW_IRON, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, sea*2/3), rng.range(4, 8), false);
     for (int i = 0, n = area * depth / 500; i < n; i++)
         vw_vein(rng, VW_GOLD, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, max(6, sea/3)), rng.range(3, 6), false);
+    for (int i = 0, n = area * depth / 2500; i < n; i++)
+        vw_vein(rng, VW_ATOMIC, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, max(6, sea/4)), rng.range(2, 4), false);
     for (int i = 0, n = area * depth / 250; i < n; i++)
         vw_vein(rng, VW_GRAVEL, rng.range(0, vw_sx-1), rng.range(0, vw_sy-1), rng.range(5, sea + 8), rng.range(15, 30), true);
 
@@ -711,6 +857,7 @@ void voxworld_onmapload(vec3_t *dapos)
     Xfree(vw_blocks);
     Xfree(vw_cols);
     DO_FREE_AND_NULL(vw_dmg);
+    DO_FREE_AND_NULL(vw_ltint);
     vw_nfallers = 0;
     vw_blocks = (uint8_t *)Xcalloc((size_t)vw_sx*vw_sy*vw_sz, 1);
     vw_cols   = (vwcolumn_t *)Xcalloc((size_t)vw_sx*vw_sy, sizeof(vwcolumn_t));
@@ -818,21 +965,20 @@ static FORCE_INLINE int vw_lanterned(int light, float depth)
     return f >= 1.f ? light : (int)(light * f);
 }
 
-static FORCE_INLINE uint8_t const *vw_shadetab(int shade, int light, float depth)
+static FORCE_INLINE uint8_t const *vw_shadetab(int shade, int light, float depth, int tint)
 {
     int s = shade + vw_lanterned(light, depth) + (int)(depth * vw_visk);
     s = clamp(s, 0, numshades - 1);
-    return (uint8_t const *)palookup[0] + (s << 8);
+    return vw_tinttable(tint) + (s << 8);
 }
 
 static FORCE_INLINE int vw_rowof(float y) { return (int)ceilf(y - 0.5f); }  // first row whose centre is >= y
 
 // Horizontal face (top or bottom) at height hz/vw_ky above/below the eye, between depths [d0, d1].
 static __attribute__((noinline)) void vw_drawflat(uint8_t *col, float *zc, vwgap_t const *vis, int nv, float hz, float d0, float d1,
-                                     float dx, float dy, uint8_t const *tex, int faceshade, int light)
+                                     float dx, float dy, uint8_t const *tex, int faceshade, int light, uint8_t const *pal0)
 {
     float const ox = vw_cx - vw_x0, oy = vw_cy - vw_y0;
-    uint8_t const *const pal0 = (uint8_t const *)palookup[0];
     int const maxshade = numshades - 1;
 
     for (int vi = 0; vi < nv; vi++)
@@ -977,8 +1123,9 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                         {
                                             curlayer = layer;
                                             tex = vw_tex[vw_blockdefs[cb[layer]].side] + ucol;
-                                            pal = vw_shadetab(vw_faceshade[side] + vw_dmgshade(colidx + layer, cb[layer]),
-                                                              vw_lightshade(lx, ly, layer), din);
+                                            int ltint;
+                                            int const ls = vw_lightshade(lx, ly, layer, &ltint);
+                                            pal = vw_shadetab(vw_faceshade[side] + vw_dmgshade(colidx + layer, cb[layer]), ls, din, ltint);
                                         }
                                         col[y] = pal[tex[VW_TEXSIZE-1 - (t & (VW_TEXSIZE-1))]];
                                         zc[y] = din;
@@ -998,10 +1145,13 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                         {
                             int const nv = vw_clip(gaps, ng, a, b, vis);
                             if (nv)
+                            {
+                                int ftint;
+                                int const fl = vw_lightshade(gx, gy, r.z1, &ftint);
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
                                             vw_tex[vw_blockdefs[cb[r.z1-1]].top],
-                                            vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]),
-                                            vw_lightshade(gx, gy, r.z1));
+                                            vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]), fl, vw_tinttable(ftint));
+                            }
                         }
                     }
 
@@ -1015,10 +1165,13 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                         {
                             int const nv = vw_clip(gaps, ng, a, b, vis);
                             if (nv)
+                            {
+                                int ftint;
+                                int const fl = vw_lightshade(gx, gy, r.z0 - 1, &ftint);
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
                                             vw_tex[vw_blockdefs[cb[r.z0]].bottom],
-                                            vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]),
-                                            vw_lightshade(gx, gy, r.z0 - 1));
+                                            vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]), fl, vw_tinttable(ftint));
+                            }
                         }
                     }
 
@@ -1146,6 +1299,7 @@ void voxworld_drawworld(void)
     }
 
     vw_setupcamera();
+    vw_buildtints();
 
     auto const &sec = sector[vw_sect];
     if (!waloff[sec.ceilingpicnum]) tileLoad(sec.ceilingpicnum);
@@ -1220,9 +1374,13 @@ static void vw_drawfacesprite(tspriteptr_t tspr, float depth)
 
     int pal = tspr->pal;
     if (palookup[pal] == NULL) pal = 0;
-    int shade = tspr->shade + (int)(depth * vw_visk) + vw_lanterned(voxworld_lightshade(tspr->x, tspr->y, tspr->z - VW_BLOCKZ/2), depth);
+    int cbx, cby, cbz, tint;
+    vw_spritecell(tspr->x, tspr->y, tspr->z - VW_BLOCKZ/2, &cbx, &cby, &cbz);
+    int const lshade = vw_lightshade(cbx, cby, cbz, &tint);
+    int shade = tspr->shade + (int)(depth * vw_visk) + vw_lanterned(lshade, depth);
     shade = clamp(shade, 0, numshades - 1);
-    uint8_t const *const lut = (uint8_t const *)palookup[pal] + (shade << 8);
+    // coloured light tints ordinary sprites; ones with their own palette (pal != 0) keep it
+    uint8_t const *const lut = (pal == 0 ? vw_tinttable(tint) : (uint8_t const *)palookup[pal]) + (shade << 8);
 
     uint8_t const *trans = nullptr;
     bool transrev = false;

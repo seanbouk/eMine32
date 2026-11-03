@@ -41,6 +41,7 @@ enum vwblock_t : uint8_t
     VW_COAL,
     VW_IRON,
     VW_GOLD,
+    VW_ATOMIC,   // placeholder rare glowing ore (block light test)
     VW_NUMTYPES
 };
 
@@ -105,9 +106,13 @@ int32_t voxworld_floorz(int32_t x, int32_t y, int32_t z, int32_t def);
 // Lighting: skylight 0..VW_LIGHTMAX per air cell (flood-filled from the sky, Minecraft style), turned into extra
 // Build shade. Returns the extra shade for a point in the world (0 in full daylight).
 #define VW_LIGHTMAX 15
+// Colours of block light (each gets a tinted shade table).
+enum { VW_TINT_NONE, VW_TINT_LAVA, VW_TINT_ATOMIC, VW_NUMTINTS };
 int     voxworld_lightshade(int32_t x, int32_t y, int32_t z);
 // Dev helper: the nearest spot (feet position) with room to stand whose light is <= maxlight.
 bool    voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out);
+// Same, but a dark spot whose block light is at least minblocklight (somewhere lit by a glowing block).
+bool    voxworld_findspot(int32_t x, int32_t y, int maxlight, int minblocklight, vec3_t *out);
 
 // Falling blocks and other world events. The game supplies the callback.
 enum
