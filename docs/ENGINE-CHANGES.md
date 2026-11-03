@@ -93,14 +93,14 @@ list no longer includes them. Water doesn't occlude: per screen column the rende
 non-water into an overlay (colour + depth) without closing any rows, carries on to whatever is behind, then blends the
 overlay over it with Duke's translucency table, by how far you look through the water (clear, half, mostly water,
 then just water past 6 blocks). Rows that deep in water are closed early so rays don't trace on to the lake bed.
-Sprites behind water get the same blend. With the camera under water the view fogs into deep blue with distance and
-is cut off past the fog. Light passes through water (sky light loses 1 per block of water instead of falling
+Sprites behind water get the same blend. With the camera under water the view fades into deep blue in 12 palette steps
+(clear to 1.5 blocks, all blue at 24) and is cut off past the fog. Light passes through water (sky light loses 1 per block of water instead of falling
 straight down), shots and sight pass through it. Fluids have two kinds with their own queue and pace (lava every 12
 tics, 3 cells; water every 5 tics, 4 cells); where they meet, water onto a lava source makes obsidian, onto flowing
 lava cobblestone, lava into water stone. Sand and gravel sink through fluids. Generation: a water table at layer
 sea-1 fills every hollow below it, and lake noise eases the ground down into basins (sand/gravel beds); caves aren't
 carved into anything next to water. The game: Duke's own swimming (`ST_2_UNDERWATER` movement) while his body is in
-water, slow sinking with no keys held, a jump-out hop when facing a bank, drowning with his head under, no fall
+water, slow sinking with no keys held, jump climbs a bank you're facing for up to 1.5 s after leaving the water, drowning with his head under, no fall
 damage into water.
 Console: `r_voxdist <blocks>` view distance (default 96), `r_voxstats 1` timing in the log (web: `?stats`),
 `r_voxdark <0-31>`, `r_voxlantern <blocks>`, `r_voxdump [file]` writes a top-down debug map (PPM: height in grey, caves

@@ -213,7 +213,8 @@ int Emine_PlayerLotag(int playerNum, int lotag, uint32_t playerBits)
     if (lotag != 0 || !voxworld_active() || p->cursectnum != voxworld_sector())
         return lotag;
 
-    static bool wasSwimming[MAXPLAYERS];
+    // Ticks left in which jump can still climb a bank after leaving the water.
+    static int climbTics[MAXPLAYERS];
     vec3_t const body = { p->pos.x, p->pos.y, p->pos.z + EMINE_SWIMPOINT };
     bool const swimming = Emine_InWaterAt(body) || Emine_InWaterAt(p->pos);
 
@@ -222,23 +223,36 @@ int Emine_PlayerLotag(int playerNum, int lotag, uint32_t playerBits)
         p->falling_counter = 0;  // water breaks a fall
         if (!Emine_InWaterAt(p->pos))
             p->airleft = 15 * GAMETICSPERSEC;  // head above water: breathe
+        climbTics[playerNum] = GAMETICSPERSEC + GAMETICSPERSEC / 2;
     }
-    else if (wasSwimming[playerNum] && TEST_SYNC_KEY(playerBits, SK_JUMP) && p->vel.z <= 0)
+    else if (climbTics[playerNum] > 0)
     {
-        // Swimming up and out. Facing a bank: a jump's worth of push to get up onto it. Open water: just bob.
-        int const ang = fix16_to_int(p->q16ang);
-        int32_t const ax = p->pos.x + (sintable[(ang + 512) & 2047] >> 5), ay = p->pos.y + (sintable[ang & 2047] >> 5);
-        auto solid = [](int t) { return t != VW_AIR && !(voxworld_blockflags(t) & VW_BF_NONSOLID); };
-        if (solid(voxworld_blockat(ax, ay, p->pos.z + PHEIGHT - 256)) || solid(voxworld_blockat(ax, ay, p->pos.z + EMINE_SWIMPOINT)))
+        climbTics[playerNum]--;
+        if (TEST_SYNC_KEY(playerBits, SK_JUMP))
         {
-            p->vel.z = 0;
-            p->jumping_counter = 1;
-            p->jumping_toggle  = 1;
+            // Swimming up and out. Facing a bank: climb (like a ladder) until the feet are over its top, so walking
+            // forward steps onto it. Open water: just bob at the surface.
+            int const ang = fix16_to_int(p->q16ang);
+            auto solid = [](int t) { return t != VW_AIR && !(voxworld_blockflags(t) & VW_BF_NONSOLID); };
+            bool bank = false;
+            for (int r = 256; r <= 512 && !bank; r += 256)
+            {
+                int32_t const ax = p->pos.x + mulscale14(sintable[(ang + 512) & 2047], r);
+                int32_t const ay = p->pos.y + mulscale14(sintable[ang & 2047], r);
+                bank = solid(voxworld_blockat(ax, ay, p->pos.z + PHEIGHT - 512)) ||
+                       solid(voxworld_blockat(ax, ay, p->pos.z + EMINE_SWIMPOINT));
+            }
+            if (bank)
+            {
+                p->vel.z = -1280;  // gravity is added after this, so a steady climb of about 1100 a tick
+                p->jumping_counter = 0;
+                p->jumping_toggle  = 1;
+                p->on_ground       = 0;
+            }
+            else if (p->vel.z < -384)
+                p->vel.z = -384;
         }
-        else
-            p->vel.z = max(p->vel.z, -384);
     }
-    wasSwimming[playerNum] = swimming;
     return swimming ? ST_2_UNDERWATER : lotag;
 }
 

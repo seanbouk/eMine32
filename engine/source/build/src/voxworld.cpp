@@ -1198,6 +1198,39 @@ struct vwmurkyq_t { vwmurky_t q[VW_MAXMURKY]; int head = 0, tail = 0; };
 static bool    vw_camwater;  // this frame's camera is under water: everything fogs into vw_fogcol with distance
 static uint8_t vw_fogcol;
 
+// Under water the view fades smoothly into vw_fogcol between VW_WATERNEAR and VW_UWFAR, in VW_FOGSTEPS palette
+// steps (each a colour -> nearest-palette-colour table, rebuilt only when the fog colour changes).
+#define VW_UWFAR     (24.f*VW_BLOCKXY)
+#define VW_FOGSTEPS  12
+static uint8_t vw_fogtab[VW_FOGSTEPS][256];
+static int     vw_fogtabcol = -1;
+static float   vw_fogscale;
+
+static void vw_buildfog(void)
+{
+    vw_fogscale = VW_FOGSTEPS / (VW_UWFAR - VW_WATERNEAR);
+    if (vw_fogtabcol == vw_fogcol) return;
+    vw_fogtabcol = vw_fogcol;
+    palette_t const f = curpalette[vw_fogcol];
+    for (int k = 0; k < VW_FOGSTEPS; k++)
+    {
+        int const w = (k + 1) * 256 / (VW_FOGSTEPS + 1);  // fog weight, 0..256
+        for (int c = 0; c < 256; c++)
+        {
+            palette_t const s = curpalette[c];
+            vw_fogtab[k][c] = paletteGetClosestColorUpToIndex(s.r + (((f.r - s.r) * w) >> 8), s.g + (((f.g - s.g) * w) >> 8),
+                                                              s.b + (((f.b - s.b) * w) >> 8), 254);
+        }
+    }
+}
+
+static FORCE_INLINE uint8_t vw_uwfog(uint8_t c, float d)
+{
+    if (d <= VW_WATERNEAR) return c;
+    int const k = (int)((d - VW_WATERNEAR) * vw_fogscale);
+    return k < VW_FOGSTEPS ? vw_fogtab[k][c] : vw_fogcol;
+}
+
 static FORCE_INLINE uint8_t vw_waterblend(uint8_t water, uint8_t behind, float through)
 {
     uint8_t const *const tr = (uint8_t const *)blendtable[0];
@@ -1327,7 +1360,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
     for (int y = 0; y < ydim; y++) wz[y] = FLT_MAX;
     vwmurkyq_t mq;  // water rows to close once they're deep enough in murk
     // under water, everything past the fog is fog
-    float const maxdist = vw_camwater ? min(vw_maxdist, VW_WATERNEAR + VW_WATERMURKY + VW_BLOCKXY) : vw_maxdist;
+    float const maxdist = vw_camwater ? min(vw_maxdist, VW_UWFAR + VW_BLOCKXY) : vw_maxdist;
 
     for (;;)
     {
@@ -1545,7 +1578,7 @@ next_cell:
     {
         // under water: clear close up, fogging into the water's colour further away
         for (int y = 0; y < ydim; y++)
-            if (zc[y] > VW_WATERNEAR) col[y] = vw_waterblend(vw_fogcol, col[y], zc[y] - VW_WATERNEAR);
+            col[y] = vw_uwfog(col[y], zc[y]);
     }
     else
     {
@@ -1638,6 +1671,7 @@ void voxworld_drawworld(void)
             if (fogbase < 0) fogbase = paletteGetClosestColorUpToIndex(24, 56, 120, 254);
             int const sh = clamp(vw_lightshade(bx, by, bz, &tint), 0, numshades - 1);
             vw_fogcol = ((uint8_t const *)palookup[0])[(sh << 8) + fogbase];
+            vw_buildfog();
         }
     }
 
@@ -1766,7 +1800,7 @@ static void vw_drawfacesprite(tspriteptr_t tspr, float depth)
 
             uint8_t *const p = &fb[y*bpl + x];
             float const wd = vw_wzbuf[x*ydimen + y];
-            uint8_t const sc = vw_camwater ? (depth > VW_WATERNEAR ? vw_waterblend(vw_fogcol, lut[c], depth - VW_WATERNEAR) : lut[c])
+            uint8_t const sc = vw_camwater ? vw_uwfog(lut[c], depth)
                              : wd < depth ? vw_waterblend(vw_wcbuf[x*ydimen + y], lut[c], depth - wd) : lut[c];  // under water
             if (trans)
                 *p = transrev ? trans[(sc << 8) | *p] : trans[(*p << 8) | sc];
