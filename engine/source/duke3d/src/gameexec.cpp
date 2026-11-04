@@ -961,12 +961,34 @@ static void P_AddWeaponMaybeSwitch(DukePlayer_t * const ps, int const weaponNum)
     }
 }
 
+// eMine32: Duke holds every weapon, so a weapon's first ammo counts as picking it up: equip it if it ranks above
+// the current one in the weapon preference order (and pickups are equipped at all).
+static void Emine_EquipIfPreferred(DukePlayer_t * const ps, int const weaponNum)
+{
+    if (!(ps->weaponswitch & 1) || ps->curr_weapon == weaponNum)
+        return;
+    int const playerNum = P_Get(ps->i);
+    int newRank = -1, currRank = -1;
+    for (native_t i = 0; i <= FREEZE_WEAPON; i++)
+    {
+        int w = g_player[playerNum].wchoice[i];
+        w = (w == KNEE_WEAPON) ? FREEZE_WEAPON : w - 1;
+        if (w == ps->curr_weapon) currRank = i;
+        if (w == weaponNum) newRank = i;
+    }
+    if (newRank >= 0 && (currRank < 0 || newRank < currRank))
+        P_AddWeapon(ps, weaponNum, 1);
+}
+
 static void P_AddWeaponAmmoCommon(DukePlayer_t * const pPlayer, int const weaponNum, int const nAmount)
 {
+    bool const wasEmpty = pPlayer->ammo_amount[weaponNum] <= 0;  // eMine32
     P_AddAmmo(pPlayer, weaponNum, nAmount);
 
     if (PWEAPON(vm.playerNum, pPlayer->curr_weapon, WorksLike) == KNEE_WEAPON && (pPlayer->gotweapon & (1 << weaponNum)))
         P_AddWeaponMaybeSwitch(pPlayer, weaponNum);
+    else if (wasEmpty && (pPlayer->gotweapon & (1 << weaponNum)))
+        Emine_EquipIfPreferred(pPlayer, weaponNum);  // eMine32
 }
 
 static void VM_AddWeapon(DukePlayer_t * const pPlayer, int const weaponNum, int const nAmount)

@@ -122,7 +122,8 @@ one kind of Duke ammo where it breaks (shots, kicks, and up to 6 per explosion):
 shells, gold chaingun ammo, redstone pipe bombs, lapis freeze-thrower ammo, diamond rockets (`Emine_OreAmmo` holds the
 amounts). A drop pops up out of the middle of the broken block, falls and bounces twice (straight up and down only,
 moved by `Emine_MoveDrops`). Duke holds every weapon from the start with one pistol clip and can only pick weapons he has ammo for
-(sector.cpp). The shareware data has no freeze-thrower art, so its pickup and weapon are invisible until the art
+(sector.cpp). A weapon's first ammo counts as picking it up: Duke equips it if it ranks above the current weapon in
+the weapon preference order (gameexec.cpp), so a pistol clip never downgrades the chaingun. The shareware data has no freeze-thrower art, so its pickup and weapon are invisible until the art
 pass. `emine_ore <type>` (dev) drops an ore's ammo in front of you.
 Snow caps (on trial): ground at or above the snowline (sea + 55% of the hill range, ~layer 88, ragged by +-3 layers of
 noise) is topped with snow instead of grass, so no plants or trees grow there; about 10% of columns near the spawn.
