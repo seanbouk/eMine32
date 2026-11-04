@@ -238,6 +238,35 @@ TEXTURES = [
     ('diamond_ore', lambda: ore(34, (100, 230, 225), clusters=4)),
 ]
 
+def cracks():
+    """Damage-stage crack masks shared by every block: dark lines on transparent, each stage adding to the last.
+    Opaque texels darken the block texel under them (black = darkest), so these are placeholders for real art."""
+    rnd = random.Random(40)
+    strokes = []  # (x, y, colour) in drawing order; stage n shows the first n/3 of them
+    # a few cracks wandering out from near the middle, then branches off them
+    starts = [(7, 8), (8, 7), (5, 10), (10, 5), (3, 4), (12, 12)]
+    for sx, sy in starts:
+        x, y = sx, sy
+        dx, dy = rnd.choice(((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)))
+        for k in range(rnd.randint(4, 7)):
+            if not (0 <= x < TEX and 0 <= y < TEX):
+                break
+            strokes.append((x, y, (20, 20, 20) if k < 3 else (60, 60, 60)))
+            if rnd.random() < 0.35:  # chipped edge beside the crack
+                cx, cy = x + rnd.choice((-1, 1)), y
+                if 0 <= cx < TEX:
+                    strokes.append((cx, cy, (120, 120, 120)))
+            if rnd.random() < 0.4:  # wander
+                dx, dy = rnd.choice(((dx, dy), (dy, dx), (-dy, -dx) if dx != dy else (dx, 0)))
+            x, y = x + dx, y + dy
+    out = []
+    for st in (1, 2, 3):
+        im = Image.new('RGBA', (TEX, TEX), (0, 0, 0, 0))
+        for x, y, c in strokes[:len(strokes) * st // 3]:
+            im.putpixel((x, y), c + (255,))
+        out.append(im)
+    return out
+
 def write_textures():
     d = os.path.join(ROOT, 'textures', 'blocks')
     os.makedirs(d, exist_ok=True)
@@ -245,6 +274,10 @@ def write_textures():
     for i, (name, fn) in enumerate(TEXTURES):
         fn().save(os.path.join(d, name + '.png'))
         lines.append('tilefromtexture %d { file "textures/blocks/%s.png" }' % (TILEBASE + i, name))
+    lines.append('// damage-stage crack masks (VW_CRACKBASE = VW_TILEBASE + number of face tiles)')
+    for st, im in enumerate(cracks()):
+        im.save(os.path.join(d, 'crack_%d.png' % (st + 1)))
+        lines.append('tilefromtexture %d { file "textures/blocks/crack_%d.png" }' % (TILEBASE + len(TEXTURES) + st, st + 1))
     open(os.path.join(ROOT, 'emine32.def'), 'w').write('\n'.join(lines) + '\n')
 
 # ---------------------------------------------------------------- map (Build v7)

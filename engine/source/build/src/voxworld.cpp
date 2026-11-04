@@ -643,6 +643,7 @@ enum
     T_GLASS, T_SNOW, T_SNOW_SIDE, T_LAPIS, T_DIAMOND,
     T_COUNT
 };
+#define VW_CRACKBASE (VW_TILEBASE + T_COUNT)  // damage-stage crack masks follow the face tiles (see emine32.def)
 
 // hardness: damage points to destroy (0 = indestructible). Duke's pistol does ~6 per shot.
 // emit: light level given off (0 = none, up to VW_LIGHTMAX); tint: its colour (VW_TINT_*); flags: VW_BF_*.
@@ -702,17 +703,27 @@ static uint8_t *vw_dmg;
 
 static FORCE_INLINE size_t vw_index(int bx, int by, int bz) { return ((size_t)bx*vw_sy + by)*vw_sz + bz; }
 
-// Extra shade (darker) for a damaged block: up to +10 just before it breaks.
-static FORCE_INLINE int vw_dmgshade(size_t idx, uint8_t type)
+// Damage stage of a block: 0 = undamaged, 1..VW_CRACKSTAGES as it nears breaking.
+#define VW_CRACKSTAGES 3
+static FORCE_INLINE int vw_dmgstage(size_t idx, uint8_t type)
 {
     if (!vw_dmg || !vw_dmg[idx]) return 0;
     int const h = vw_blockdefs[type].hardness;
-    return h ? (vw_dmg[idx] * 10) / h : 0;
+    return h ? 1 + min(VW_CRACKSTAGES-1, (vw_dmg[idx] * VW_CRACKSTAGES) / h) : 0;
+}
+
+static bool vw_hascracks;  // crack overlay tiles loaded; without them damage just darkens the block
+
+// Extra shade (darker) for a damaged block when there are no crack tiles: up to +9 just before it breaks.
+static FORCE_INLINE int vw_dmgshade(size_t idx, uint8_t type)
+{
+    return vw_hascracks ? 0 : vw_dmgstage(idx, type) * 3;
 }
 
 // Texel data for each face tile, column-major (Build tile order): tex[u*VW_TEXSIZE + v].
 // Falls back to a generated checker if the tile isn't present or isn't VW_TEXSIZE square.
 static uint8_t vw_tex[T_COUNT][VW_TEXSIZE*VW_TEXSIZE];
+static uint8_t vw_crack[VW_CRACKSTAGES][T_COUNT][VW_TEXSIZE*VW_TEXSIZE];  // each face pre-cracked, per damage stage
 static uint8_t vw_lavabase[VW_TEXSIZE*VW_TEXSIZE];   // lava as loaded; vw_tex[T_LAVA] is it scrolled (vw_animate)
 static uint8_t vw_waterbase[VW_TEXSIZE*VW_TEXSIZE];  // same for water
 
@@ -762,6 +773,41 @@ static void vw_loadtextures(void)
             for (int v = 0; v < VW_TEXSIZE; v++)
                 dst[u*VW_TEXSIZE + v] = ((u ^ v) & 4) ? c1 : c2;
     }
+
+    // Crack overlays (tiles VW_CRACKBASE..): one mask per damage stage, shared by every block. Opaque mask texels
+    // darken the face texel under them by up to 16 shades (black = darkest); transparent ones leave it alone.
+    vw_hascracks = true;
+    for (int st = 0; st < VW_CRACKSTAGES; st++)
+    {
+        int const tile = VW_CRACKBASE + st;
+        uint8_t const *mask = nullptr;
+        if (tilesiz[tile].x == VW_TEXSIZE && tilesiz[tile].y == VW_TEXSIZE && tileLoad(tile) && waloff[tile])
+            mask = (uint8_t const *)waloff[tile];
+        if (!mask)
+        {
+            LOG_F(WARNING, "voxworld: crack tile %d missing or not %dx%d; damage will just darken", tile, VW_TEXSIZE, VW_TEXSIZE);
+            vw_hascracks = false;
+            return;
+        }
+        for (int i = 0; i < VW_TEXSIZE*VW_TEXSIZE; i++)
+        {
+            int shade = 0;
+            if (mask[i] != 255)
+            {
+                uint8_t const *const rgb = &palette[mask[i]*3];
+                int const lum = (rgb[0]*3 + rgb[1]*6 + rgb[2]) / 10;
+                shade = min(numshades - 1, 1 + (255 - lum) * 16 / 255);
+            }
+            for (int t = 0; t < T_COUNT; t++)
+                vw_crack[st][t][i] = shade ? ((uint8_t const *)palookup[0])[(shade << 8) + vw_tex[t][i]] : vw_tex[t][i];
+        }
+    }
+}
+
+// A face's texels, cracked to match the block's damage stage.
+static FORCE_INLINE uint8_t const *vw_facetex(int tex, int stage)
+{
+    return (stage && vw_hascracks) ? vw_crack[stage-1][tex] : vw_tex[tex];
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1849,7 +1895,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                         if (layer != curlayer)
                                         {
                                             curlayer = layer;
-                                            tex = vw_tex[vw_blockdefs[cb[layer]].side] + ucol;
+                                            tex = vw_facetex(vw_blockdefs[cb[layer]].side, vw_dmgstage(colidx + layer, cb[layer])) + ucol;
                                             if (vw_flags(cb[layer]) & VW_BF_FULLBRIGHT)
                                                 pal = vw_shadetab(0, 0, din, 0);
                                             else
@@ -1882,7 +1928,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                 int const fl = vw_lightshade(gx, gy, r.z1, &ftint);
                                 bool const fb = vw_flags(cb[r.z1-1]) & VW_BF_FULLBRIGHT;
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
-                                            vw_tex[vw_blockdefs[cb[r.z1-1]].top],
+                                            vw_facetex(vw_blockdefs[cb[r.z1-1]].top, vw_dmgstage(vw_index(gx, gy, r.z1-1), cb[r.z1-1])),
                                             fb ? 0 : vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]),
                                             fb ? 0 : fl, vw_tinttable(fb ? 0 : ftint));
                             }
@@ -1904,7 +1950,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                 int const fl = vw_lightshade(gx, gy, r.z0 - 1, &ftint);
                                 bool const fb = vw_flags(cb[r.z0]) & VW_BF_FULLBRIGHT;
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
-                                            vw_tex[vw_blockdefs[cb[r.z0]].bottom],
+                                            vw_facetex(vw_blockdefs[cb[r.z0]].bottom, vw_dmgstage(vw_index(gx, gy, r.z0), cb[r.z0])),
                                             fb ? 0 : vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]),
                                             fb ? 0 : fl, vw_tinttable(fb ? 0 : ftint));
                             }

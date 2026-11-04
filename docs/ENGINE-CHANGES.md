@@ -58,7 +58,10 @@ Vertical faces are constant-depth columns (like Build walls), horizontal faces u
 floors), occlusion is a per-column list of open row intervals, depth goes to a float buffer for sprites. Everything is
 drawn through Build's palette and shade tables (`palookup`), with Build's own distance-shading formula.
 Destruction: per-block damage (hardness per type: leaves 6, sand 10, dirt/grass 12, gravel 14, planks 24, wood 30,
-cobble 40, stone 48, coal 52, gold 56, iron 64, bedrock indestructible); damaged blocks render darker. Sprites with
+cobble 40, stone 48, coal 52, gold 56, iron 64, bedrock indestructible). Damaged blocks show one of 3 crack stages
+(Minecraft-style): the crack masks are tiles `VW_CRACKBASE..+2` (right after the face tiles), shared by every block;
+an opaque mask texel darkens the face texel under it by up to 16 shades (black = darkest), and every face is
+pre-cracked per stage at load, so drawing costs nothing extra. Without the mask tiles damage just darkens. Sprites with
 lotag `0x7E00|type` are drawn as chunks of that block (debris).
 World height comes from the sector (floor to ceiling, up to 255 layers); the generated map is 256x256x160. Heights
 (default world): lowlands/beaches ~60-64, hills to ~105, ~60 layers of rock below the lowlands. Bedrock is solid at

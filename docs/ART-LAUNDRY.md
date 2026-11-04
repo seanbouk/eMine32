@@ -20,7 +20,7 @@ Disposition key:
 | ✓ | Asset | Tile(s) | Disp. | Notes |
 |---|---|---|---|---|
 | [~] | Block faces (27) | 7000–7026 | O | Ours, generated at 16×16. Swap for the user's art at **32×32** (build-time downscale). Faces: grass top/side, dirt, stone, bedrock, sand, log side/top, leaves, planks, cobble, gravel, coal/iron/gold/redstone/lapis/diamond ore, lava, water, obsidian, tall grass, red/yellow flower, glass, snow top/side. |
-| [ ] | Block damage stages | new | R? | See "Open questions": damaged blocks currently just darken. |
+| [~] | Block damage stages (3 crack masks) | 7027–7029 | O→R | Placeholder in (`crack_1..3.png`, generated). **Art spec:** one mask per stage, same size as block faces, shared by every block, each stage adding to the last. Transparent = untouched; opaque pixels darken the block under them by their darkness (black = darkest, mid-grey = a lighter chip). |
 | [ ] | Sky | 89 (Duke city skyline) | R | Parallax panorama. Probably plain sky + clouds, and maybe a sun. |
 | [ ] | Bullet holes / blood splats (wall decals) | BULLETHOLE 952, BLOODSPLAT1–4 | C? | Duke only puts these on Build walls, and the block world has none. |
 
@@ -126,12 +126,6 @@ Each mob also needs spawn rules and Minecraft-style navigation.
 |---|---|---|---|
 | [ ] | Sound effects + Duke voice lines | 181 VOC | Replace the ones we use; cut the rest. The new character needs a new voice. Ours can be WAV/OGG. |
 | [ ] | Music | 7 MIDI + `D3DTIMBR.TMB` | **Music:** currently MIDI played through EDuke32's built-in OPL3 (AdLib FM) emulator, voiced by Duke's timbre bank. **Replacement:** OGG Vorbis (MP3 isn't supported; OGG is the same idea, about the same size). FLAC, or tracker modules (.mod/.xm/.it), also work. |
-
-## 8. Open questions
-
-- **Block damage feedback.** Today a damaged block darkens, by up to 10 shades just before it breaks.
-  - Option: Minecraft-style damage stages (3–4 crack/bullet-pocked overlays on the block's faces).
-  - Driven by the existing per-block damage map, so there's no decal budget and no per-hit sprites.
 
 ## 9. Before going public (deferred)
 

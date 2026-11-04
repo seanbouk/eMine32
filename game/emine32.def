@@ -26,3 +26,7 @@ tilefromtexture 7023 { file "textures/blocks/snow.png" }
 tilefromtexture 7024 { file "textures/blocks/snow_side.png" }
 tilefromtexture 7025 { file "textures/blocks/lapis_ore.png" }
 tilefromtexture 7026 { file "textures/blocks/diamond_ore.png" }
+// damage-stage crack masks (VW_CRACKBASE = VW_TILEBASE + number of face tiles)
+tilefromtexture 7027 { file "textures/blocks/crack_1.png" }
+tilefromtexture 7028 { file "textures/blocks/crack_2.png" }
+tilefromtexture 7029 { file "textures/blocks/crack_3.png" }
