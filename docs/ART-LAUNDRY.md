@@ -4,78 +4,91 @@ The goal is that eMine32 runs with **no `DUKE3D.GRP` at all**. Everything the ga
 shareware GRP (13 ART files, 3 CON, 3 DAT, 6 maps, 7 MIDI, 181 VOC, 1 timbre bank, 1 demo) is either
 **replaced** with ours or **cut** so nothing references it.
 
+**Working approach:**
+- Swap a handful of items at a time and see what that tells us. Every swap shows what else can simply be removed.
+- The licensing chores (section 9) wait until we're through the list.
+- Nothing goes public (itch.io / GitHub Pages) until the list is done.
+
 Disposition key:
 - **R**: replace with our art.
 - **C**: cut the feature, so no art is needed.
 - **O**: already ours.
 - **?**: undecided.
 
-## 0. Do first: the foundation
-
-| ✓ | Asset | From | Disp. | Notes |
-|---|---|---|---|---|
-| [ ] | Palette (256 colours) + shade tables + translucency table | `PALETTE.DAT` | R | **Do this first.** Every piece of art gets quantised to the palette, so changing it later means requantising everything. Build it from our block art + the user's hi-res art. |
-| [ ] | Palette swaps (enemy colour variants, underwater/slime tints, night vision) | `LOOKUP.DAT` | R | Generated from our palette. |
-| [ ] | Console / small text fonts, sine tables | `TABLES.DAT` | R | Sine tables can be generated. The fonts are tiny bitmaps. |
-| [ ] | Game logic scripts | `GAME.CON`, `DEFS.CON`, `USER.CON` | R | Not art, but it's Duke's script content and can't ship. We need our own CON (actors, weapons, pickups). It grows naturally as each monster/item is swapped. |
-| [x] | Level | `E1L1.MAP` | O | Ours (`tools/mkworld.py`). Cut E1L2–E1L6 and `DUKESW.BIN`. |
-
 ## 1. World
 
 | ✓ | Asset | Tile(s) | Disp. | Notes |
 |---|---|---|---|---|
 | [~] | Block faces (27) | 7000–7026 | O | Ours, generated at 16×16. Swap for the user's art at **32×32** (build-time downscale). Faces: grass top/side, dirt, stone, bedrock, sand, log side/top, leaves, planks, cobble, gravel, coal/iron/gold/redstone/lapis/diamond ore, lava, water, obsidian, tall grass, red/yellow flower, glass, snow top/side. |
+| [ ] | Block damage stages | new | R? | See "Open questions": damaged blocks currently just darken. |
 | [ ] | Sky | 89 (Duke city skyline) | R | Parallax panorama. Probably plain sky + clouds, and maybe a sun. |
-| [ ] | Bullet holes / scorch decals | BULLETHOLE etc. | R/C | Not visible on blocks today. Can probably cut. |
+| [ ] | Bullet holes / blood splats (wall decals) | BULLETHOLE 952, BLOODSPLAT1–4 | C? | Duke only puts these on Build walls, and the block world has none. |
 
-## 2. Monsters (one at a time)
+## 2a. Duke enemies to remove or replace
 
-Shareware enemies and a suggested role-match. Each one gets our own design in Duke's sprite style.
+Each one is either cut or becomes one of the mobs in 2b. The mapping doesn't have to be one to one.
 
-| ✓ | Duke enemy | Behaviour | Suggested mob role |
+| ✓ | Duke enemy | Behaviour | Fate (suggestion) |
 |---|---|---|---|
-| [ ] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Ranged archer (skeleton role) |
-| [ ] | PIGCOP (2000) | Shotgun, tanky | Melee brute (zombie role). The "pig" pun suits a piglin-ish design. |
-| [ ] | DRONE (1880) | Flies at you and explodes | Walking/creeping exploder (creeper role) |
-| [ ] | LIZMAN (2120) | Big jumps, spits, charges | Jumper/climber (spider role) |
-| [ ] | OCTABRAIN (1820) | Floats, psychic blast | Teleporter or floater (enderman role) |
-| [ ] | COMMANDER (1920) | Floats, fires rockets | Floating fireballer (ghast role) |
-| [ ] | ROTATEGUN (2360) | Fixed turret | C, or a spawner-ish block |
-| [ ] | RECON (1960) | Flying car with spotlight | C, or a bat-like ambient flyer |
-| [ ] | EGG / GREENSLIME (675/2370) | Slime that latches on | Slime role |
-| [ ] | BOSS1 Battlelord (2630) | Boss | Boss (later) |
-| [ ] | Shared gore: blood, jibs, per-enemy gib chunks, burn/freeze/shrink states | | R. Simplify where possible. |
+| [ ] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton |
+| [ ] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie (pig pun optional) |
+| [ ] | DRONE (1880) | Flies at you and explodes | Becomes the creeper |
+| [ ] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider |
+| [ ] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman or phantom, or cut |
+| [ ] | COMMANDER (1920) | Floats, fires rockets | Cut, or a ghast-like (it's a Nether mob) |
+| [ ] | ROTATEGUN (2360) | Fixed turret | Cut |
+| [ ] | RECON (1960) | Flying car with spotlight | Cut |
+| [ ] | EGG / GREENSLIME (675/2370) | Slime that latches on | Becomes the slime |
+| [ ] | BOSS1 Battlelord (2630) | Boss | Cut for now |
+| [ ] | Shared gore: blood, jibs, per-enemy gib chunks, burn/freeze/shrink states | | Simplify: a generic gib set + palette swaps |
+
+## 2b. Minecraft mobs to add (in Duke style)
+
+These are common Overworld hostiles; all were in Minecraft from early on unless marked. Our own designs and names will be needed before launch (see 9).
+
+| ✓ | Mob | Spawns | Behaviour notes | Priority |
+|---|---|---|---|---|
+| [ ] | Zombie | Dark/night, surface + caves | Walks at you, melee, can break doors | 1 |
+| [ ] | Skeleton | Dark/night | Ranged (arrows), strafes | 1 |
+| [ ] | Creeper | Dark/night | Silent approach, hisses, explodes and **breaks blocks** | 1 (the obvious showpiece in a block world) |
+| [ ] | Spider | Dark/night; neutral in daylight | Climbs walls, leaps | 2 |
+| [ ] | Cave spider | Caves (mineshaft spawners) | Small, fast, poison | 3 |
+| [ ] | Slime | Deep layers in "slime chunks", swamps | Bounces, splits on death | 2 |
+| [ ] | Enderman | Dark, rare | Neutral until looked at, teleports, picks up blocks | 3 |
+| [ ] | Witch | Dark, rare | Throws potions | 3 |
+| [ ] | Silverfish | Hidden inside stone blocks | Swarm when you mine their block | 3 (block-world specific, cheap art) |
+| [ ] | Drowned *(added later, 1.13)* | Water | Underwater zombie | 3 |
+| [ ] | Phantom *(added later, 1.13)* | Sky at night, if you don't sleep | Swoops down from the sky | 3 |
 
 **Art spec per mob (Duke convention):**
 - 5 view angles: front, front-¾, side, back-¾, back. The engine mirrors these for the other 3.
 - Per angle: idle 1, walk 4, attack 1–2, pain 1. That's about 40 images.
 - A death sequence of about 5 frames, front only.
-- Optional frozen/burnt variants. Palette swaps cover these cheaply.
 
-## 3. Wildlife (new, roadmap step 3)
+Each mob also needs spawn rules and Minecraft-style navigation.
+
+## 3. Wildlife (roadmap step 3)
 
 | ✓ | Asset | Disp. | Notes |
 |---|---|---|---|
-| [ ] | 2–3 passive animals | R | Same sprite spec as monsters, minus attack frames. |
+| [ ] | 2–3 passive animals | R | Same sprite spec as mobs, minus attack frames. |
 | [ ] | Raw and cooked meat pickups | R | |
 
 ## 4. Player weapons (first-person HUD)
-
-These are seen constantly, so they're high priority.
 
 | ✓ | Weapon | Tile | Ore ammo | Disp. | Frames needed (roughly) |
 |---|---|---|---|---|---|
 | [ ] | Kick / foot | KNEE 2521 | — | R | 2–3 |
 | [ ] | Pistol | FIRSTGUN 2524 | coal | R | idle, fire 2, reload hand ~4 |
-| [ ] | Shotgun | 2613 | iron | R | idle, fire 2, pump ~4 |
-| [ ] | Chaingun | 2536 | gold | R | idle, barrel spin 3, muzzle flash |
+| [ ] | Shotgun | SHOTGUN 2613 | iron | R | idle, fire 2, pump ~4 |
+| [ ] | Chaingun | CHAINGUN 2536 | gold | R | idle, barrel spin 3, muzzle flash |
 | [ ] | Pipe bomb + detonator | HANDTHROW 2573 / HANDREMOTE 2570 | redstone | R | throw ~4, remote 2 |
-| [ ] | Freezer | 2548 | lapis | R | idle, fire 2 (missing from shareware anyway) |
-| [ ] | RPG | 2544 | diamond | R | idle, fire 2 |
+| [ ] | Freezer | FREEZE 2548 | lapis | R | idle, fire 2 (missing from shareware anyway) |
+| [ ] | RPG | RPGGUN 2544 | diamond | R | idle, fire 2 |
 | [ ] | Shrinker, Devastator, Trip mine | | — | C | No ore gives their ammo |
 | [ ] | Crosshair | CROSSHAIR 2523 | | R | 1 |
 | [ ] | Projectiles in the world: rocket, pipe bomb, freeze bolt, shotspark, shell casings, muzzle flashes | | | R | |
-| [ ] | Explosion, smoke, glass shards, water splash, fire | EXPLOSION2, SMALLSMOKE, GLASSPIECES… | | R | Explosion is the big one. |
+| [ ] | Explosion, smoke, glass shards, water splash, fire | EXPLOSION2 1890, SMALLSMOKE, GLASSPIECES 1031… | | R | Explosion is the big one. |
 
 ## 5. Pickups (world sprites)
 
@@ -87,6 +100,11 @@ These are seen constantly, so they're high priority.
 | [ ] | Inventory: armour, steroids, jetpack, night vision, holoduke, boots, scuba, keycards | C | Cut by default. Keep any that suit gameplay later. |
 
 ## 6. HUD, menus, screens
+
+**Art handoff:** the user designs these (e.g. in Claude Design) and hands over HTML with everything embedded, as reference and as source.
+- Lay screens out on a **320×200 grid**: Duke's virtual screen, and our 960×600 web view is exactly 3× it.
+- Any resolution or vector is fine. The build rasterises, downscales and matches it to the palette.
+- Keep strokes and text legible at 320×200: glyphs at least ~7 px tall, no hairlines, no soft gradients.
 
 | ✓ | Asset | Tile(s) | Disp. | Notes |
 |---|---|---|---|---|
@@ -102,27 +120,28 @@ These are seen constantly, so they're high priority.
 | [ ] | Help / ordering / story screens | F1HELP 2445, ORDERING 3270–3273, TEXTSTORY 3280 | C | Or one help screen of our own. |
 | [ ] | Player third-person sprite | APLAYER 1405 | C? | Only seen in mirrors, multiplayer and death cam. |
 
-## 7. Names and text (trademarks, not art)
-
-| ✓ | Item | Notes |
-|---|---|---|
-| [ ] | "Duke Nukem" name, likeness and voice | Trademarked (Gearbox). The player character needs our own name and look before launch. "Duke" in our docs is fine; in-game text isn't. |
-| [ ] | "Duke Nukem 3D" / 3D Realms strings | Window title, menus, quit messages, episode/skill names in the CON, EDuke32 defaults. |
-| [ ] | Minecraft names and designs | Mob names like Creeper, and Mojang's exact designs, are Mojang IP. Our own designs and names in the same roles are safe. |
-
-## 8. Audio (roadmap step 5, later)
+## 7. Audio (roadmap step 5, later)
 
 | ✓ | Asset | Count | Notes |
 |---|---|---|---|
-| [ ] | Sound effects + Duke voice lines | 181 VOC | Replace the ones we use; cut the rest. Voice lines need a new character voice. |
-| [ ] | Music | 7 MIDI + `D3DTIMBR.TMB` | Replace, or ship without music. |
+| [ ] | Sound effects + Duke voice lines | 181 VOC | Replace the ones we use; cut the rest. The new character needs a new voice. Ours can be WAV/OGG. |
+| [ ] | Music | 7 MIDI + `D3DTIMBR.TMB` | **Music:** currently MIDI played through EDuke32's built-in OPL3 (AdLib FM) emulator, voiced by Duke's timbre bank. **Replacement:** OGG Vorbis (MP3 isn't supported; OGG is the same idea, about the same size). FLAC, or tracker modules (.mod/.xm/.it), also work. |
 
-## Suggested order
+## 8. Open questions
 
-1. **Palette.** Every later asset depends on it.
-2. **Block textures at 32×32**, via the build-time downscale pipeline. This also proves out the pipeline.
-3. **Ammo pickups + first-person weapons.** You see them every second.
-4. **Sky, crosshair, fonts, HUD digits.**
-5. **Monsters, one at a time** (with our own CON actor for each), then wildlife.
-6. **Menus and screens, cutting Duke content and text**, then audio.
-7. Final check: launch with the GRP removed and fix every blank tile.
+- **Block damage feedback.** Today a damaged block darkens, by up to 10 shades just before it breaks.
+  - Option: Minecraft-style damage stages (3–4 crack/bullet-pocked overlays on the block's faces).
+  - Driven by the existing per-block damage map, so there's no decal budget and no per-hit sprites.
+
+## 9. Before going public (deferred)
+
+| ✓ | Item | Notes |
+|---|---|---|
+| [ ] | Palette | **Keep Duke's 256 colours (part of the look).** Write a tool that rebuilds the shade/translucency tables (`PALETTE.DAT`) and palette swaps (`LOOKUP.DAT`) from them, so we ship our own files rather than Duke's. |
+| [ ] | `TABLES.DAT` | Console/small fonts + sine tables. Generate our own. |
+| [ ] | Game scripts (`GAME.CON`, `DEFS.CON`, `USER.CON`) | Duke's script content. Our own CON grows as each mob/item is swapped; whatever's left gets rewritten. |
+| [ ] | Maps | Our `E1L1.MAP` is ours. E1L2–E1L6 and `DUKESW.BIN` go. |
+| [ ] | "Duke Nukem" name, likeness and voice | Trademarked (Gearbox). The in-game character needs his own name and look. |
+| [ ] | "Duke Nukem 3D" / 3D Realms strings | Window title, menus, quit messages, episode/skill names, EDuke32 defaults. |
+| [ ] | Minecraft names and designs | Mob names like Creeper, and Mojang's exact designs, are Mojang IP. Our own designs and names in the same roles are safe. |
+| [ ] | Final check | Launch with the GRP removed and fix every blank tile/missing sound. See also `PRELAUNCH-CHECKLIST.md`. |
