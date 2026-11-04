@@ -185,6 +185,23 @@ int32_t Emine_FloorZ(int spriteNum, int32_t sectorFloorZ)
     return voxworld_floorz(s.x, s.y, s.z, sectorFloorZ);
 }
 
+int32_t Emine_ProjectileBlocks(int spriteNum, int32_t dx, int32_t dy, int32_t dz)
+{
+    auto &s = sprite[spriteNum];
+    if (!voxworld_active() || s.sectnum != voxworld_sector() || !(dx|dy|dz))
+        return 0;
+    vwhit_t vh;
+    if (!voxworld_raycast(&s.xyz, dx, dy, dz, 1.f, &vh))
+        return 0;
+    // stop just short of the face, like a hitscan hit, and report it as a wall hit (so it explodes etc.)
+    float const len = sqrtf((float)dx*dx + (float)dy*dy + ((float)dz*dz)*(1.f/256.f));
+    float const t = max(0.f, vh.dist - 24.f / len);
+    vec3_t const at = { s.x + (int32_t)(dx * t), s.y + (int32_t)(dy * t), s.z + (int32_t)(dz * t) };
+    setsprite(spriteNum, &at);
+    voxworld_notehit(&at, vh.bx, vh.by, vh.bz);
+    return 32768 | sector[voxworld_sector()].wallptr;
+}
+
 // Dev console: `emine_cave [maxlight]` teleports the player to the nearest dark cave floor.
 // `emine_glow [minlight]`: the same, to the nearest dark spot lit by a glowing block.
 static int osdcmd_emine_cave(osdcmdptr_t parm)

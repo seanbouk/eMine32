@@ -651,6 +651,11 @@ int32_t A_MoveSpriteClipdist(int32_t spriteNum, vec3_t const &change, uint32_t c
     if (!(change.x|change.y|change.z))
         return 0;
 
+    // eMine32: trace a projectile's real (diagonal) path through the blocks first
+    if (pSprite->statnum == STAT_PROJECTILE)
+        if (int const blockHit = Emine_ProjectileBlocks(spriteNum, change.x >> 1, change.y >> 1, change.z >> 1))
+            return blockHit;
+
     int16_t   newSectnum = pSprite->sectnum;
 #ifndef EDUKE32_STANDALONE
     int const oldSectnum = newSectnum;

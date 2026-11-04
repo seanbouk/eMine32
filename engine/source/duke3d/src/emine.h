@@ -21,6 +21,10 @@ void Emine_ExplosionBlocks(int spriteNum, int blastRadius, int maxDamage);
 // Floor height for falling debris etc.: the nearest block top below, else the sector floor.
 int32_t Emine_FloorZ(int spriteNum, int32_t sectorFloorZ);
 
+// A projectile about to move by (dx, dy, dz): if a block is in the way, stop it there and return a wall-hit code
+// (Build moves projectiles across then up/down, which can cut the corner of a block). 0 = the way is clear.
+int32_t Emine_ProjectileBlocks(int spriteNum, int32_t dx, int32_t dy, int32_t dz);
+
 // Extra shade from the block world's lighting where this sprite stands (0 outside the block world / in daylight).
 int Emine_LightShade(int spriteNum);
 

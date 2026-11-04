@@ -158,3 +158,8 @@ total, holds 75 Hz; 3440x1440 ~17 ms block rendering, ~36 fps.
 
 `scripts/build-native.sh` passes `USE_MIMALLOC=0 HAVE_FLAC=0 STARTUP_WINDOW=0` (mimalloc vs libc++ clash; bundled
 libFLAC.a needs the old msvcrt; skip the launcher dialog).
+
+Projectiles vs blocks: Build moves a projectile across first and then up/down, and the block world's clipmove only
+checks the horizontal step at the old height, so a fast rocket going up past an overhang could cut through the corner
+of a block. `A_MoveSpriteClipdist` now traces a projectile's real diagonal step through the blocks first
+(`Emine_ProjectileBlocks`); a block in the way stops it just short of the face and reports a wall hit.
