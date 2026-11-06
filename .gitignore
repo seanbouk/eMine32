@@ -12,3 +12,5 @@ engine/obj-web/
 engine/NUL
 tools/webtest/node_modules/
 tools/webtest/*.png
+# Reference/concept art (generated sources, kept local)
+refs/
