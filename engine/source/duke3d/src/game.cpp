@@ -2053,7 +2053,7 @@ int A_Spawn(int spriteNum, int tileNum)
                 case LIZTROOPRUNNING__:
                 case LIZTROOPSTAYPUT__:
                 case LIZTROOPJUSTSIT__:
-                case LIZTROOP__: pSprite->pal = 22; break;
+                case LIZTROOP__: break;  // eMine32: Duke recoloured troopers with pal 22; our art is its own colour
                 }
             }
             else

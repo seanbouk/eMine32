@@ -30,15 +30,15 @@ Each one is either cut or becomes one of the mobs in 2b. The mapping doesn't hav
 
 | ✓ | Duke enemy | Behaviour | Fate (suggestion) |
 |---|---|---|---|
-| [ ] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton |
+| [~] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton: single-image art in (Duke's pal-22 recolour removed) |
 | [~] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: single-image art in; still shoots and drops Duke's shotgun |
-| [ ] | DRONE (1880) | Flies at you and explodes | Becomes the creeper |
-| [ ] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider |
-| [ ] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman or phantom, or cut |
+| [~] | DRONE (1880) | Flies at you and explodes | Becomes the creeper: single-image art in; still flies |
+| [~] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider: single-image art in; dies on its back |
+| [~] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman: single-image art in |
 | [ ] | COMMANDER (1920) | Floats, fires rockets | Cut, or a ghast-like (it's a Nether mob) |
 | [ ] | ROTATEGUN (2360) | Fixed turret | Cut |
 | [ ] | RECON (1960) | Flying car with spotlight | Cut |
-| [ ] | EGG / GREENSLIME (675/2370) | Slime that latches on | Becomes the slime |
+| [~] | EGG / GREENSLIME (675/2370) | Slime that latches on | Becomes the slime: single-image art in (still latches onto your face) |
 | [ ] | BOSS1 Battlelord (2630) | Boss | Cut for now |
 | [ ] | Shared gore: blood, jibs, per-enemy gib chunks, burn/freeze/shrink states | | Simplify: a generic gib set + palette swaps |
 
@@ -66,7 +66,7 @@ These are common Overworld hostiles; all were in Minecraft from early on unless 
 - The tool cuts the figure out (RGBA, or a plain flat background that it keys out), scales it, and matches colours to the palette in CIELAB so greens stay olive instead of going grey.
 - It writes `game/sprites/*.png` and `game/sprites.def`.
 - Dev command: `emine_spawn <tile> [blocks]` puts an actor in front of you.
-- Status: the zombie (single front image) replaces PIGCOP tiles 2000–2060. It walks, gets hit, falls over and lies dead.
+- Status: zombie, skeleton, spider, creeper, enderman and slime are all in, each from a single front image. Behaviour is still Duke's.
 
 **Art spec per mob (Duke convention):**
 - 5 view angles: front, front-¾, side, back-¾, back. The engine mirrors these for the other 3.

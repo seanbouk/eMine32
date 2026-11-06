@@ -15,6 +15,7 @@ desaturated greens grey, while LAB keeps them green (olive/khaki).
 """
 import json, os, struct, sys
 import numpy as np
+from scipy import ndimage
 from PIL import Image
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
@@ -58,8 +59,10 @@ def to_lab(rgb):
     return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], -1)
 
 
-def cut_out(im):
-    """RGBA with the flat background (and its soft shadows) made transparent, cropped to the figure."""
+def cut_out(im, bg_tol=40, shadow_depth=60, max_lum=None):
+    """RGBA with the flat background (and its soft shadows) made transparent, cropped to the figure.
+    max_lum: also drop pale, greyish pixels brighter than this (glow/haze around a dark figure).
+    Specks (bits much smaller than the figure) are dropped too."""
     if im.mode == 'RGBA' and np.asarray(im)[..., 3].min() < 128:
         out = im
     else:
@@ -68,8 +71,16 @@ def cut_out(im):
         bg = np.median(border, axis=0)
         sat = a.max(2) - a.min(2)
         lum = a.mean(2)
-        isbg = (np.abs(a - bg).sum(2) < 40) | ((sat < 16) & (lum > bg.mean() - 60) & (lum < bg.mean() + 20))
-        out = Image.fromarray(np.dstack([a, (~isbg) * 255]).astype(np.uint8), 'RGBA')
+        isbg = (np.abs(a - bg).sum(2) < bg_tol) | ((sat < 16) & (lum > bg.mean() - shadow_depth) & (lum < bg.mean() + 20))
+        if max_lum is not None:
+            isbg |= (lum > max_lum) & (sat < 70)
+        keep = ~isbg
+        # drop specks: connected bits under 1% of the biggest one
+        lab, n = ndimage.label(keep)
+        if n > 1:
+            sizes = ndimage.sum(keep, lab, range(1, n + 1))
+            keep = np.isin(lab, 1 + np.nonzero(sizes >= sizes.max() * 0.01)[0])
+        out = Image.fromarray(np.dstack([a, keep * 255]).astype(np.uint8), 'RGBA')
     return out.crop(out.getchannel('A').point(lambda v: 255 if v >= 128 else 0).getbbox())
 
 
@@ -95,6 +106,8 @@ def make_group(cut, g):
     else:
         w = max(1, round(cut.width * h / cut.height))
         img = cut.resize((w, h), Image.LANCZOS)
+    if g.get('flip'):
+        img = img.transpose(Image.FLIP_TOP_BOTTOM)
     if g.get('rotate'):
         img = img.rotate(-g['rotate'], resample=Image.BICUBIC, expand=True)
         img = img.crop(img.getchannel('A').point(lambda v: 255 if v >= 128 else 0).getbbox())
@@ -119,7 +132,7 @@ def main(only):
     for name, ent in spec.items():
         if name.startswith('_') or (only and name not in only):
             continue
-        cut = cut_out(Image.open(os.path.join(ROOT, ent['source'])))
+        cut = cut_out(Image.open(os.path.join(ROOT, ent['source'])), ent.get('bg_tol', 40), ent.get('shadow_depth', 60), ent.get('max_lum'))
         out = ['// %s (from %s, replaces %s)' % (name, ent['source'], ent.get('replaces', '-'))]
         for gi, g in enumerate(ent['groups']):
             img = quantise(make_group(cut, g), pal, usable, lab_pal)
