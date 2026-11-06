@@ -190,6 +190,19 @@ int32_t Emine_ProjectileBlocks(int spriteNum, int32_t dx, int32_t dy, int32_t dz
     auto &s = sprite[spriteNum];
     if (!voxworld_active() || s.sectnum != voxworld_sector() || !(dx|dy|dz))
         return 0;
+    // Already inside a block (e.g. fired by someone buried by falling gravel): the trace skips the block it starts
+    // in, so hit it here and now.
+    int bx, by, bz;
+    if (voxworld_toblock(s.x, s.y, s.z, &bx, &by, &bz))
+    {
+        int const type = voxworld_get(bx, by, bz);
+        if (type != VW_AIR && !(voxworld_blockflags(type) & VW_BF_CLEAR))
+        {
+            voxworld_notehit(&s.xyz, bx, by, bz);
+            return 32768 | sector[voxworld_sector()].wallptr;
+        }
+    }
+
     vwhit_t vh;
     if (!voxworld_raycast(&s.xyz, dx, dy, dz, 1.f, &vh))
         return 0;
