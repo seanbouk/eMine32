@@ -485,6 +485,26 @@ static int osdcmd_emine_ore(osdcmdptr_t parm)
 }
 
 // Dev console: `emine_go <dx> <dy> [angle]` moves the player that many blocks across the world, onto the ground there.
+// Dev console: `emine_spawn <tile> [blocks]` puts that sprite/actor on the ground in front of the player, facing them.
+static int osdcmd_emine_spawn(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (!voxworld_active() || p->i < 0 || parm->numparms < 1) return OSDCMD_SHOWHELP;
+    int const pic = Batol(parm->parms[0]);
+    int const dist = (parm->numparms >= 2 ? Batol(parm->parms[1]) : 4) * VW_BLOCKXY;
+    if ((unsigned)pic >= MAXTILES) return OSDCMD_SHOWHELP;
+    int const ang = fix16_to_int(p->q16ang) & 2047;
+    int32_t const x = p->pos.x + mulscale14(sintable[(ang + 512) & 2047], dist);
+    int32_t const y = p->pos.y + mulscale14(sintable[ang], dist);
+    int32_t const z = voxworld_floorz(x, y, p->pos.z - (2 << 13), sector[voxworld_sector()].floorz);
+    int const j = A_Spawn(p->i, pic);
+    vec3_t const at = { x, y, z };
+    setsprite(j, &at);
+    sprite[j].ang = (ang + 1024) & 2047;
+    OSD_Printf("emine_spawn: tile %d at %d, %d, %d\n", pic, x, y, z);
+    return OSDCMD_OK;
+}
+
 static int osdcmd_emine_go(osdcmdptr_t parm)
 {
     auto const p = g_player[myconnectindex].ps;
@@ -539,6 +559,7 @@ void Emine_RegisterOSD(void)
 {
     OSD_RegisterFunction("emine_find", "emine_find <blocktype>: dev - stand on the nearest column topped with that block (31 = snow)", osdcmd_emine_find);
     OSD_RegisterFunction("emine_ore", "emine_ore <blocktype>: dev - drop what breaking that ore gives (11 coal, 12 iron, 13 gold, 14 redstone, 33 lapis, 34 diamond)", osdcmd_emine_ore);
+    OSD_RegisterFunction("emine_spawn", "emine_spawn <tile> [blocks]: dev - spawn that sprite/actor on the ground in front of you (default 4 blocks)", osdcmd_emine_spawn);
     OSD_RegisterFunction("emine_go", "emine_go <dx> <dy> [angle]: dev - move that many blocks across the world (and face Build angle 0-2047)", osdcmd_emine_go);
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);

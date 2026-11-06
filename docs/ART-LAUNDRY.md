@@ -31,7 +31,7 @@ Each one is either cut or becomes one of the mobs in 2b. The mapping doesn't hav
 | ✓ | Duke enemy | Behaviour | Fate (suggestion) |
 |---|---|---|---|
 | [ ] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton |
-| [ ] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie (pig pun optional) |
+| [~] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: single-image art in; still shoots and drops Duke's shotgun |
 | [ ] | DRONE (1880) | Flies at you and explodes | Becomes the creeper |
 | [ ] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider |
 | [ ] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman or phantom, or cut |
@@ -59,6 +59,14 @@ These are common Overworld hostiles; all were in Minecraft from early on unless 
 | [ ] | Silverfish | Hidden inside stone blocks | Swarm when you mine their block | 3 (block-world specific, cheap art) |
 | [ ] | Drowned *(added later, 1.13)* | Water | Underwater zombie | 3 |
 | [ ] | Phantom *(added later, 1.13)* | Sky at night, if you don't sleep | Swoops down from the sky | 3 |
+
+**Sprite pipeline (`tools/mksprite.py`):**
+- Source art lives in `art/` (hi-res, committed).
+- `art/sprites.json` maps each source to Build tile ranges. Per group you can set `height` (pixels), `squash` (crouch) and `rotate` (falling over / lying dead).
+- The tool cuts the figure out (RGBA, or a plain flat background that it keys out), scales it, and matches colours to the palette in CIELAB so greens stay olive instead of going grey.
+- It writes `game/sprites/*.png` and `game/sprites.def`.
+- Dev command: `emine_spawn <tile> [blocks]` puts an actor in front of you.
+- Status: the zombie (single front image) replaces PIGCOP tiles 2000–2060. It walks, gets hit, falls over and lies dead.
 
 **Art spec per mob (Duke convention):**
 - 5 view angles: front, front-¾, side, back-¾, back. The engine mirrors these for the other 3.
