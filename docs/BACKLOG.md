@@ -29,3 +29,5 @@ Things we've agreed to do "at some point", not yet scheduled. Newest at the bott
 - Render-scale / resolution / FPS-cap options in the game's own menu (today: `?scale=`, `?res=` URL options and the
   `r_maxfps` cvar). Period-correct: let players choose to run low-res or slow; no automatic dynamic resolution needed.
 
+
+- **Rare RPG pass-through (unresolved):** a rocket fired high and far into (probably) stone occasionally goes through. Not reproduced headlessly: about 120 test rockets, logging any tic whose movement crossed a solid block, were all clean. Fixed so far: diagonal steps are traced (9fab1f8), and a projectile starting inside a block hits it (fdfc69e). Next lead: record the rocket path when it happens (temp logging patch: check `voxworld_cansee(prev, cur)` after `A_MoveSprite` in the projectile mover in actors.cpp).
