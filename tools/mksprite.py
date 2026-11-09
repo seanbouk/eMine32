@@ -96,22 +96,38 @@ def quantise(im, pal, usable, lab_pal):
     return Image.fromarray(np.dstack([rgb, alpha]).astype(np.uint8), 'RGBA')
 
 
-def make_group(cut, g):
+def make_group(cut, g, ref_h=None):
+    """One tile image from one view. Scale is set so the tallest view (ref_h) is `height` pixels tall, so views
+    from one sheet keep their relative sizes."""
+    ref_h = ref_h or cut.height
     h = g['height']
-    if g.get('squash'):
-        # keep the width it has at full height (a crouch is shorter, not thinner)
-        full = g.get('fullheight', 78)
-        w = max(1, round(cut.width * full / cut.height))
-        img = cut.resize((w, h), Image.LANCZOS)
-    else:
-        w = max(1, round(cut.width * h / cut.height))
-        img = cut.resize((w, h), Image.LANCZOS)
+    # a squash keeps the width it has at full height (a crouch is shorter, not thinner)
+    sx = (g.get('fullheight', 78) if g.get('squash') else h) / ref_h
+    sy = h / ref_h
+    img = cut.resize((max(1, round(cut.width * sx)), max(1, round(cut.height * sy))), Image.LANCZOS)
     if g.get('flip'):
         img = img.transpose(Image.FLIP_TOP_BOTTOM)
     if g.get('rotate'):
         img = img.rotate(-g['rotate'], resample=Image.BICUBIC, expand=True)
         img = img.crop(img.getchannel('A').point(lambda v: 255 if v >= 128 else 0).getbbox())
     return img
+
+
+def split_sheet(cut, n):
+    """A turnaround sheet (figures side by side) -> the n biggest figures, left to right, each cropped."""
+    a = np.asarray(cut)[..., 3] >= 128
+    cols = a.any(0)
+    # runs of non-empty columns; small gaps inside a figure are bridged
+    lab, k = ndimage.label(ndimage.binary_closing(cols, np.ones(9)))
+    runs = sorted((a[:, lab == i].sum(), i) for i in range(1, k + 1))[-n:]
+    if len(runs) < n:
+        raise SystemExit('sheet: found %d figures, expected %d' % (len(runs), n))
+    out = []
+    for _, i in sorted(runs, key=lambda r: np.nonzero(lab == r[1])[0][0]):
+        xs = np.nonzero(lab == i)[0]
+        panel = cut.crop((xs[0], 0, xs[-1] + 1, cut.height))
+        out.append(panel.crop(panel.getchannel('A').point(lambda v: 255 if v >= 128 else 0).getbbox()))
+    return out
 
 
 def main(only):
@@ -133,15 +149,27 @@ def main(only):
         if name.startswith('_') or (only and name not in only):
             continue
         cut = cut_out(Image.open(os.path.join(ROOT, ent['source'])), ent.get('bg_tol', 40), ent.get('shadow_depth', 60), ent.get('max_lum'))
+        # a turnaround sheet: views 0..4 = front, 3/4 front, side, 3/4 back, back (Duke's turned views face the
+        # viewer's left; `mirror` lists panels drawn facing the other way)
+        panels = split_sheet(cut, ent['views']) if ent.get('views') else [cut]
+        for i in ent.get('mirror', []):
+            panels[i] = panels[i].transpose(Image.FLIP_LEFT_RIGHT)
+        ref_h = max(p.height for p in panels)
         out = ['// %s (from %s, replaces %s)' % (name, ent['source'], ent.get('replaces', '-'))]
         for gi, g in enumerate(ent['groups']):
-            img = quantise(make_group(cut, g), pal, usable, lab_pal)
-            fn = '%s_%d.png' % (name, gi)
-            img.save(os.path.join(OUT, fn))
             t0, t1 = g['tiles']
+            # per_view: the range is Duke's frame*5+view layout, so each tile takes view (t - t0) % 5
+            views = range(len(panels)) if g.get('per_view') and len(panels) > 1 else [g.get('view', 0)]
+            files = {}
+            for v in views:
+                img = quantise(make_group(panels[v], g, ref_h), pal, usable, lab_pal)
+                fn = '%s_%d%s.png' % (name, gi, '_v%d' % v if len(views) > 1 else '')
+                img.save(os.path.join(OUT, fn))
+                files[v] = fn
+                print('%s: tiles %d-%d view %d <- %s %dx%d' % (name, t0, t1, v, fn, img.width, img.height))
             for t in range(t0, t1 + 1):
+                fn = files[(t - t0) % len(panels)] if len(views) > 1 else files[views[0]]
                 out.append('tilefromtexture %d { file "sprites/%s" xoffset 0 yoffset 0 }' % (t, fn))
-            print('%s: tiles %d-%d <- %s %dx%d' % (name, t0, t1, fn, img.width, img.height))
         lines[name] = out
 
     with open(DEF, 'w') as f:

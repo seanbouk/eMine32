@@ -65,8 +65,9 @@ These are common Overworld hostiles; all were in Minecraft from early on unless 
 - `art/sprites.json` maps each source to Build tile ranges. Per group you can set `height` (pixels), `squash` (crouch) and `rotate` (falling over / lying dead).
 - The tool cuts the figure out (RGBA, or a plain flat background that it keys out), scales it, and matches colours to the palette in CIELAB so greens stay olive instead of going grey.
 - It writes `game/sprites/*.png` and `game/sprites.def`.
-- Dev command: `emine_spawn <tile> [blocks]` puts an actor in front of you.
-- Status: zombie, skeleton, spider, creeper, enderman and slime are all in, each from a single front image. Behaviour is still Duke's.
+- A source can be a turnaround sheet. `views: 5` splits it into front, ¾ front, side, ¾ back and back. `mirror` flips views drawn facing right, because Duke's turned views face left. Groups with `per_view` fill Duke's frame×5+view tile layout.
+- Dev commands: `emine_spawn <tile> [blocks]` puts an actor in front of you; `emine_list [blocks]` lists nearby enemies.
+- Status: zombie, skeleton, spider, creeper, enderman and slime are all in. The zombie has 5 angles (Gemini turnaround sheet); the rest are single front images. Behaviour is still Duke's.
 
 **Art spec per mob (Duke convention):**
 - 5 view angles: front, front-¾, side, back-¾, back. The engine mirrors these for the other 3.

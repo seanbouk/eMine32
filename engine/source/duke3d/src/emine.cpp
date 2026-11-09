@@ -494,14 +494,41 @@ static int osdcmd_emine_spawn(osdcmdptr_t parm)
     int const dist = (parm->numparms >= 2 ? Batol(parm->parms[1]) : 4) * VW_BLOCKXY;
     if ((unsigned)pic >= MAXTILES) return OSDCMD_SHOWHELP;
     int const ang = fix16_to_int(p->q16ang) & 2047;
-    int32_t const x = p->pos.x + mulscale14(sintable[(ang + 512) & 2047], dist);
-    int32_t const y = p->pos.y + mulscale14(sintable[ang], dist);
-    int32_t const z = voxworld_floorz(x, y, p->pos.z - (2 << 13), sector[voxworld_sector()].floorz);
+    int32_t const dx = mulscale14(sintable[(ang + 512) & 2047], dist), dy = mulscale14(sintable[ang], dist);
+    // Level from the eye: stop a block short of anything in the way (a hill, a tree, a cave wall), then drop to the
+    // ground below that point. (Starting from the eye keeps it out of the rock above a cave or under an overhang.)
+    float t = 1.f;
+    vwhit_t vh;
+    if (voxworld_raycast(&p->pos, dx, dy, 0, 1.f, &vh))
+        t = max(0.f, vh.dist - (float)VW_BLOCKXY / dist);
+    int32_t const x = p->pos.x + (int32_t)(dx * t), y = p->pos.y + (int32_t)(dy * t);
+    int32_t const z = voxworld_floorz(x, y, p->pos.z, sector[voxworld_sector()].floorz);
     int const j = A_Spawn(p->i, pic);
     vec3_t const at = { x, y, z };
     setsprite(j, &at);
     sprite[j].ang = (ang + 1024) & 2047;
     OSD_Printf("emine_spawn: tile %d at %d, %d, %d\n", pic, x, y, z);
+    return OSDCMD_OK;
+}
+
+// Dev console: `emine_list [blocks]` prints the enemies within that many blocks (default 32).
+static int osdcmd_emine_list(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (p->i < 0) return OSDCMD_OK;
+    int32_t const range = (parm->numparms >= 1 ? Batol(parm->parms[0]) : 32) * VW_BLOCKXY;
+    int n = 0;
+    for (int i = 0; i < MAXSPRITES; i++)
+    {
+        auto const &s = sprite[i];
+        if (s.statnum == MAXSTATUS || !A_CheckEnemySprite(&s)) continue;
+        int32_t const d = FindDistance2D(s.x - p->pos.x, s.y - p->pos.y);
+        if (d > range) continue;
+        OSD_Printf("emine_list: #%d tile %d stat %d at %d,%d,%d (%d blocks, %d up) size %d hp %d\n", i, s.picnum, s.statnum,
+                   s.x, s.y, s.z, d / VW_BLOCKXY, (p->pos.z - s.z) / VW_BLOCKZ, s.xrepeat, s.extra);
+        n++;
+    }
+    OSD_Printf("emine_list: %d enemies\n", n);
     return OSDCMD_OK;
 }
 
@@ -560,6 +587,7 @@ void Emine_RegisterOSD(void)
     OSD_RegisterFunction("emine_find", "emine_find <blocktype>: dev - stand on the nearest column topped with that block (31 = snow)", osdcmd_emine_find);
     OSD_RegisterFunction("emine_ore", "emine_ore <blocktype>: dev - drop what breaking that ore gives (11 coal, 12 iron, 13 gold, 14 redstone, 33 lapis, 34 diamond)", osdcmd_emine_ore);
     OSD_RegisterFunction("emine_spawn", "emine_spawn <tile> [blocks]: dev - spawn that sprite/actor on the ground in front of you (default 4 blocks)", osdcmd_emine_spawn);
+    OSD_RegisterFunction("emine_list", "emine_list [blocks]: dev - list the enemies near you (default 32 blocks)", osdcmd_emine_list);
     OSD_RegisterFunction("emine_go", "emine_go <dx> <dy> [angle]: dev - move that many blocks across the world (and face Build angle 0-2047)", osdcmd_emine_go);
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);
