@@ -15102,6 +15102,11 @@ void tileInvalidate(int16_t tilenume, int32_t pal, int32_t how)
 // eMine32: blocks also block line of sight
 int32_t cansee(int32_t x1, int32_t y1, int32_t z1, int16_t orig_sect1, int32_t x2, int32_t y2, int32_t z2, int16_t orig_sect2, int32_t wallmask)
 {
+    // Both ends in the block world's sector (one big empty box): only the blocks can be in the way. (Build's own
+    // test overflows on walls that long - the "XXX: OVERFLOW" in cansee_build - and says no at random.)
+    if (voxworld_active() && orig_sect1 == voxworld_sector() && orig_sect2 == orig_sect1)
+        return voxworld_cansee(x1, y1, z1, x2, y2, z2);
+
     int32_t const r = cansee_build(x1, y1, z1, orig_sect1, x2, y2, z2, orig_sect2, wallmask);
     if (r && voxworld_active() && !voxworld_cansee(x1, y1, z1, x2, y2, z2))
         return 0;

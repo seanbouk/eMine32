@@ -410,6 +410,7 @@ void Emine_SwimSink(int playerNum, uint32_t playerBits, int32_t floorZ)
 void Emine_Tick(void)
 {
     emine_tic++;
+    Emine_MobTick();
     Emine_LavaBurn();
 
     auto const p = g_player[myconnectindex].ps;
@@ -420,8 +421,8 @@ void Emine_Tick(void)
     if (emine_where && p->i >= 0 && emine_tic % 15 == 0)
     {
         auto at = [&](int32_t dz) { return voxworld_blockat(p->pos.x, p->pos.y, p->pos.z + dz); };
-        OSD_Printf("emine_where: z %d vel %d  eye %d body %d feet %d  pal %d air %d\n", p->pos.z, p->vel.z,
-                   at(0), at(EMINE_SWIMPOINT), at(PHEIGHT - 256), p->palette, p->airleft);
+        OSD_Printf("emine_where: x %d y %d z %d vel %d  eye %d body %d feet %d  pal %d air %d\n", p->pos.x, p->pos.y, p->pos.z,
+                   p->vel.z, at(0), at(EMINE_SWIMPOINT), at(PHEIGHT - 256), p->palette, p->airleft);
     }
 }
 
@@ -592,6 +593,7 @@ void Emine_RegisterOSD(void)
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);
     voxworld_seteventfn(Emine_OnWorldEvent);
+    Emine_RegisterMobOSD();
     OSD_RegisterFunction("emine_glow", "emine_glow [minlight 1-15]: dev - teleport next to the nearest glowing block", osdcmd_emine_cave);
     OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);
     OSD_RegisterFunction("emine_cave", "emine_cave [maxlight 0-15]: dev - teleport to the nearest dark cave", osdcmd_emine_cave);

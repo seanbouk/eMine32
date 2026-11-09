@@ -31,7 +31,7 @@ Each one is either cut or becomes one of the mobs in 2b. The mapping doesn't hav
 | ✓ | Duke enemy | Behaviour | Fate (suggestion) |
 |---|---|---|---|
 | [~] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton: single-image art in (Duke's pal-22 recolour removed) |
-| [~] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: walk, stand and fall animated; still shoots and drops Duke's shotgun |
+| [~] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: walk, stand and fall animated; Minecraft zombie behaviour in C++ (`emine_mobs.cpp`), no gun |
 | [~] | DRONE (1880) | Flies at you and explodes | Becomes the creeper: single-image art in; still flies |
 | [~] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider: single-image art in; dies on its back |
 | [~] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman: single-image art in |
@@ -48,7 +48,7 @@ These are common Overworld hostiles; all were in Minecraft from early on unless 
 
 | ✓ | Mob | Spawns | Behaviour notes | Priority |
 |---|---|---|---|---|
-| [ ] | Zombie | Dark/night, surface + caves | Walks at you, melee, can break doors | 1 |
+| [~] | Zombie | Dark/night, surface + caves | Walks at you, melee, can break doors. In: sight 35 blocks, pathfinding, melee, knockback, alert others, wander. Not yet: sun burning (needs night), doors, drops, own sounds, spawning | 1 |
 | [ ] | Skeleton | Dark/night | Ranged (arrows), strafes | 1 |
 | [ ] | Creeper | Dark/night | Silent approach, hisses, explodes and **breaks blocks** | 1 (the obvious showpiece in a block world) |
 | [ ] | Spider | Dark/night; neutral in daylight | Climbs walls, leaps | 2 |

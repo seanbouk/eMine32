@@ -31,3 +31,5 @@ Things we've agreed to do "at some point", not yet scheduled. Newest at the bott
 
 
 - **Rare RPG pass-through (unresolved):** a rocket fired high and far into (probably) stone occasionally goes through. Not reproduced headlessly: about 120 test rockets, logging any tic whose movement crossed a solid block, were all clean. Fixed so far: diagonal steps are traced (9fab1f8), and a projectile starting inside a block hits it (fdfc69e). Next lead: record the rocket path when it happens (temp logging patch: check `voxworld_cansee(prev, cur)` after `A_MoveSprite` in the projectile mover in actors.cpp).
+- **Death camera:** when the player dies, Duke drops the view to the floor, which in the block world ends up inside a block (screen of streaks). Clamp the dead view above the block floor.
+- **Mob behaviour lives in C++** (`emine_mobs.cpp`; A_Execute skips the CON for actors it handles). It still borrows Duke's CON *actions* (APIGWALK etc.) for which tiles to show; when the CON goes, give mobs their own action tables. Zombie still uses the pig cop's sounds.

@@ -34,6 +34,12 @@ void Emine_RegisterOSD(void);
 // Once per game tic (G_MoveWorld): falling blocks etc.
 void Emine_Tick(void);
 
+// Minecraft-style mobs (emine_mobs.cpp). Called by A_Execute before an actor's CON code: 0 = not ours (run the
+// CON), 1 = handled, 2 = handled and the actor should be deleted.
+int  Emine_ActorThink(int spriteNum, int playerNum);
+void Emine_MobTick(void);
+void Emine_RegisterMobOSD(void);
+
 // Block water. Is this point in water?
 bool Emine_InWaterAt(vec3_t const &pos);
 // The sector lotag the player's movement should use: ST_2_UNDERWATER (swimming) while their body is in block

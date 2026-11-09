@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "communityapi.h"
 #include "compat.h"
 #include "duke3d.h"
+#include "emine.h"
 #include "gamestructures.h"
 #include "input.h"
 #include "menus.h"
@@ -7032,6 +7033,15 @@ void A_Execute(int const spriteNum, int const playerNum, int const playerDist)
     }
 
     VM_UpdateAnim(vm.spriteNum, vm.pData);
+
+    // eMine32: Minecraft-style mobs think in C++ (they need to see the blocks), instead of running their CON code
+    if (int const mob = Emine_ActorThink(spriteNum, playerNum))
+    {
+        if (mob == 2)
+            VM_DeleteSprite(spriteNum, playerNum);
+        dukeMaybeDrawFrame();
+        return;
+    }
 
     insptr = 4 + (g_tile[vm.pSprite->picnum].execPtr);
     VM_Execute(true);
