@@ -114,20 +114,61 @@ def make_group(cut, g, ref_h=None):
 
 
 def split_sheet(cut, n):
-    """A turnaround sheet (figures side by side) -> the n biggest figures, left to right, each cropped."""
-    a = np.asarray(cut)[..., 3] >= 128
-    cols = a.any(0)
-    # runs of non-empty columns; small gaps inside a figure are bridged
-    lab, k = ndimage.label(ndimage.binary_closing(cols, np.ones(9)))
-    runs = sorted((a[:, lab == i].sum(), i) for i in range(1, k + 1))[-n:]
-    if len(runs) < n:
-        raise SystemExit('sheet: found %d figures, expected %d' % (len(runs), n))
+    """A sheet of figures side by side -> the n biggest figures, left to right, each cropped.
+    Figures are islands (2D), so they may overlap each other's columns (a figure falling over); small gaps inside
+    a figure are bridged, and each panel keeps only its own island's pixels."""
+    a = np.asarray(cut)
+    solid = a[..., 3] >= 128
+    lab, k = ndimage.label(ndimage.binary_dilation(solid, np.ones((9, 9))))
+    sizes = ndimage.sum(solid, lab, range(1, k + 1))
+    ids = 1 + np.argsort(sizes)[::-1][:n]
+    if len(ids) < n:
+        raise SystemExit('sheet: found %d figures, expected %d' % (len(ids), n))
     out = []
-    for _, i in sorted(runs, key=lambda r: np.nonzero(lab == r[1])[0][0]):
-        xs = np.nonzero(lab == i)[0]
-        panel = cut.crop((xs[0], 0, xs[-1] + 1, cut.height))
-        out.append(panel.crop(panel.getchannel('A').point(lambda v: 255 if v >= 128 else 0).getbbox()))
+    for i in sorted(ids, key=lambda i: np.nonzero((lab == i).any(0))[0][0]):
+        mine = solid & (lab == i)
+        ys, xs = np.nonzero(mine)
+        px = a.copy()
+        px[..., 3] = np.where(mine, 255, 0)
+        out.append(Image.fromarray(px[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 'RGBA'))
     return out
+
+
+def load_sheets(ent):
+    """name -> list of panels. `sheets` names several source images; a plain `source` is the sheet "main"."""
+    sheets = ent.get('sheets') or {'main': {k: ent[k] for k in ('source', 'views', 'mirror') if k in ent}}
+    out = {}
+    for sname, sh in sheets.items():
+        cut = cut_out(Image.open(os.path.join(ROOT, sh['source'])), ent.get('bg_tol', 40), ent.get('shadow_depth', 60), ent.get('max_lum'))
+        n = sh.get('count', sh.get('views'))
+        panels = split_sheet(cut, n) if n else [cut]
+        for i in sh.get('mirror', []):
+            panels[i] = panels[i].transpose(Image.FLIP_LEFT_RIGHT)
+        out[sname] = panels
+    return out
+
+
+def parse_ref(ref, default_sheet):
+    """'side:2' = panel 2 of sheet "side"; a trailing ~ mirrors it; a bare number is a panel of the default sheet."""
+    ref = str(ref)
+    flip = ref.endswith('~')
+    ref = ref.rstrip('~')
+    sheet, _, idx = ref.rpartition(':')
+    return sheet or default_sheet, int(idx), flip
+
+
+def group_refs(g, nviews, default_sheet):
+    """The image ref for each tile of a group, in tile order."""
+    t0, t1 = g['tiles']
+    n = t1 - t0 + 1
+    if 'frames' in g:  # Duke's frame*views+view layout, one row of refs per frame (repeated to fill the range)
+        flat = [r for row in g['frames'] for r in row]
+        return [flat[k % len(flat)] for k in range(n)]
+    if 'images' in g:  # one ref per tile
+        return [g['images'][k % len(g['images'])] for k in range(n)]
+    if g.get('per_view') and nviews > 1:
+        return ['%s:%d' % (default_sheet, k % nviews) for k in range(n)]
+    return [g.get('image', '%s:%d' % (default_sheet, g.get('view', 0)))] * n
 
 
 def main(only):
@@ -148,28 +189,30 @@ def main(only):
     for name, ent in spec.items():
         if name.startswith('_') or (only and name not in only):
             continue
-        cut = cut_out(Image.open(os.path.join(ROOT, ent['source'])), ent.get('bg_tol', 40), ent.get('shadow_depth', 60), ent.get('max_lum'))
-        # a turnaround sheet: views 0..4 = front, 3/4 front, side, 3/4 back, back (Duke's turned views face the
-        # viewer's left; `mirror` lists panels drawn facing the other way)
-        panels = split_sheet(cut, ent['views']) if ent.get('views') else [cut]
-        for i in ent.get('mirror', []):
-            panels[i] = panels[i].transpose(Image.FLIP_LEFT_RIGHT)
-        ref_h = max(p.height for p in panels)
-        out = ['// %s (from %s, replaces %s)' % (name, ent['source'], ent.get('replaces', '-'))]
+        # a sheet's panels: for a turnaround, views 0..4 = front, 3/4 front, side, 3/4 back, back (Duke's turned
+        # views face the viewer's left; `mirror` lists panels drawn facing the other way)
+        sheets = load_sheets(ent)
+        default = next(iter(sheets))
+        ref_h = {s: max(p.height for p in ps) for s, ps in sheets.items()}  # each sheet's tallest figure = `height`
+        src = ', '.join(sh['source'] for sh in ent['sheets'].values()) if 'sheets' in ent else ent['source']
+        out = ['// %s (from %s, replaces %s)' % (name, src, ent.get('replaces', '-'))]
+        for f in os.listdir(OUT):  # drop this entry's old outputs
+            if f.startswith(name + '_'):
+                os.remove(os.path.join(OUT, f))
         for gi, g in enumerate(ent['groups']):
             t0, t1 = g['tiles']
-            # per_view: the range is Duke's frame*5+view layout, so each tile takes view (t - t0) % 5
-            views = range(len(panels)) if g.get('per_view') and len(panels) > 1 else [g.get('view', 0)]
+            refs = group_refs(g, len(sheets[default]), default)
             files = {}
-            for v in views:
-                img = quantise(make_group(panels[v], g, ref_h), pal, usable, lab_pal)
-                fn = '%s_%d%s.png' % (name, gi, '_v%d' % v if len(views) > 1 else '')
+            for ref in dict.fromkeys(refs):
+                s, i, flip = parse_ref(ref, default)
+                panel = sheets[s][i].transpose(Image.FLIP_LEFT_RIGHT) if flip else sheets[s][i]
+                img = quantise(make_group(panel, g, ref_h[s]), pal, usable, lab_pal)
+                fn = '%s_%d_%s%d%s.png' % (name, gi, s, i, 'm' if flip else '')
                 img.save(os.path.join(OUT, fn))
-                files[v] = fn
-                print('%s: tiles %d-%d view %d <- %s %dx%d' % (name, t0, t1, v, fn, img.width, img.height))
-            for t in range(t0, t1 + 1):
-                fn = files[(t - t0) % len(panels)] if len(views) > 1 else files[views[0]]
-                out.append('tilefromtexture %d { file "sprites/%s" xoffset 0 yoffset 0 }' % (t, fn))
+                files[ref] = fn
+                print('%s: tiles %d-%d <- %s %dx%d' % (name, t0, t1, fn, img.width, img.height))
+            for k, ref in enumerate(refs):
+                out.append('tilefromtexture %d { file "sprites/%s" xoffset 0 yoffset 0 }' % (t0 + k, files[ref]))
         lines[name] = out
 
     with open(DEF, 'w') as f:

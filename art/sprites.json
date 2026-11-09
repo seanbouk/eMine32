@@ -1,19 +1,27 @@
 {
   "_comment": "Sprite sources -> Build tiles. Run: python tools/mksprite.py [name]. Each group fills a tile range from the one source image: height = tile height in pixels (Duke's own sizes keep the in-game scale), squash = scale height only (crouch/dive), rotate = degrees clockwise (falling over / lying dead), flip = mirror top to bottom, view = which view of a sheet (default 0, front), per_view = the range is Duke's frame*5+view layout (each tile takes view (tile - first) % 5). A source can be a turnaround sheet: views = how many figures side by side (front, 3/4 front, side, 3/4 back, back), mirror = views drawn facing right (Duke's turned views face left). Optional per entry: bg_tol (how far from the background colour still counts as background, default 40), shadow_depth (how much darker than the background a grey shadow can be, default 60), max_lum (drop pale greyish pixels brighter than this: glow/haze around a dark figure).",
   "zombie": {
-    "source": "art/monsters/zombie_turn.png",
-    "views": 5,
-    "mirror": [2, 3],
     "replaces": "PIGCOP",
+    "sheets": {
+      "turn": { "source": "art/monsters/zombie_turn.png", "count": 5, "mirror": [2, 3] },
+      "front": { "source": "art/monsters/zombie_walk_front.jpg", "count": 4 },
+      "qfront": { "source": "art/monsters/zombie_walk_qfront.jpg", "count": 4, "mirror": [0, 1, 2, 3] },
+      "side": { "source": "art/monsters/zombie_walk_side.jpg", "count": 4, "mirror": [0, 1, 2, 3] },
+      "qback": { "source": "art/monsters/zombie_walk_qback.jpg", "count": 4, "mirror": [0, 1, 2, 3] },
+      "back": { "source": "art/monsters/zombie_walk_back.jpg", "count": 4 },
+      "fall": { "source": "art/monsters/zombie_fall.jpg", "count": 6 }
+    },
     "groups": [
-      { "tiles": [2000, 2044], "height": 78, "per_view": true },
-      { "tiles": [2045, 2054], "height": 44, "squash": true, "per_view": true },
-      { "tiles": [2055, 2055], "height": 78, "rotate": 10 },
-      { "tiles": [2056, 2056], "height": 78, "rotate": 25 },
-      { "tiles": [2057, 2057], "height": 78, "rotate": 45 },
-      { "tiles": [2058, 2058], "height": 78, "rotate": 65 },
-      { "tiles": [2059, 2059], "height": 78, "rotate": 80 },
-      { "tiles": [2060, 2060], "height": 78, "rotate": 90 }
+      { "_": "walk (APIGWALK/RUN, 4 frames x 5 views)", "tiles": [2000, 2024], "height": 78, "frames": [
+        ["front:0", "qfront:0", "side:0", "qback:0", "back:0"],
+        ["front:1", "qfront:1", "side:1", "qback:1", "back:1"],
+        ["front:0", "qfront:2", "side:2", "qback:2", "back:0"],
+        ["front:1~", "qfront:3", "side:3", "qback:3", "back:2"] ],
+        "_why": "front/back sheets only ever lift the right leg: stance, right up, stance, left up (front mirrored, back's own heel-lift)" },
+      { "_": "cock, stand, shoot: standing turnaround", "tiles": [2025, 2039], "height": 78, "per_view": true },
+      { "_": "dive / dive-shoot", "tiles": [2040, 2054], "height": 44, "squash": true, "per_view": true },
+      { "_": "hit + dying (front only), then dead", "tiles": [2055, 2060], "height": 78,
+        "images": ["fall:1", "fall:2", "fall:3", "fall:4", "fall:5", "fall:5"] }
     ]
   },
   "skeleton": {

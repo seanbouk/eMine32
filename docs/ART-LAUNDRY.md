@@ -31,7 +31,7 @@ Each one is either cut or becomes one of the mobs in 2b. The mapping doesn't hav
 | ✓ | Duke enemy | Behaviour | Fate (suggestion) |
 |---|---|---|---|
 | [~] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton: single-image art in (Duke's pal-22 recolour removed) |
-| [~] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: single-image art in; still shoots and drops Duke's shotgun |
+| [~] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: walk, stand and fall animated; still shoots and drops Duke's shotgun |
 | [~] | DRONE (1880) | Flies at you and explodes | Becomes the creeper: single-image art in; still flies |
 | [~] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider: single-image art in; dies on its back |
 | [~] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman: single-image art in |
@@ -66,8 +66,10 @@ These are common Overworld hostiles; all were in Minecraft from early on unless 
 - The tool cuts the figure out (RGBA, or a plain flat background that it keys out), scales it, and matches colours to the palette in CIELAB so greens stay olive instead of going grey.
 - It writes `game/sprites/*.png` and `game/sprites.def`.
 - A source can be a turnaround sheet. `views: 5` splits it into front, ¾ front, side, ¾ back and back. `mirror` flips views drawn facing right, because Duke's turned views face left. Groups with `per_view` fill Duke's frame×5+view tile layout.
+- An entry can have several named `sheets` (a turnaround, one 4-frame walk sheet per view, a fall sheet). Groups then pick panels by reference: `frames` is one row of 5 views per frame, `images` is one per tile, and `side:2` means panel 2 of sheet "side", with a trailing `~` to mirror that panel. Figures are found as separate islands, so they can overlap each other's columns.
+- Gemini walk sheets tend to lift the same leg in every front and back frame; fix it in `frames` by mirroring or reusing panels (see the zombie).
 - Dev commands: `emine_spawn <tile> [blocks]` puts an actor in front of you; `emine_list [blocks]` lists nearby enemies.
-- Status: zombie, skeleton, spider, creeper, enderman and slime are all in. The zombie has 5 angles (Gemini turnaround sheet); the rest are single front images. Behaviour is still Duke's.
+- Status: zombie, skeleton, spider, creeper, enderman and slime are all in. The zombie has a 4-frame walk in 5 views, a standing turnaround for shoot/stand, and a 5-frame fall plus dead body (all Gemini); the rest are single front images. Behaviour is still Duke's.
 
 **Art spec per mob (Duke convention):**
 - 5 view angles: front, front-¾, side, back-¾, back. The engine mirrors these for the other 3.
