@@ -52,7 +52,9 @@ single sector whose `extra` is `0x7E32`; that sector becomes a box of blocks (51
 | `duke3d/src/player.cpp` | player hitscan weapons (pistol/shotgun/chaingun), the kick (`Proj_HandleKnee`) and `A_PostFireHitscan` (enemy fire, custom projectiles) call `Emine_HitscanBlock`; the weapon sprite darkens a little in caves |
 | `duke3d/src/osdcmds.cpp` | registers eMine32's console commands (`Emine_RegisterOSD`) |
 | `duke3d/src/actors.cpp` | `A_RadiusDamage` calls `Emine_ExplosionBlocks`; scrap debris lands on blocks (`Emine_FloorZ`) |
-| `duke3d/src/gameexec.cpp` `A_Execute` | asks `Emine_ActorThink` first: mobs handled in C++ (`emine_mobs.cpp`: the zombie, on PIGCOP) skip their CON code and `VM_Move` |
+| `duke3d/src/gameexec.cpp` `A_Execute` | asks `Emine_ActorThink` first: mobs handled in C++ (`emine_mobs.cpp`: zombie, skeleton, spider, creeper on PIGCOP, LIZTROOP, LIZMAN, DRONE) skip their CON code and `VM_Move` |
+| `duke3d/src/premap.cpp` `P_ResetWeapons` | also calls `Emine_MobsLevelStart` (clears Duke's map-placed enemies; the mob spawner takes over) |
+| `voxworld` `voxworld_lightlevel` | light level 0-15 of a cell, for mob spawning and spider hostility |
 
 Renderer: per screen column, a 2D grid walk (DDA) front to back; block columns are stored as vertical solid runs.
 Vertical faces are constant-depth columns (like Build walls), horizontal faces use a per-row reciprocal (like Build

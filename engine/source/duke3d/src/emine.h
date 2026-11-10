@@ -38,6 +38,7 @@ void Emine_Tick(void);
 // CON), 1 = handled, 2 = handled and the actor should be deleted.
 int  Emine_ActorThink(int spriteNum, int playerNum);
 void Emine_MobTick(void);
+void Emine_MobsLevelStart(void);  // clears Duke's map-placed enemies and our mob state on the next tic
 void Emine_RegisterMobOSD(void);
 
 // Block water. Is this point in water?

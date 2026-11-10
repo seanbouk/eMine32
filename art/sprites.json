@@ -88,5 +88,12 @@
       { "tiles": [2372, 2373], "height": 40, "squash": true, "fullheight": 36 },
       { "tiles": [2374, 2377], "height": 36 }
     ]
+  },
+  "arrow": {
+    "source": "art/props/arrow.png",
+    "replaces": "(new: the skeleton's arrow, tile 7100)",
+    "groups": [
+      { "tiles": [7100, 7100], "height": 7 }
+    ]
   }
 }

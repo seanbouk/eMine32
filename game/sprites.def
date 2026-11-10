@@ -280,3 +280,5 @@ tilefromtexture 2374 { file "sprites/slime_3.png" xoffset 0 yoffset 0 }
 tilefromtexture 2375 { file "sprites/slime_3.png" xoffset 0 yoffset 0 }
 tilefromtexture 2376 { file "sprites/slime_3.png" xoffset 0 yoffset 0 }
 tilefromtexture 2377 { file "sprites/slime_3.png" xoffset 0 yoffset 0 }
+// arrow (from art/props/arrow.png, replaces (new: the skeleton's arrow, tile 7100))
+tilefromtexture 7100 { file "sprites/arrow_0_main0.png" xoffset 0 yoffset 0 }

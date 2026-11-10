@@ -149,6 +149,9 @@ int32_t voxworld_floorz(int32_t x, int32_t y, int32_t z, int32_t def);
 // Colours of block light (each gets a tinted shade table).
 enum { VW_TINT_NONE, VW_TINT_LAVA, VW_TINT_REDSTONE, VW_NUMTINTS };
 int     voxworld_lightshade(int32_t x, int32_t y, int32_t z);
+// Light level 0..VW_LIGHTMAX of a cell (the brighter of sky and block light), Minecraft style: mobs use it to decide
+// where to spawn and whether to be hostile.
+int     voxworld_lightlevel(int bx, int by, int bz);
 // Dev helper: the nearest spot (feet position) with room to stand whose light is <= maxlight.
 bool    voxworld_findcave(int32_t x, int32_t y, int maxlight, vec3_t *out);
 // Same, but a dark spot whose block light is at least minblocklight (somewhere lit by a glowing block).

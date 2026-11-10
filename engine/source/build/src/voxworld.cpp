@@ -562,6 +562,15 @@ static void vw_spritecell(int32_t x, int32_t y, int32_t z, int *bx, int *by, int
     if (vw_inxy(*bx, *by) && (unsigned)*bz < (unsigned)vw_sz && !vw_lightpass(vw_colblocks(*bx, *by)[*bz])) (*bz)++;
 }
 
+int voxworld_lightlevel(int bx, int by, int bz)
+{
+    if (!vw_active) return VW_LIGHTMAX;
+    if (!vw_inxy(bx, by) || bz >= vw_sz) return VW_LIGHTMAX;
+    if (bz < 0 || !vw_light) return bz < 0 ? 0 : VW_LIGHTMAX;
+    int const v = vw_light[vw_lidx(bx, by, bz)];
+    return max(v & 15, v >> 4);
+}
+
 int voxworld_lightshade(int32_t x, int32_t y, int32_t z)
 {
     if (!vw_active) return 0;

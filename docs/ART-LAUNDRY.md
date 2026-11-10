@@ -30,10 +30,10 @@ Each one is either cut or becomes one of the mobs in 2b. The mapping doesn't hav
 
 | ✓ | Duke enemy | Behaviour | Fate (suggestion) |
 |---|---|---|---|
-| [~] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton: single-image art in (Duke's pal-22 recolour removed) |
+| [~] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton: single-image art in (Duke's pal-22 recolour removed); Minecraft behaviour in C++ |
 | [~] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: walk, stand and fall animated; Minecraft zombie behaviour in C++ (`emine_mobs.cpp`), no gun |
-| [~] | DRONE (1880) | Flies at you and explodes | Becomes the creeper: single-image art in; still flies |
-| [~] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider: single-image art in; dies on its back |
+| [~] | DRONE (1880) | Flies at you and explodes | Becomes the creeper: single-image art in; walks, swells and explodes (C++) |
+| [~] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider: single-image art in; dies on its back; climbs and leaps (C++) |
 | [~] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman: single-image art in |
 | [ ] | COMMANDER (1920) | Floats, fires rockets | Cut, or a ghast-like (it's a Nether mob) |
 | [ ] | ROTATEGUN (2360) | Fixed turret | Cut |
@@ -49,9 +49,9 @@ These are common Overworld hostiles; all were in Minecraft from early on unless 
 | ✓ | Mob | Spawns | Behaviour notes | Priority |
 |---|---|---|---|---|
 | [~] | Zombie | Dark/night, surface + caves | Walks at you, melee, can break doors. In: sight 35 blocks, pathfinding, melee, knockback, alert others, wander. Not yet: sun burning (needs night), doors, drops, own sounds, spawning | 1 |
-| [ ] | Skeleton | Dark/night | Ranged (arrows), strafes | 1 |
-| [ ] | Creeper | Dark/night | Silent approach, hisses, explodes and **breaks blocks** | 1 (the obvious showpiece in a block world) |
-| [ ] | Spider | Dark/night; neutral in daylight | Climbs walls, leaps | 2 |
+| [~] | Skeleton | Dark/night | Ranged (arrows), strafes. In: arcing arrows that stick in blocks (placeholder arrow, tile 7100), strafing, keeps range. Needs: walk/shoot frames, bow sound | 1 |
+| [~] | Creeper | Dark/night | Silent approach, hisses, explodes and **breaks blocks**. In: all of that (swells and flashes by scaling the sprite). Needs: walk frames, hiss/boom sounds | 1 (the obvious showpiece in a block world) |
+| [~] | Spider | Dark/night; neutral in daylight | Climbs walls, leaps. In: all of that (light level 10+ = leaves you alone unless hurt). Needs: walk frames, sounds | 2 |
 | [ ] | Cave spider | Caves (mineshaft spawners) | Small, fast, poison | 3 |
 | [ ] | Slime | Deep layers in "slime chunks", swamps | Bounces, splits on death | 2 |
 | [ ] | Enderman | Dark, rare | Neutral until looked at, teleports, picks up blocks | 3 |
