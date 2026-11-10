@@ -26,7 +26,7 @@
 // Spawning (Emine_MobTick), Minecraft's rules bent for a world that's always daylight:
 //  - caves follow Minecraft: monsters appear in total darkness (light level 0), on solid ground with room to stand,
 //    24-48 blocks from the player, in packs, up to a cap.
-//  - the surface gets waves: a quiet spell (40-80 s), then two packs turn up 24-48 blocks away, somewhere you can't
+//  - the surface gets waves: a quiet spell (40-80 s), then three packs turn up 24-48 blocks away, somewhere you can't
 //    see (the first 20 s in). Never on leaves, in water or in lava.
 //  - despawning: gone at once beyond 128 blocks; past 32 blocks, one that's been idle for 30 seconds may vanish
 //    (1 in 800 a tic), so far-off monsters get recycled into ones near you.
@@ -147,7 +147,7 @@ bool mob_purge = true;  // clear Duke's map-placed enemies on the next tic (set 
 // spawner
 bool spawning = true;
 int wave_timer = 20 * 30;   // tics to the next surface wave (the first comes soon)
-int spawn_surfaceCap = 12, spawn_caveCap = 10;
+int spawn_surfaceCap = 16, spawn_caveCap = 14;
 
 #define MOBLOG(...) do { if (mob_debug) OSD_Printf("emine_mobs: " __VA_ARGS__); } while (0)
 
@@ -899,9 +899,11 @@ int mobThink(int i, int playerNum)
 int pickType(bool cave)
 {
     // weights: zombie, skeleton, spider, creeper
-    // (zombies come in bigger packs, so they get a smaller share of the packs)
-    static int const surface[MT_COUNT] = { 30, 30, 15, 25 };
-    static int const under[MT_COUNT] = { 25, 25, 30, 20 };
+    // Surface waves bring 3 packs; skeletons' 20% of 3 keeps them at the rate they had at 30% of 2, while the
+    // others come more often. Caves are cap-bound, so skeletons' smaller share there holds their count while the
+    // raised cap goes to the rest.
+    static int const surface[MT_COUNT] = { 35, 20, 20, 25 };
+    static int const under[MT_COUNT] = { 30, 17, 33, 20 };
     int const *wts = cave ? under : surface;
     int r = krand() % 100;
     for (int t = 0; t < MT_COUNT; t++)
@@ -1092,7 +1094,7 @@ void spawnerTick(void)
     if ((wave_timer -= 20) <= 0)
     {
         int packs = 0;
-        for (int k = 0; k < 24 && packs < 2 && surface < spawn_surfaceCap; k++)
+        for (int k = 0; k < 32 && packs < 3 && surface < spawn_surfaceCap; k++)
         {
             Node n;
             if (randomSpot(ps, false, &n) && !playerSees(ps, n))
