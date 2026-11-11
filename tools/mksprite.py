@@ -113,7 +113,7 @@ def make_group(cut, g, ref_h=None):
     return img
 
 
-def split_sheet(cut, n):
+def split_sheet(cut, n, name='sheet'):
     """A sheet of figures side by side -> the n biggest figures, left to right, each cropped.
     Figures are islands (2D), so they may overlap each other's columns (a figure falling over); small gaps inside
     a figure are bridged, and each panel keeps only its own island's pixels."""
@@ -123,7 +123,7 @@ def split_sheet(cut, n):
     sizes = ndimage.sum(solid, lab, range(1, k + 1))
     ids = 1 + np.argsort(sizes)[::-1][:n]
     if len(ids) < n:
-        raise SystemExit('sheet: found %d figures, expected %d' % (len(ids), n))
+        raise SystemExit('%s: found %d figures, expected %d' % (name, len(ids), n))
     out = []
     for i in sorted(ids, key=lambda i: np.nonzero((lab == i).any(0))[0][0]):
         mine = solid & (lab == i)
@@ -141,7 +141,7 @@ def load_sheets(ent):
     for sname, sh in sheets.items():
         cut = cut_out(Image.open(os.path.join(ROOT, sh['source'])), ent.get('bg_tol', 40), ent.get('shadow_depth', 60), ent.get('max_lum'))
         n = sh.get('count', sh.get('views'))
-        panels = split_sheet(cut, n) if n else [cut]
+        panels = split_sheet(cut, n, sh['source']) if n else [cut]
         for i in sh.get('mirror', []):
             panels[i] = panels[i].transpose(Image.FLIP_LEFT_RIGHT)
         out[sname] = panels
@@ -193,7 +193,9 @@ def main(only):
         # views face the viewer's left; `mirror` lists panels drawn facing the other way)
         sheets = load_sheets(ent)
         default = next(iter(sheets))
-        ref_h = {s: max(p.height for p in ps) for s, ps in sheets.items()}  # each sheet's tallest figure = `height`
+        # each sheet's tallest figure = `height`, unless the sheet gives `body`: the figure's own height in source
+        # pixels (skull to feet), for sheets where a raised weapon makes the tallest panel taller than the body
+        ref_h = {s: (ent.get('sheets', {}).get(s, {}).get('body') or max(p.height for p in ps)) for s, ps in sheets.items()}
         src = ', '.join(sh['source'] for sh in ent['sheets'].values()) if 'sheets' in ent else ent['source']
         out = ['// %s (from %s, replaces %s)' % (name, src, ent.get('replaces', '-'))]
         for f in os.listdir(OUT):  # drop this entry's old outputs

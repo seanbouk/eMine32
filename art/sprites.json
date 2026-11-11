@@ -25,18 +25,42 @@
     ]
   },
   "skeleton": {
-    "source": "art/monsters/skeleton.png",
     "replaces": "LIZTROOP",
+    "_sheets": "shoot/fall/qfront/side/qback/back drawn in Gemini; walk_* and draw/draw2 made from them with fal nano-banana-2/edit (raw results in art/monsters/fal). body = skull-to-feet in source pixels, so a raised bow doesn't shrink the figure",
+    "sheets": {
+      "shoot": { "source": "art/monsters/skeleton_shoot_clean.png", "count": 5, "body": 1190 },
+      "qfront": { "source": "art/monsters/skeleton_qfront.jpg", "body": 2172 },
+      "side": { "source": "art/monsters/skeleton_side.jpg", "body": 2124 },
+      "qback": { "source": "art/monsters/skeleton_qback.jpg", "body": 2142 },
+      "back": { "source": "art/monsters/skeleton_back.jpg", "body": 2154 },
+      "wfront": { "source": "art/monsters/skeleton_walk_front.png", "count": 4, "body": 588 },
+      "wqfront": { "source": "art/monsters/skeleton_walk_qfront.png", "count": 4, "body": 570 },
+      "wside": { "source": "art/monsters/skeleton_walk_side.png", "count": 4, "mirror": [0, 1, 2, 3], "body": 598 },
+      "wqback": { "source": "art/monsters/skeleton_walk_qback.png", "count": 4, "mirror": [0, 1, 2, 3], "body": 595 },
+      "wback": { "source": "art/monsters/skeleton_walk_back.png", "count": 4, "body": 582 },
+      "draw": { "source": "art/monsters/skeleton_draw.png", "count": 4, "mirror": [0], "body": 565 },
+      "draw2": { "source": "art/monsters/skeleton_draw2.png", "count": 2, "mirror": [0], "body": 640 },
+      "fall": { "source": "art/monsters/skeleton_fall_clean.png", "count": 4, "body": 1211 }
+    },
     "groups": [
-      { "tiles": [1680, 1729], "height": 78 },
-      { "tiles": [1730, 1730], "height": 78, "rotate": 10 },
-      { "tiles": [1731, 1731], "height": 78, "rotate": 30 },
-      { "tiles": [1732, 1732], "height": 78, "rotate": 55 },
-      { "tiles": [1733, 1733], "height": 78, "rotate": 75 },
-      { "tiles": [1734, 1740], "height": 78, "rotate": 90 },
-      { "tiles": [1741, 1743], "height": 78 },
-      { "tiles": [1744, 1753], "height": 58, "squash": true },
-      { "tiles": [1754, 1759], "height": 78 }
+      { "_": "walk (ATROOPWALKING, 4 frames x 5 views)", "tiles": [1680, 1699], "height": 78, "frames": [
+        ["wfront:0", "wqfront:0", "wside:0", "wqback:0", "wback:0"],
+        ["wfront:1", "wqfront:1", "wside:1", "wqback:1", "wback:1"],
+        ["wfront:2", "wqfront:2", "wside:2", "wqback:2", "wback:2"],
+        ["wfront:3", "wqfront:3", "wside:3", "wqback:3", "wback:3"] ] },
+      { "_": "unused trooper frames: standing turnaround", "tiles": [1700, 1714], "height": 78,
+        "frames": [["shoot:4", "qfront:0", "side:0", "qback:0", "back:0"]] },
+      { "_": "bow drawn (ATROOPSHOOT)", "tiles": [1715, 1719], "height": 78,
+        "frames": [["shoot:2", "draw:0", "draw2:0", "draw:2", "draw2:1"]] },
+      { "_": "jetpack (unused): standing turnaround", "tiles": [1720, 1729], "height": 78,
+        "frames": [["shoot:4", "qfront:0", "side:0", "qback:0", "back:0"]] },
+      { "_": "hit, then falling (ATROOPFLINTCH/DYING), last = dead", "tiles": [1730, 1734], "height": 78,
+        "images": ["fall:0", "fall:1", "fall:2", "fall:2", "fall:3"] },
+      { "_": "suffering/dead variants", "tiles": [1735, 1740], "height": 78, "image": "fall:3" },
+      { "tiles": [1741, 1743], "height": 78, "image": "shoot:4" },
+      { "_": "duck", "tiles": [1744, 1753], "height": 58, "squash": true,
+        "frames": [["shoot:4", "qfront:0", "side:0", "qback:0", "back:0"]] },
+      { "_": "hide/reappear", "tiles": [1754, 1759], "height": 78, "image": "shoot:4" }
     ]
   },
   "spider": {
