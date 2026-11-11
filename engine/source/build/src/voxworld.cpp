@@ -1459,8 +1459,8 @@ static __attribute__((noinline)) void vw_drawflat(uint8_t *col, float *zc, vwgap
         {
             float d = hz * vw_rowrec[y];
             d = d < d0 ? d0 : (d > d1 ? d1 : d);
-            int const u = ((int)(ox + dx*d) >> 5) & (VW_TEXSIZE-1);
-            int const v = ((int)(oy + dy*d) >> 5) & (VW_TEXSIZE-1);
+            int const u = ((int)(ox + dx*d) >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
+            int const v = ((int)(oy + dy*d) >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
             int s = faceshade + vw_lanterned(light, d) + (int)(d * vw_visk);
             s = s > maxshade ? maxshade : s;
             col[y] = pal0[(s << 8) + tex[u*VW_TEXSIZE + v]];
@@ -1581,7 +1581,7 @@ static __attribute__((noinline)) void vw_drawwatercell(vwcolumn_t const *c, uint
             float const inv = vw_ky / din;
             float const hx = vw_cx + dx*din, hy = vw_cy + dy*din;
             float const along = (side < 2) ? (hy - vw_y0) : (hx - vw_x0);
-            int u = ((int)along >> 5) & (VW_TEXSIZE-1);
+            int u = ((int)along >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
             if (side == 0 || side == 3) u = VW_TEXSIZE-1 - u;
             uint8_t const *const tcol = tex + u*VW_TEXSIZE;
             float const zperrow = din / vw_ky, texperz = (float)VW_TEXSIZE / VW_BLOCKZ;
@@ -1625,8 +1625,8 @@ static __attribute__((noinline)) void vw_drawwatercell(vwcolumn_t const *c, uint
             vw_waterrows(gaps, ng, a, b, wcol, wz, [&](int y, uint8_t &oc, float &oz) {
                 float d = hz * vw_rowrec[y];
                 d = d < dclip ? dclip : (d > dout ? dout : d);
-                int const u = ((int)(ox + dx*d) >> 5) & (VW_TEXSIZE-1);
-                int const v = ((int)(oy + dy*d) >> 5) & (VW_TEXSIZE-1);
+                int const u = ((int)(ox + dx*d) >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
+                int const v = ((int)(oy + dy*d) >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
                 int sh = fshade + vw_lanterned(fl, d) + (int)(d * vw_visk);
                 sh = sh > maxshade ? maxshade : sh;
                 oc = pal0[(sh << 8) + tex[u*VW_TEXSIZE + v]];
@@ -1710,7 +1710,7 @@ static __attribute__((noinline)) void vw_drawglasscell(vwcolumn_t const *c, uint
         float const inv = vw_ky / d;
         float const hx = vw_cx + dx*d, hy = vw_cy + dy*d;
         float const along = (s < 2) ? (hy - vw_y0) : (hx - vw_x0);
-        int u = ((int)along >> 5) & (VW_TEXSIZE-1);
+        int u = ((int)along >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
         if (s == 0 || s == 3) u = VW_TEXSIZE-1 - u;
         uint8_t const *const tcol = tex + u*VW_TEXSIZE;
         float const zperrow = d / vw_ky, texperz = (float)VW_TEXSIZE / VW_BLOCKZ;
@@ -1765,8 +1765,8 @@ static __attribute__((noinline)) void vw_drawglasscell(vwcolumn_t const *c, uint
             rows(a, b, [&](int y) {
                 float const d = hz * vw_rowrec[y];
                 if (d < dclip || d > dout || d >= vw_pz[y]) return;
-                int const u = ((int)(ox + dx*d) >> 5) & (VW_TEXSIZE-1);
-                int const v = ((int)(oy + dy*d) >> 5) & (VW_TEXSIZE-1);
+                int const u = ((int)(ox + dx*d) >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
+                int const v = ((int)(oy + dy*d) >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
                 uint8_t const texel = tex[u*VW_TEXSIZE + v];
                 if (texel == 255) return;
                 int sh = fshade + vw_lanterned(fl, d) + (int)(d * vw_visk);
@@ -1872,7 +1872,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                 // texture column from the hit point along the face
                                 float const hx = vw_cx + dx*din, hy = vw_cy + dy*din;
                                 float const along = (side < 2) ? (hy - vw_y0) : (hx - vw_x0);
-                                int u = ((int)along >> 5) & (VW_TEXSIZE-1);
+                                int u = ((int)along >> VW_TEXSHIFT) & (VW_TEXSIZE-1);
                                 if (side == 0 || side == 3) u = VW_TEXSIZE-1 - u;  // keep textures unmirrored
 
                                 uint8_t const *pal = nullptr;

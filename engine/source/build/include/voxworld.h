@@ -23,7 +23,8 @@
 #define VW_BLOCKXY 512
 #define VW_BLOCKZ  8192
 
-#define VW_TEXSIZE 16  // texels per block face edge (block faces are VW_TEXSIZE x VW_TEXSIZE tiles)
+#define VW_TEXSIZE 32   // texels per block face edge (block faces are VW_TEXSIZE x VW_TEXSIZE tiles)
+#define VW_TEXSHIFT 4   // log2(VW_BLOCKXY / VW_TEXSIZE): Build xy units to texels
 
 enum vwblock_t : uint8_t
 {
