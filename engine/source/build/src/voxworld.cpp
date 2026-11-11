@@ -1900,7 +1900,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                     {
                                         int t = h >> 16;
                                         t = t < tmin ? tmin : (t > tmax ? tmax : t);
-                                        int const layer = t >> 4;
+                                        int const layer = t / VW_TEXSIZE;  // texels up from the world floor -> block layer
                                         if (layer != curlayer)
                                         {
                                             curlayer = layer;
