@@ -21,6 +21,7 @@ N = 1024
 SEAMLESS = ['grass_top', 'dirt', 'stone', 'bedrock', 'sand', 'wood_side', 'leaves', 'gravel', 'lava', 'water',
             'obsidian', 'snow', 'coal_ore', 'iron_ore', 'gold_ore', 'redstone_ore', 'lapis_ore', 'diamond_ore']
 AS_IS = ['planks', 'cobble', 'wood_top']
+KEYED = ['tallgrass', 'flower_red', 'flower_yellow', 'glass']  # painted on flat magenta: that becomes see-through
 
 
 def load(name):
@@ -61,6 +62,27 @@ def grassify(g):
     return g * 0.4 + green * 0.6
 
 
+def key_magenta(a):
+    """RGBA: alpha 0 where the pixel is the magenta backdrop, and the pink fringe taken out of the edges."""
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    mag = np.minimum(r, b) - g                       # how magenta: red and blue both well above green
+    alpha = np.clip(1 - (mag - 60) / 80, 0, 1) * 255  # >140 above green: backdrop; <60: the subject
+    spill = np.clip(mag, 0, None)
+    out = np.stack([r - spill * 0.8, g, b - spill * 0.8, alpha], -1)
+    return out
+
+
+def leaf_holes(a, frac=0.32):
+    """RGBA: the darkest `frac` of the foliage, smoothed into clumps (the deep gaps between leaves), becomes holes
+    big enough to survive shrinking to 32 pixels."""
+    from PIL import ImageFilter
+    lum = Image.fromarray(np.clip(a.mean(2), 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(14))
+    lum = np.asarray(lum, np.float32)
+    cut = np.percentile(lum, frac * 100)
+    alpha = np.clip((lum - cut) / 6 + 0.5, 0, 1) * 255
+    return np.concatenate([a, alpha[..., None]], -1)
+
+
 def save(a, name):
     Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).save(os.path.join(ROOT, name + '.png'))
     print('art/blocks/%s.png' % name)
@@ -73,7 +95,7 @@ def main():
             done[name] = seamless(load(name))
             if name == 'grass_top':  # its bare patches tile into camouflage: pull toward an even green, softer
                 done[name] = grassify(done[name])
-            save(done[name], name)
+            save(leaf_holes(done[name]) if name == 'leaves' else done[name], name)
     # coal's black seams vanish against dark stone once small: find them (where the ore differs from the stone it
     # was painted from) and push them to a glossy black with the odd glint
     if 'coal_ore' in done and 'stone' in done:
@@ -85,6 +107,10 @@ def main():
         c = load('coal_ore')
         coal = 10 + 0.15 * c
         save(seamless(c * (1 - m) + coal * m), 'coal_ore')  # darken in the painting's own frame, then tile
+
+    for name in KEYED:
+        if os.path.exists(os.path.join(RAW, name + '.png')):
+            save(key_magenta(load(name)), name)
 
     for name in AS_IS:
         if os.path.exists(os.path.join(RAW, name + '.png')):

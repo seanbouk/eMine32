@@ -14,6 +14,7 @@ TEX = 16      # procedural placeholders are drawn at this size
 OUT = 32      # block face size in the game (VW_TEXSIZE in voxworld.h)
 ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'blocks')
 TILEBASE = 7000
+SKYTILE = 7200  # the night sky panorama
 MAGIC = 0x7E32
 
 # ---------------------------------------------------------------- textures
@@ -270,21 +271,142 @@ def cracks():
         out.append(im)
     return out
 
+# Duke's palette, for snapping faces to it here (the engine would pick the nearest colour itself, fullbright ones
+# included: those never darken with distance, so a speck of one in a texture glows in the dark)
+_PAL = None
+def palette():
+    global _PAL
+    if _PAL is None:
+        import struct, sys
+        import numpy as np
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import mksprite
+        d = mksprite.grp_file(mksprite.GRP, 'PALETTE.DAT')
+        pal = np.frombuffer(d[:768], np.uint8).reshape(256, 3).astype(np.int64) << 2
+        ns = struct.unpack('<h', d[768:770])[0]
+        sh = np.frombuffer(d[770:770 + ns * 256], np.uint8).reshape(ns, 256)
+        fb = np.all(sh == sh[0], axis=0) & (pal.sum(1) > 0)
+        fbrgb = {tuple(pal[i]) for i in range(256) if fb[i]}
+        # usable: not fullbright, not 255 (transparent), and not the same RGB as a fullbright entry (the engine
+        # matching that RGB could land on either)
+        ok = [i for i in range(255) if not fb[i] and tuple(pal[i]) not in fbrgb]
+        _PAL = pal[ok]
+    return _PAL
+
+def snap(im):
+    """RGB(A) -> the same with every opaque pixel moved to the nearest usable palette colour (Build's own weighting)."""
+    import numpy as np
+    pal = palette()
+    a = np.asarray(im.convert('RGBA'), np.int64)
+    rgb = a[..., :3].reshape(-1, 1, 3)
+    i = ((((rgb - pal[None]) ** 2) * np.array([30, 59, 11])).sum(2)).argmin(1)
+    out = a.copy()
+    out[..., :3] = pal[i].reshape(a.shape[0], a.shape[1], 3)
+    return Image.fromarray(out.astype(np.uint8), 'RGBA' if im.mode == 'RGBA' else None).convert(im.mode)
+
+PLANTS = ('tallgrass', 'flower_red', 'flower_yellow')
+
 def face(name, fn):
     """The OUT x OUT face: painted art downsampled (box filter: an honest average, then a touch of sharpening so it
-    doesn't go to mush), or the procedural placeholder scaled up with hard pixels."""
+    doesn't go to mush), or the procedural placeholder scaled up with hard pixels; then snapped to the palette."""
+    from PIL import ImageFilter
     src = os.path.join(ART, name + '.png')
     if not os.path.exists(src):
-        return fn().resize((OUT, OUT), Image.NEAREST)
+        return snap(fn().resize((OUT, OUT), Image.NEAREST))
     im = Image.open(src)
-    im = im.convert('RGBA' if 'A' in im.getbands() else 'RGB')
-    im = im.resize((OUT, OUT), Image.BOX)
-    from PIL import ImageFilter
-    im = im.filter(ImageFilter.UnsharpMask(radius=1, percent=60, threshold=2))
-    if im.mode == 'RGBA':  # Build has one transparent colour: alpha is all or nothing
-        a = im.getchannel('A').point(lambda v: 255 if v >= 128 else 0)
-        im.putalpha(a)
-    return im
+    if 'A' in im.getbands():
+        # average in premultiplied alpha so see-through pixels don't bleed their colour into the edges
+        im = im.convert('RGBa').resize((OUT, OUT), Image.BOX).convert('RGBA')
+        rgb = im.convert('RGB').filter(ImageFilter.UnsharpMask(radius=1, percent=60, threshold=2))
+        # Build has one transparent colour: alpha is all or nothing. Plants keep thin stems: a low cut-off.
+        cut = 60 if name in PLANTS else 128
+        rgb.putalpha(im.getchannel('A').point(lambda v: 255 if v >= cut else 0))
+        im = rgb
+    else:
+        im = im.convert('RGB').resize((OUT, OUT), Image.BOX)
+        im = im.filter(ImageFilter.UnsharpMask(radius=1, percent=60, threshold=2))
+    return snap(im)
+
+def write_sky(w=2048, h=512, seed=11):
+    """A night sky in the spirit of Roblox's: dark gradient, a field of stars, one big round moon (about 11 degrees
+    across), wispy clouds whose undersides catch a low twilight glow along part of the horizon. Periodic in x so
+    the seam doesn't show. Dithered into Duke's palette so the gradients don't band. Horizon at row 3/4 h."""
+    import numpy as np
+    rnd = np.random.default_rng(seed)
+    hz = h * 3 // 4
+    y = np.arange(h, dtype=np.float32)[:, None]
+    x = np.arange(w, dtype=np.float32)[None, :]
+    up = np.clip((hz - y) / hz, 0, 1)                                  # 0 at the horizon, 1 at the top
+    ang = 2 * np.pi * x / w
+
+    # sky: deep navy overhead, a dusky blue-violet toward the horizon
+    top, low = np.array([8, 11, 30.]), np.array([38, 40, 78.])
+    t = up ** 0.55
+    img = low * (1 - t[..., None]) + top * t[..., None]
+    img = np.broadcast_to(img, (h, w, 3)).copy()
+
+    # twilight: a warm glow low on one side of the horizon (and a faint one opposite)
+    glowdir = 0.25 * 2 * np.pi
+    side = (0.5 + 0.5 * np.cos(ang - glowdir)) ** 3 + 0.25 * (0.5 + 0.5 * np.cos(ang - glowdir - np.pi)) ** 4
+    low_band = np.exp(-((hz - y) / (h * 0.16)) ** 2) * (y <= hz)
+    glow = (side * low_band)[..., None] * np.array([110, 58, 46.])
+    img += glow
+
+    # stars: more overhead, fading toward the horizon haze
+    n = 1400
+    sx = rnd.integers(0, w, n); sy = (rnd.random(n) ** 1.6 * hz * 0.95).astype(int)
+    for i in range(n):
+        b = rnd.random() ** 3 * 200 + 50
+        fade = min(1.0, (hz - sy[i]) / (h * 0.25))
+        c = np.array([b, b, b * 1.05 + 10]) * fade
+        img[sy[i], sx[i]] = np.maximum(img[sy[i], sx[i]], c)
+        if b > 210:  # the bright ones get a cross
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                yy, xx = sy[i] + dy, (sx[i] + dx) % w
+                if 0 <= yy < h: img[yy, xx] = np.maximum(img[yy, xx], c * 0.55)
+
+    # clouds: banks of soft, wide, flat puffs above the horizon (wrapped in x)
+    dens = np.zeros((h, w), np.float32)
+    for _ in range(26):
+        cx, cy = rnd.uniform(0, w), rnd.uniform(hz * 0.5, hz * 0.9)
+        for _ in range(rnd.integers(5, 11)):
+            px, py = cx + rnd.normal(0, 70), cy + rnd.normal(0, 9)
+            sx, sy = rnd.uniform(30, 85), rnd.uniform(6, 14)
+            ddx = (x - px + w / 2) % w - w / 2
+            dens += 0.55 * np.exp(-(ddx / sx) ** 2 - ((y - py) / sy) ** 2)
+    dens = np.clip(dens, 0, 1)
+    cloud = np.array([50, 52, 80.])
+    lit = np.clip(dens - np.roll(dens, -8, axis=0), 0, 1)             # undersides: cloud here, clear just below
+    rim = np.clip(dens - np.roll(dens, 6, axis=0), 0, 1)              # tops catch a little moonlight
+    under = (0.15 + side)[..., None] * np.array([170, 100, 76.])
+    img = img * (1 - dens[..., None] * 0.9) + cloud * dens[..., None] * 0.9 + lit[..., None] * under * 1.4         + rim[..., None] * np.array([40, 44, 60.])
+
+    # the moon: round, pale, a few darker maria, a soft halo
+    mx, my, mr = int(w * 0.62), int(hz * 0.62), 30  # about 25 degrees up
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    dx = (xx - mx + w / 2) % w - w / 2; dy = yy - my
+    d = np.hypot(dx, dy)
+    halo = np.exp(-np.clip(d - mr, 0, None) / 26.0)[..., None] * np.array([40, 44, 60.]) * (d >= mr)[..., None]
+    img += halo
+    disc = d < mr
+    shade = 1 - 0.18 * (dx + dy) / (2 * mr)                            # lit a touch more from the lower left
+    maria = np.zeros_like(d)
+    for (ox, oy, r) in ((-9, -6, 10), (8, 4, 8), (-2, 12, 6), (12, -10, 5), (-14, 8, 4)):
+        maria += np.exp(-((dx - ox) ** 2 + (dy - oy) ** 2) / (2 * r * r))
+    moon = np.array([226, 224, 210.]) * (shade - 0.22 * np.clip(maria, 0, 1))[..., None]
+    edge = np.clip(mr - d, 0, 1)[..., None]                            # antialiased rim
+    img = img * (1 - edge * disc[..., None]) + moon * (edge * disc[..., None])
+
+    # below the horizon: dark haze (seen only through gaps at the world's edge)
+    below = (y > hz)[..., None]
+    img = np.where(below, img * 0.0 + np.array([14, 15, 26.]) + np.array([30, 18, 16.]) * side[..., None] * np.exp(-(y - hz) / 12)[..., None], img)
+
+    # ordered dither into the palette
+    bayer = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32) / 16 - 0.5
+    img = img + np.tile(bayer, (h // 4, w // 4))[..., None] * 10
+    im = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
+    snap(im).save(os.path.join(ROOT, 'textures', 'sky.png'))
+
 
 def write_textures():
     d = os.path.join(ROOT, 'textures', 'blocks')
@@ -297,6 +419,9 @@ def write_textures():
     for st, im in enumerate(cracks()):
         im.resize((OUT, OUT), Image.NEAREST).save(os.path.join(d, 'crack_%d.png' % (st + 1)))
         lines.append('tilefromtexture %d { file "textures/blocks/crack_%d.png" }' % (TILEBASE + len(TEXTURES) + st, st + 1))
+    write_sky()
+    lines.append('// the night sky: one panorama, wrapped once around the horizon (horizon at 3/4 of its height)')
+    lines.append('tilefromtexture %d { file "textures/sky.png" }' % SKYTILE)
     lines.append('// sprites (monsters etc.): generated by tools/mksprite.py from art/sprites.json')
     lines.append('include "sprites.def"')
     open(os.path.join(ROOT, 'emine32.def'), 'w').write('\n'.join(lines) + '\n')
@@ -306,7 +431,7 @@ def write_map(size_blocks=2032, height_blocks=160, seed=1234):
     half = size_blocks * 512 // 2
     floorz = 0
     ceilz = floorz - (height_blocks + 2) * 8192
-    sky = 89  # Duke's parallax city sky, for now
+    sky = SKYTILE  # our night sky (write_sky); the block renderer wraps it once around the horizon
 
     walls = [(-half, -half), (half, -half), (half, half), (-half, half)]
     sectors = [struct.pack('<hhiihhhhbBBBhhbBBBBBhhh',

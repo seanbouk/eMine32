@@ -166,3 +166,16 @@ Projectiles vs blocks: Build moves a projectile across first and then up/down, a
 checks the horizontal step at the old height, so a fast rocket going up past an overhang could cut through the corner
 of a block. `A_MoveSpriteClipdist` now traces a projectile's real diagonal step through the blocks first
 (`Emine_ProjectileBlocks`); a block in the way stops it just short of the face and reports a wall hit.
+
+## Block faces at 32x32, see-through leaves, panorama sky (2026-11-11)
+
+- `voxworld.h`: `VW_TEXSIZE` 32 with `VW_TEXSHIFT` (Build xy units to texels); every texel lookup and the side-face
+  texel-to-layer step use them (a hard-coded `>> 4` there made walls show the block above).
+- Leaves are drawn like glass: out of the opaque runs, into the cut-out runs (`vw_iscutout`), with each block's own
+  texture; faces between leaves are all drawn so a canopy isn't hollow through its holes. Leaf faces are lit by the
+  brightest open cell around them (leaves hold no light). They still shade what's under them (`vw_leaftop` in both
+  sky-floor checks) and still block sight and shots.
+- Sky: a tile 1024+ wide is a panorama, wrapped once around the horizon with square texels (16*vw_ky rows per
+  radian); Duke's narrow sky tiles keep the old 4x wrap.
+- `tools/mkworld.py` snaps faces to Duke's palette itself, skipping fullbright colours (they never fade with
+  distance) and any colour that duplicates one, and paints the night sky (tile 7200).
