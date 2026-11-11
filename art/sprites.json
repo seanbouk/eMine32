@@ -64,25 +64,61 @@
     ]
   },
   "spider": {
-    "source": "art/monsters/spider.png",
     "replaces": "LIZMAN",
+    "_sheets": "all made with fal nano-banana-2/edit from Sean's spider.png (raw results in art/monsters/fal)",
+    "sheets": {
+      "turn": { "source": "art/monsters/spider_turn.png", "count": 5 },
+      "wfront": { "source": "art/monsters/spider_walk_front.png", "count": 4 },
+      "wqfront": { "source": "art/monsters/spider_walk_qfront.png", "count": 4 },
+      "wside": { "source": "art/monsters/spider_walk_side.png", "count": 4 },
+      "wqback": { "source": "art/monsters/spider_walk_qback.png", "count": 4 },
+      "wback": { "source": "art/monsters/spider_walk_back.png", "count": 4 },
+      "leap": { "source": "art/monsters/spider_leap.png", "count": 5, "mirror": [1, 2, 3] },
+      "death": { "source": "art/monsters/spider_death.png", "count": 5 }
+    },
     "groups": [
-      { "tiles": [2120, 2179], "height": 44 },
-      { "tiles": [2180, 2180], "height": 44, "rotate": 30 },
-      { "tiles": [2181, 2181], "height": 44, "rotate": 70 },
-      { "tiles": [2182, 2182], "height": 44, "rotate": 110 },
-      { "tiles": [2183, 2183], "height": 44, "rotate": 150 },
-      { "tiles": [2184, 2185], "height": 44, "flip": true },
-      { "tiles": [2186, 2199], "height": 44 }
+      { "_": "walk (ALIZWALKING, 4 frames x 5 views)", "tiles": [2120, 2139], "height": 44, "frames": [
+        ["wfront:0", "wqfront:0", "wside:0", "wqback:0", "wback:0"],
+        ["wfront:1", "wqfront:1", "wside:1", "wqback:1", "wback:1"],
+        ["wfront:2", "wqfront:2", "wside:2", "wqback:2", "wback:2"],
+        ["wfront:3", "wqfront:3", "wside:3", "wqback:3", "wback:3"] ] },
+      { "_": "think/idle (ALIZTHINK): walk frame 1 (the turnaround's side views come out smaller)", "tiles": [2140, 2149], "height": 44, "frames": [
+        ["wfront:0", "wqfront:0", "wside:0", "wqback:0", "wback:0"]] },
+      { "_": "attack (ALIZSCREAM): leap", "tiles": [2150, 2154], "height": 72, "frames": [
+        ["leap:0", "leap:1", "leap:2", "leap:3", "leap:4"]] },
+      { "_": "unused: turnaround", "tiles": [2155, 2164], "height": 44, "frames": [
+        ["turn:0", "turn:1", "turn:2", "turn:3", "turn:4"]] },
+      { "_": "jump (ALIZJUMP): leap", "tiles": [2165, 2179], "height": 72, "frames": [
+        ["leap:0", "leap:1", "leap:2", "leap:3", "leap:4"]] },
+      { "_": "dying (ALIZDYING, front only), last = dead", "tiles": [2180, 2185], "height": 44,
+        "images": ["death:0", "death:1", "death:2", "death:3", "death:4", "death:4"] },
+      { "tiles": [2186, 2189], "height": 44, "image": "death:4" },
+      { "_": "shooting (unused): leap", "tiles": [2190, 2199], "height": 72, "frames": [
+        ["leap:0", "leap:1", "leap:2", "leap:3", "leap:4"]] }
     ]
   },
   "creeper": {
-    "source": "art/monsters/creeper.png",
-    "replaces": "DRONE",
+    "replaces": "DRONE (its own tiles at 7110: the drone's neighbours are taken)",
+    "_sheets": "all made with fal nano-banana-2/edit from Sean's creeper.png (raw results in art/monsters/fal)",
     "bg_tol": 70,
     "shadow_depth": 110,
+    "sheets": {
+      "turn": { "source": "art/monsters/creeper_turn.png", "count": 5 },
+      "wfront": { "source": "art/monsters/creeper_walk_front.png", "count": 4 },
+      "wqfront": { "source": "art/monsters/creeper_walk_qfront.png", "count": 4 },
+      "wside": { "source": "art/monsters/creeper_walk_side.png", "count": 4 },
+      "wqback": { "source": "art/monsters/creeper_walk_qback.png", "count": 4 },
+      "wback": { "source": "art/monsters/creeper_walk_back.png", "count": 4 }
+    },
     "groups": [
-      { "tiles": [1880, 1886], "height": 56 }
+      { "_": "DRONE's own 7 tiles (only seen if a creeper isn't one of our mobs)", "tiles": [1880, 1886], "height": 56, "image": "turn:0" },
+      { "_": "walk (ATROOPWALKING layout, 4 frames x 5 views)", "tiles": [7110, 7129], "height": 56, "frames": [
+        ["wfront:0", "wqfront:0", "wside:0", "wqback:0", "wback:0"],
+        ["wfront:1", "wqfront:1", "wside:1", "wqback:1", "wback:1"],
+        ["wfront:2", "wqfront:2", "wside:2", "wqback:2", "wback:2"],
+        ["wfront:3", "wqfront:3", "wside:3", "wqback:3", "wback:3"] ] },
+      { "_": "idle / fuse (ALIZTHINK layout, 2 frames x 5 views)", "tiles": [7130, 7139], "height": 56, "frames": [
+        ["turn:0", "turn:1", "turn:2", "turn:3", "turn:4"]] }
     ]
   },
   "enderman": {

@@ -39,6 +39,7 @@ void Emine_Tick(void);
 int  Emine_ActorThink(int spriteNum, int playerNum);
 void Emine_MobTick(void);
 void Emine_MobsLevelStart(void);  // clears Duke's map-placed enemies and our mob state on the next tic
+int Emine_MobTile(int spriteNum, int tile);  // the tile to draw for a mob (creepers draw from their own range)
 void Emine_RegisterMobOSD(void);
 
 // Block water. Is this point in water?

@@ -26,10 +26,11 @@
 // Spawning (Emine_MobTick), Minecraft's rules bent for a world that's always daylight:
 //  - caves follow Minecraft: monsters appear in total darkness (light level 0), on solid ground with room to stand,
 //    24-48 blocks from the player, in packs, up to a cap.
-//  - the surface gets waves: a quiet spell (40-80 s), then three packs turn up 24-48 blocks away, somewhere you can't
-//    see (the first 20 s in). Never on leaves, in water or in lava.
-//  - despawning: gone at once beyond 128 blocks; past 32 blocks, one that's been idle for 30 seconds may vanish
-//    (1 in 800 a tic), so far-off monsters get recycled into ones near you.
+//  - the surface gets waves, more Duke than Minecraft: 12-20 s apart standing still and three times as often on the
+//    move, 2-3 packs each, 18-36 blocks away (mostly ahead of where you're heading), somewhere you can't see (the
+//    first 8 s in). Never on leaves, in water or in lava.
+//  - despawning: gone at once beyond 128 blocks; past 48 blocks, one that's been idle for 10 seconds may vanish
+//    (1 in 150 a tic), so monsters left behind get recycled into ones ahead of you.
 //  - Duke's own enemies placed in the map are cleared when the level starts.
 //
 // Copyright (C) 2026 the eMine32 project. GPLv2.
@@ -70,6 +71,7 @@ constexpr int MOB_MAGIC   = 0x2B1E;  // in t_data[9]: this mob has its state set
 constexpr int MOB_CLIMB   = 1100;  // spider climbing speed, z units per tic (Minecraft: 0.2 blocks a tick)
 
 constexpr int ARROW_TILE    = 7100;
+constexpr int CREEPER_TILE  = 7110;  // creeper art: walk 7110-7129 (4 frames x 5 views), idle 7130-7139
 constexpr int ARROW_SPEED   = 546;   // units/tic (Minecraft: 1.6 blocks a tick)
 constexpr int ARROW_GRAVITY = 182;   // z units/tic^2 (Minecraft: 0.05 blocks a tick^2)
 
@@ -105,7 +107,9 @@ MobDef const mobDefs[MT_COUNT] = {
     { "spider", "ALIZWALKING", "ALIZTHINK", "ALIZTHINK", "ALIZSCREAM", "ALIZDYING", "ALIZLYINGDEAD", 6,
       32, 52, 16 * BXY, 820, 30, { 8, 10, 12, 15 }, 1, 10, 40, false, true, false, true, false,
       SND_LIZ_BEG, 0, SND_LIZ_PAIN, SND_LIZ_DEATH },
-    { "creeper", "DRONEFRAMES", "DRONEFRAMES", "DRONEFRAMES", "DRONEFRAMES", nullptr, nullptr, 0,
+    // the creeper borrows the trooper's 5-view walk and the lizman's 5-view idle; Emine_MobTile moves its tiles
+    // from DRONE (whose neighbours are taken) to CREEPER_TILE
+    { "creeper", "ATROOPWALKING", "ALIZTHINK", "ALIZTHINK", "ALIZTHINK", nullptr, nullptr, 0,
       40, 43, 16 * BXY, 0, 0, { 0, 0, 0, 0 }, 2, 1, 48, false, false, false, false, true,
       0, 0, 0, 0 },
 };
@@ -146,8 +150,10 @@ bool mob_purge = true;  // clear Duke's map-placed enemies on the next tic (set 
 
 // spawner
 bool spawning = true;
-int wave_timer = 20 * 30;   // tics to the next surface wave (the first comes soon)
-int spawn_surfaceCap = 16, spawn_caveCap = 14;
+int wave_timer = 8 * 30;    // tics to the next surface wave (the first comes soon)
+vec2_t spawn_lastPos;       // where the player was at the last spawner check (moving speeds the waves up)
+int spawn_heading = -1;     // the direction the player is travelling, or -1 when standing about
+int spawn_surfaceCap = 28, spawn_caveCap = 16;
 
 #define MOBLOG(...) do { if (mob_debug) OSD_Printf("emine_mobs: " __VA_ARGS__); } while (0)
 
@@ -1015,7 +1021,9 @@ bool randomSpot(DukePlayer_t const *ps, bool cave, Node *out)
 {
     Node me;
     if (!cellOf(ps->pos.x, ps->pos.y, sprite[ps->i].z, &me)) return false;
-    int const a = krand() & 2047, r = 24 + krand() % 25;  // 24-48 blocks
+    // on the move, most spawns land ahead of you (within 67 degrees of your heading), Duke style
+    int const a = (spawn_heading >= 0 && krand() % 4) ? (spawn_heading - 384 + krand() % 769) & 2047 : krand() & 2047;
+    int const r = cave ? 24 + krand() % 25 : 18 + krand() % 19;  // caves 24-48 blocks; the surface 18-36, in reach
     int const bx = me.x + (sintable[(a + 512) & 2047] * r >> 14), by = me.y + (sintable[a & 2047] * r >> 14);
     return cave ? caveCell(bx, by, out) : surfaceCell(bx, by, out);
 }
@@ -1049,7 +1057,8 @@ void spawnerTick(void)
         arrows.clear();
         purgeDukeEnemies();
         mob_purge = false;
-        wave_timer = 20 * 30;
+        wave_timer = 8 * 30;
+        spawn_lastPos = { ps->pos.x, ps->pos.y };
     }
 
     // forget sprites that aren't our mobs any more (deleted, reused)
@@ -1062,14 +1071,15 @@ void spawnerTick(void)
             ++it;
     }
 
-    // despawning (Minecraft: at once past 128 blocks; past 32, idle for 30 s, 1 in 800 a tic)
+    // despawning: at once past 128 blocks; past 48, idle for 10 s, 1 in 150 a tic (left-behind mobs clear quickly,
+    // making room for new ones ahead)
     int surface = 0, cave = 0;
     for (auto it = mobs.begin(); it != mobs.end();)
     {
         int const j = it->first;
         Mob const &m = it->second;
         int32_t const dd = FindDistance2D(sprite[j].x - ps->pos.x, sprite[j].y - ps->pos.y);
-        if (m.state == MS_LIVE && (dd > 128 * BXY || (dd > 32 * BXY && m.idle > 900 && krand() % 800 == 0)))
+        if (m.state == MS_LIVE && (dd > 128 * BXY || (dd > 48 * BXY && m.idle > 300 && krand() % 150 == 0)))
         {
             MOBLOG("%s %d despawned at %d blocks\n", mobDefs[m.type].name, j, dd / BXY);
             A_DeleteSprite(j);
@@ -1090,11 +1100,19 @@ void spawnerTick(void)
             if (randomSpot(ps, true, &n)) { spawnPack(ps, n, true); break; }
         }
 
-    // surface: waves
-    if ((wave_timer -= 20) <= 0)
+    // which way the player is going: moved more than 2 blocks in these 20 tics (running covers ~4)
+    {
+        int const dx = ps->pos.x - spawn_lastPos.x, dy = ps->pos.y - spawn_lastPos.y;
+        spawn_heading = FindDistance2D(dx, dy) > 2 * BXY ? getangle(dx, dy) : -1;
+        spawn_lastPos = { ps->pos.x, ps->pos.y };
+    }
+
+    // surface: waves, more Duke than Minecraft: 12-20 s apart standing still, three times as often on the move
+    if ((wave_timer -= spawn_heading >= 0 ? 60 : 20) <= 0)
     {
         int packs = 0;
-        for (int k = 0; k < 32 && packs < 3 && surface < spawn_surfaceCap; k++)
+        int const want = 2 + krand() % 2;
+        for (int k = 0; k < 32 && packs < want && surface < spawn_surfaceCap; k++)
         {
             Node n;
             if (randomSpot(ps, false, &n) && !playerSees(ps, n))
@@ -1104,7 +1122,7 @@ void spawnerTick(void)
                 packs += got > 0;
             }
         }
-        wave_timer = (40 + krand() % 41) * 30;
+        wave_timer = (12 + krand() % 9) * 30;
         MOBLOG("wave: %d packs; next in %d s\n", packs, wave_timer / 30);
     }
 }
@@ -1199,6 +1217,14 @@ int osdcmd_emine_spawning(osdcmdptr_t parm)
 }
 
 }  // namespace
+
+// The tile to draw for a mob, given the one Duke's action picked (creepers live at CREEPER_TILE, not DRONE).
+int Emine_MobTile(int spriteNum, int tile)
+{
+    if (sprite[spriteNum].picnum != DRONE || tile < DRONE || tile >= DRONE + 40) return tile;
+    auto const it = mobs.find(spriteNum);
+    return it != mobs.end() && it->second.type == MT_CREEPER ? tile - DRONE + CREEPER_TILE : tile;
+}
 
 int Emine_ActorThink(int spriteNum, int playerNum)
 {

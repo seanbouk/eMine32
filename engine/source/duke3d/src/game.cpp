@@ -49,6 +49,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #endif
 
 #include "vfs.h"
+#include "emine.h"
 
 // Uncomment to prevent anything except mirrors from drawing. It is sensible to
 // also uncomment ENGINE_CLEAR_SCREEN in build/src/engine_priv.h.
@@ -4308,6 +4309,7 @@ PALONLY:
             }
 
             t->picnum += frameOffset + apScript[scrofs_action + ACTION_STARTFRAME] + viewtype*curframe;
+            t->picnum = Emine_MobTile(i, t->picnum);  // eMine32: mobs whose art lives away from their actor tile
             // XXX: t->picnum can be out-of-bounds by bad user code.
 
             Bassert((unsigned)t->picnum < MAXTILES);
