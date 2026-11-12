@@ -50,9 +50,9 @@ static int Emine_OreAmmo(int type, int *count)
     *count = 1;
     switch (type)
     {
-        case VW_COAL:     *count = 3; return AMMO;         // pistol clips (breaking coal takes most of one)
-        case VW_IRON:     *count = 2; return SHOTGUNAMMO;  // shotgun shells
-        case VW_GOLD:     return BATTERYAMMO;  // chaingun ammo
+        case VW_COAL:     *count = 4; return AMMO;         // pistol clips (breaking coal takes most of one)
+        case VW_IRON:     *count = 3; return SHOTGUNAMMO;  // shotgun shells
+        case VW_GOLD:     *count = 2; return BATTERYAMMO;  // chaingun ammo
         case VW_REDSTONE: return HBOMBAMMO;    // pipe bombs
         case VW_LAPIS:    return FREEZEAMMO;   // freeze thrower
         case VW_DIAMOND:  return RPGAMMO;      // rockets

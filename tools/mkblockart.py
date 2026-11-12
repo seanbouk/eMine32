@@ -86,6 +86,52 @@ def leaf_holes(a, frac=0.32):
     return np.concatenate([a, alpha[..., None]], -1)
 
 
+ORES = {  # nugget colour
+    'coal_ore': (22, 22, 24), 'iron_ore': (222, 138, 78), 'gold_ore': (255, 214, 40), 'redstone_ore': (235, 28, 22),
+    'lapis_ore': (70, 110, 255), 'diamond_ore': (105, 245, 240)}
+
+
+def bold_ore(stone, col, seed, clusters=6):
+    """The (seamless) stone with clusters of chunky ore lumps drawn on: each lump a rounded blob in the ore's colour,
+    lit like a dome from the upper left over the stone's own light and shade, with a dark outline. The painted
+    ores' nuggets were too small to survive shrinking to 32 pixels; these come out 5-7 pixels across. Lumps wrap
+    round the edges, so the face still tiles."""
+    from PIL import ImageFilter
+    rnd = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:N, 0:N].astype(np.float32)
+    nug = np.zeros((N, N), np.float32)
+    dome = np.zeros((N, N), np.float32)
+    # clusters spread evenly: one per cell of a jittered grid
+    cells = [(i, j) for i in range(3) for j in range(3)]
+    rnd.shuffle(cells)
+    for ci, cj in cells[:clusters]:
+        cx, cy = (ci + rnd.uniform(0.2, 0.8)) * N / 3, (cj + rnd.uniform(0.2, 0.8)) * N / 3
+        for _ in range(rnd.integers(3, 6)):
+            px, py = cx + rnd.normal(0, 70), cy + rnd.normal(0, 70)
+            r = rnd.uniform(52, 80)
+            dx = (xx - px + N / 2) % N - N / 2
+            dy = (yy - py + N / 2) % N - N / 2
+            d = np.sqrt((dx / r) ** 2 + (dy / (r * rnd.uniform(0.75, 1.15))) ** 2)
+            inside = d < 1
+            nug = np.maximum(nug, inside.astype(np.float32))
+            # dome light: brighter toward the upper left of each lump
+            h = np.clip(1 - d, 0, 1) ** 0.5 * (0.6 - 0.4 * (dx + dy) / (2 * r))
+            dome = np.maximum(dome, h * inside)
+    soft = lambda m, r: np.asarray(Image.fromarray((np.clip(m, 0, 1) * 255).astype(np.uint8)).filter(
+        ImageFilter.GaussianBlur(r)), np.float32) / 255
+    nug = soft(nug, 2)
+    ring = np.clip(soft(np.asarray(Image.fromarray((nug * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(21)),
+                                   np.float32) / 255, 2) - nug, 0, 1)
+    lum = soft(stone.mean(2) / 255, 3)[..., None]
+    shade = (0.45 + 0.5 * lum + 0.55 * dome[..., None])
+    if col.mean() < 60:  # coal: black, with grey glints where the light catches it
+        paint = col + np.array([150, 150, 160], np.float32) * np.clip(dome[..., None] - 0.45, 0, 1) * 2.5
+    else:
+        paint = col * shade
+    out = stone * (1 - 0.85 * ring[..., None])
+    return out * (1 - nug[..., None]) + paint * nug[..., None]
+
+
 def save(a, name):
     Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).save(os.path.join(ROOT, name + '.png'))
     print('art/blocks/%s.png' % name)
@@ -99,17 +145,11 @@ def main():
             if name == 'grass_top':  # its bare patches tile into camouflage: pull toward an even green, softer
                 done[name] = grassify(done[name])
             save(leaf_holes(done[name]) if name == 'leaves' else done[name], name)
-    # coal's black seams vanish against dark stone once small: find them (where the ore differs from the stone it
-    # was painted from) and push them to a glossy black with the odd glint
-    if 'coal_ore' in done and 'stone' in done:
-        diff = np.abs(load('coal_ore') - load('stone')).mean(2)
-        m = np.clip((diff - 18) / 30, 0, 1)
-        from PIL import ImageFilter
-        m = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(9))
-                       .filter(ImageFilter.GaussianBlur(4)), np.float32)[..., None] / 255
-        c = load('coal_ore')
-        coal = 10 + 0.15 * c
-        save(seamless(c * (1 - m) + coal * m), 'coal_ore')  # darken in the painting's own frame, then tile
+    # Ores: the painted ones' nuggets were too small to read once shrunk to 32 pixels, so they're drawn here, big
+    # and bold, on the painted stone (the fal ore paintings stay in art/blocks/fal for reference).
+    for k, (name, col) in enumerate(ORES.items()):
+        if name in done and 'stone' in done:
+            save(bold_ore(done['stone'], np.array(col, np.float32), 100 + k), name)
 
     for name in KEYED:
         if os.path.exists(os.path.join(RAW, name + '.png')):
