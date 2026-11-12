@@ -1597,8 +1597,7 @@ void gameDisplay3DRScreen()
 void gameDisplayTitleScreen(void)
 {
     int titlesound  = 0;
-    // eMine32: our title picture (BETASCREEN, game/emine32.def) without Duke's name and the 3D flying in over it
-    int32_t const logoflags = G_GetLogoFlags() & ~(LOGO_DUKENUKEM | LOGO_THREEDEE | LOGO_PLUTOPAKSPRITE);
+    int32_t const logoflags = G_GetLogoFlags();
 
     videoClearScreen(0);
 
