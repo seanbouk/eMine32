@@ -1,55 +1,48 @@
-"""Title screen: art/title/title.png -> game/textures/title.png, the tile EMINE_TITLE (7300) that replaces Duke's
-title (screens.cpp). Run: python tools/mktitle.py
+"""Title screen: art/title/title.png (4:3) -> game/textures/title.art, which replaces Duke's BETASCREEN tile (2493).
+Run: python tools/mktitle.py
 
-- widened for widescreen screens: the picture in the middle, its edges carried out to the sides (stretched,
-  blurred and darkened, so the eye stays on the picture)
-- dithered into Duke's game palette here (the engine would just take the nearest colour, which bands the sky)
+Made exactly like the one it replaces: 320x200 (Duke's 4:3 screen, tall pixels), in Duke's title palette (TITLEPAL,
+from LOOKUP.DAT), so it shows the same way: same resolution, same palette, black bars on wider screens. It's an ART
+file rather than a PNG because the engine converts PNG tiles to the game palette, not the title one.
 """
-import os, sys
+import os, struct, sys
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.join(HERE, '..')
 SRC = os.path.join(ROOT, 'art', 'title', 'title.png')
-OUT = os.path.join(ROOT, 'game', 'textures', 'title.png')
-ASPECT = 2.1  # wide enough for 21:9; narrower screens crop the sides
+OUT = os.path.join(ROOT, 'game', 'textures', 'title.art')
+PREVIEW = os.path.join(ROOT, 'art', 'title', 'title_320x200.png')  # what the game shows, for looking at
+TILE = 2493  # BETASCREEN
 
 
-def widen(im):
-    w, h = im.size
-    W = int(round(h * ASPECT))
-    pad = (W - w) // 2
-    out = Image.new('RGB', (W, h))
-    for side in (0, 1):
-        strip = im.crop((0, 0, w // 6, h) if side == 0 else (w - w // 6, 0, w, h)).transpose(Image.FLIP_LEFT_RIGHT)
-        strip = strip.resize((pad + 40, h), Image.BICUBIC).filter(ImageFilter.GaussianBlur(18))
-        a = np.asarray(strip, np.float32)
-        x = np.linspace(0, 1, a.shape[1])[None, :, None]
-        fade = 0.25 + 0.5 * (x if side == 0 else 1 - x)  # darker toward the outer edge
-        strip = Image.fromarray(np.clip(a * fade, 0, 255).astype(np.uint8))
-        out.paste(strip, (0, 0) if side == 0 else (W - pad - 40, 0))
-    # the picture, with its own edges feathered into the extensions
-    mask = np.ones((h, w), np.float32)
-    ramp = np.linspace(0, 1, 40)
-    mask[:, :40] *= ramp; mask[:, -40:] *= ramp[::-1]
-    out.paste(im, (pad, 0), Image.fromarray((mask * 255).astype(np.uint8)))
-    return out
-
-
-def dither(im):
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+def title_palette():
+    sys.path.insert(0, HERE)
     import mksprite
-    d = mksprite.grp_file(mksprite.GRP, 'PALETTE.DAT')
-    pal = np.frombuffer(d[:768], np.uint8).reshape(256, 3).astype(np.int32) << 2
+    d = mksprite.grp_file(mksprite.GRP, 'LOOKUP.DAT')
+    n = d[0]
+    base = 1 + n * 257 + 2 * 768  # after the lookups: water, slime, then the title palette
+    return np.frombuffer(d[base:base + 768], np.uint8).reshape(256, 3).astype(np.int32) << 2
+
+
+def main():
+    pal = title_palette()
+    im = Image.open(SRC).convert('RGB').resize((320, 200), Image.LANCZOS)  # 4:3 shown with tall pixels
     p = Image.new('P', (1, 1))
     flat = pal[:255].astype(np.uint8).flatten().tolist()  # 255 is see-through in Build
-    p.putpalette(flat + flat[-3:])                        # pad 255 with a copy of 254: never chosen over it
+    p.putpalette(flat + flat[-3:])
     q = im.quantize(palette=p, dither=Image.Dither.FLOYDSTEINBERG)
-    return q.convert('RGB')
+    idx = np.asarray(q, np.uint8)
+    assert idx.max() < 255
+    # ART: version, tile count, first, last; x sizes, y sizes, anim words; pixels column by column
+    with open(OUT, 'wb') as f:
+        f.write(struct.pack('<4i', 1, 1, TILE, TILE))
+        f.write(struct.pack('<h', 320) + struct.pack('<h', 200) + struct.pack('<I', 0))
+        f.write(idx.T.tobytes())
+    Image.fromarray(pal[idx].astype(np.uint8)).resize((640, 480), Image.NEAREST).save(PREVIEW)
+    print(OUT)
 
 
 if __name__ == '__main__':
-    im = Image.open(SRC).convert('RGB')
-    out = dither(widen(im))
-    out.save(OUT)
-    print('%s %dx%d' % (OUT, out.width, out.height))
+    main()
