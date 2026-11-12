@@ -5328,6 +5328,24 @@ int Menu_Change(MenuID_t cm)
 
     cm = VM_OnEventWithReturn(EVENT_CHANGEMENU, g_player[screenpeek].ps->i, screenpeek, cm);
 
+    // eMine32: one world, one skill. New Game skips the episode and skill screens and starts straight away on
+    // "Let's Rock" (skill 2), as picking it would.
+    if (cm == MENU_EPISODE)
+    {
+        ud.m_volume_number = 0;
+        ud.m_level_number = 0;
+        M_SKILL.currentEntry = 1;
+        ud.m_player_skill = 2;
+        ud.skill_voice = S_PlaySound(DUKE_GETWEAPON2);
+        ud.m_respawn_monsters = 0;
+        ud.m_monsters_off = ud.monsters_off = 0;
+        ud.m_respawn_items = 0;
+        ud.m_respawn_inventory = 0;
+        ud.multimode = 1;
+        G_NewGame_EnterLevel();
+        return 0;
+    }
+
     if (cm == MENU_PREVIOUS)
     {
         m_currentMenu = m_previousMenu;
