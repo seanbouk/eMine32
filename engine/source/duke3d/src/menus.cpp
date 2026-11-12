@@ -113,7 +113,7 @@ static savehead_t savehead;
 
 static void Menu_DrawBackground(const vec2_t origin)
 {
-    rotatesprite_fs(origin.x + (MENU_MARGIN_CENTER<<16), origin.y + (100<<16), 65536L,0,MENUSCREEN,16,0,10+64);
+    rotatesprite_fs(origin.x + (MENU_MARGIN_CENTER<<16), origin.y + (100<<16), 65536L,0,MENUSCREEN,0,0,10+64);  // eMine32: painted dark already (was shade 16)
 }
 
 static constexpr int32_t const TopBarY = 19<<16;
@@ -226,7 +226,7 @@ MenuFont_t MF_Minifont =              { { 4<<16, 5<<16 },   { 1<<16, 1<<16 },0, 
                                         0,                  0,                  16 };
 
 
-static MenuMenuFormat_t MMF_Top_Main =             { {  MENU_MARGIN_CENTER<<16, 55<<16, }, -(170<<16) };
+static MenuMenuFormat_t MMF_Top_Main =             { {  MENU_MARGIN_CENTER<<16, 72<<16, }, -(170<<16) };  // eMine32: was 55, below our backdrop's name
 static MenuMenuFormat_t MMF_Top_Episode =          { {  MENU_MARGIN_CENTER<<16, 48<<16, }, -(190<<16) };
 static MenuMenuFormat_t MMF_Top_NewGameCustom =    { {  MENU_MARGIN_CENTER<<16, 48<<16, }, -(190<<16) };
 static MenuMenuFormat_t MMF_Top_NewGameCustomSub = { {  MENU_MARGIN_CENTER<<16, 48<<16, }, -(190<<16) };
@@ -2981,7 +2981,8 @@ static void Menu_PreDraw(MenuID_t cm, MenuEntry_t* entry, const vec2_t origin)
         l += 4;
         fallthrough__;
     case MENU_MAIN:
-        if ((G_GetLogoFlags() & LOGO_NOGAMETITLE) == 0)
+        // eMine32: the backdrop (MENUSCREEN) carries our name; only the in-game menu, drawn over the game, shows the logo
+        if ((G_GetLogoFlags() & LOGO_NOGAMETITLE) == 0 && cm == MENU_MAIN_INGAME)
         {
             rotatesprite_fs(origin.x + (MENU_MARGIN_CENTER<<16), origin.y + ((28+l)<<16), 65536L,0,INGAMEDUKETHREEDEE,0,0,10);
             if (PLUTOPAK)   // JBF 20030804

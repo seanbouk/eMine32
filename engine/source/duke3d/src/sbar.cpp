@@ -1056,7 +1056,7 @@ void G_DrawBackground(void)
                     for (x=0; x<xdim; x+=tilesiz[bgtile].x)
                         rotatesprite_fs(x<<16, y<<16, 65536L, 0, bgtile, 8, 0, 8+16+64);
         }
-        else rotatesprite_fs(160<<16, 100<<16, 65536L, 0, bgtile, 16, 0, 2+8+64+BGSTRETCH);
+        else rotatesprite_fs(160<<16, 100<<16, 65536L, 0, bgtile, bgtile == MENUSCREEN ? 0 : 16, 0, 2+8+64+BGSTRETCH);  // eMine32: our backdrop is painted dark already
 
         return;
     }
