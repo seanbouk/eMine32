@@ -129,7 +129,8 @@ void A_DeleteSprite(int spriteNum);
 
 static inline int32_t G_GetLogoFlags(void)
 {
-    return Gv_GetVarByLabel("LOGO_FLAGS",255, -1, -1);
+    // eMine32: no Help or Credits (menus, F1) and no title bar graphic on the menus, whatever the game data says
+    return Gv_GetVarByLabel("LOGO_FLAGS",255, -1, -1) | LOGO_NOHELP | LOGO_NOCREDITS | LOGO_NOTITLEBAR;
 }
 
 #define CAMERA(Membname) (ud.camera ## Membname)

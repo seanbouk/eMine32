@@ -6947,7 +6947,8 @@ static void Menu_Run(Menu_t *cm, const vec2_t origin)
                 }
             }
 
-            if ((currentry->type != Option || state != 2) && menu->title != NoTitle)
+            // eMine32: the load and save screens explain themselves; no title
+            if ((currentry->type != Option || state != 2) && menu->title != NoTitle && cm->menuID != MENU_LOAD && cm->menuID != MENU_SAVE)
                 Menu_DrawTopBarCaption(menu->title, origin);
 
             break;

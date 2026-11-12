@@ -1954,6 +1954,8 @@ int G_EnterLevel(int gameMode)
         Xfree(m.name);
         m.name = Xstrdup("The Mines");
     }
+    if (mapidx == 0)
+        Bstrcpy(g_volumeNames[0], "Shift Happens");  // the episode, as the save screen lists it
 
     if (VOLUMEONE || !Menu_HaveUserMap())
     {
@@ -2064,7 +2066,7 @@ int G_EnterLevel(int gameMode)
         G_OpenDemoWrite();
 
 #ifndef EDUKE32_TOUCH_DEVICES
-    if (VOLUMEONE && ud.level_number == 0 && ud.recstat != 2)
+    if (0 && VOLUMEONE && ud.level_number == 0 && ud.recstat != 2)  // eMine32: no help screens, so no "Press F1 for help"
         P_DoQuote(QUOTE_F1HELP,g_player[myconnectindex].ps);
 #endif
 

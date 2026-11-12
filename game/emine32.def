@@ -45,6 +45,8 @@ artfile { file "textures/menu.art" }          // over MENUSCREEN, the menu backd
 artfile { file "textures/logo_ingame.art" }   // over INGAMEDUKETHREEDEE, the name on the in-game menu
 artfile { file "textures/cursor.art" }        // over SPINNINGNUKEICON: a spinning grass block (tools/mkcursor.py)
 artfile { file "textures/loading.art" }       // over LOADSCREEN
+artfile { file "textures/ui_slider.art" }     // over SLIDEBAR and its knob (tools/mkui.py)
+artfile { file "textures/ui_frame.art" }      // over WINDOWBORDER1, TEXTBOX, WINDOWBORDER2
 // fonts, rendered from free fonts over the original font tiles (tools/mkfont.py)
 artfile { file "textures/font_big.art" }
 artfile { file "textures/font_bigappos.art" }
