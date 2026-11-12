@@ -41,6 +41,8 @@ artfile { file "textures/title.art" }
 artfile { file "textures/logo_shift.art" }    // over DUKENUKEM
 artfile { file "textures/logo_happens.art" }  // over THREEDEE
 artfile { file "textures/menu.art" }          // over MENUSCREEN, the menu backdrop
+artfile { file "textures/logo_ingame.art" }   // over INGAMEDUKETHREEDEE, the name on the in-game menu
+artfile { file "textures/cursor.art" }        // over SPINNINGNUKEICON: a spinning grass block (tools/mkcursor.py)
 // fonts, rendered from free fonts over the original font tiles (tools/mkfont.py)
 artfile { file "textures/font_big.art" }
 artfile { file "textures/font_bigappos.art" }

@@ -431,6 +431,8 @@ def write_textures():
     lines.append('artfile { file "textures/logo_shift.art" }    // over DUKENUKEM')
     lines.append('artfile { file "textures/logo_happens.art" }  // over THREEDEE')
     lines.append('artfile { file "textures/menu.art" }          // over MENUSCREEN, the menu backdrop')
+    lines.append('artfile { file "textures/logo_ingame.art" }   // over INGAMEDUKETHREEDEE, the name on the in-game menu')
+    lines.append('artfile { file "textures/cursor.art" }        // over SPINNINGNUKEICON: a spinning grass block (tools/mkcursor.py)')
     lines.append('// fonts, rendered from free fonts over the original font tiles (tools/mkfont.py)')
     for f in ('big', 'bigappos', 'small', 'mini', 'digits'):
         lines.append('artfile { file "textures/font_%s.art" }' % f)

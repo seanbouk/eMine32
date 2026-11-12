@@ -19,6 +19,9 @@ PREVIEW = os.path.join(ROOT, 'art', 'title', 'title_320x200.png')  # what the ga
 TILE = 2493  # BETASCREEN
 MENU = os.path.join(ROOT, 'art', 'title', 'menu.jpg')
 MENUTILE = 2456  # MENUSCREEN
+WIDE = os.path.join(ROOT, 'art', 'title', 'logo_wide.png')  # "SHIFT HAPPENS" on one line, on white
+WIDETILE = 2499  # INGAMEDUKETHREEDEE: the name at the top of the menu you get in play (203x32)
+WIDE_GAP = 3     # the gap between the two words, times the painting's
 MENUPREVIEW = os.path.join(ROOT, 'art', 'title', 'menu_320x200.png')
 LOGO = os.path.join(ROOT, 'art', 'title', 'logo.jpg')
 LOGO_WHITE = os.path.join(ROOT, 'art', 'title', 'logo_white.jpg')  # the same render on white: for the cut-out only
@@ -137,6 +140,44 @@ def main():
 
     # the menu backdrop
     gpal, fullbright = game_palette()
+
+    # the name over the in-game menu: cut from white, the gap between the words widened, fitted to Duke's tile
+    from scipy import ndimage
+    a = np.asarray(Image.open(WIDE).convert('RGB'), np.float32)
+    m = (a.mean(2) < 215) | (a.max(2) - a.min(2) > 40)
+    m = ndimage.binary_opening(m, np.ones((2, 2)))
+    lab, n = ndimage.label(m)
+    m = np.isin(lab, 1 + np.nonzero(ndimage.sum(m, lab, range(1, n + 1)) > 200)[0])
+    ys, xs = np.nonzero(m)
+    a, m = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1], m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    empty = ~m.any(0)
+    runs, x = [], 0  # the widest run of empty columns is the space between the words
+    while x < len(empty):
+        if empty[x]:
+            x0 = x
+            while x < len(empty) and empty[x]: x += 1
+            runs.append((x - x0, x0, x))
+        x += 1
+    _, g0, g1 = max(runs)
+    extra = (g1 - g0) * (WIDE_GAP - 1)
+    a = np.concatenate([a[:, :g0], np.full((a.shape[0], extra, 3), 255, np.float32), a[:, g0:]], 1)
+    m = np.concatenate([m[:, :g0], np.zeros((m.shape[0], extra), bool), m[:, g0:]], 1)
+    tw, th = 203, 32
+    s = min(tw / a.shape[1], th * PIXEL_ASPECT / a.shape[0])
+    w, h = round(a.shape[1] * s), round(a.shape[0] * s / PIXEL_ASPECT)
+    rgb = Image.fromarray(a.astype(np.uint8)).resize((w, h), Image.LANCZOS)
+    al = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((w, h), Image.LANCZOS)) >= 128
+    word = np.where(al, to_palette(rgb, gpal, fullbright), 255).astype(np.uint8)
+    wide = np.full((th, tw), 255, np.uint8)
+    y0, x0 = (th - h) // 2, (tw - w) // 2
+    wide[y0:y0 + h, x0:x0 + w] = word
+    path = os.path.join(ROOT, 'game', 'textures', 'logo_ingame.art')
+    write_art(path, WIDETILE, wide)
+    print(path, '%dx%d' % (w, h))
+    prev = gpal[wide].astype(np.uint8)
+    prev[wide == 255] = (40, 40, 40)
+    Image.fromarray(prev).resize((tw * 3, round(th * 3 * PIXEL_ASPECT)), Image.NEAREST).save(
+        os.path.join(ROOT, 'art', 'title', 'logo_ingame_preview.png'))
     menu = Image.open(MENU).convert('RGB').resize((320, 200), Image.LANCZOS)
     midx = to_palette(menu, gpal, fullbright)
     path = os.path.join(ROOT, 'game', 'textures', 'menu.art')

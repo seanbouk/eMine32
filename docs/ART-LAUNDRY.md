@@ -126,7 +126,8 @@ Each mob also needs spawn rules and Minecraft-style navigation.
 | [x] | Mini font | MINIFONT 3072 | R | Done: Silkscreen (OFL), `tools/mkfont.py`; lowercase filled in too. |
 | [ ] | Inventory/ammo HUD icons | | R/C | Only for items we keep. |
 | [x] | Title / menu background | MENUSCREEN 2456, BETASCREEN 2493 | R | Done: "Shift Happens" title picture and rock menu backdrop, 320x200 in each screen's own palette (`tools/mktitle.py`, art in `art/title/`). |
-| [~] | Logos | DREALMS 2492, DUKENUKEM 2497, THREEDEE 2498, INGAMEDUKETHREEDEE 2499 | R/C | DUKENUKEM and THREEDEE done: SHIFT / HAPPENS fly in over the title (`tools/mktitle.py`). Still Duke's: the 3D Realms logo before the title (DREALMS) and the in-game menu logo (INGAMEDUKETHREEDEE). |
+| [~] | Logos | DREALMS 2492, DUKENUKEM 2497, THREEDEE 2498, INGAMEDUKETHREEDEE 2499 | R/C | DUKENUKEM, THREEDEE (SHIFT / HAPPENS flying in over the title) and INGAMEDUKETHREEDEE (SHIFT HAPPENS over the in-game menu) done, `tools/mktitle.py`. Still Duke's: the 3D Realms logo before the title (DREALMS). |
+| [x] | Menu cursor | SPINNINGNUKEICON 2813-2819 | R | Done: a spinning grass block from our block faces (`tools/mkcursor.py`). |
 | [ ] | Loading screen | LOADSCREEN 3281 | R | |
 | [ ] | Help / ordering / story screens | F1HELP 2445, ORDERING 3270–3273, TEXTSTORY 3280 | C | Or one help screen of our own. |
 | [ ] | Player third-person sprite | APLAYER 1405 | C? | Only seen in mirrors, multiplayer and death cam. |

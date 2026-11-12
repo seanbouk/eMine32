@@ -64,8 +64,8 @@ bool eat(DukePlayer_t *ps, int kind)
     health = min(ps->max_player_health, health + foodDefs[kind].heal);
     Bstrcpy(apStrings[QUOTE_RESERVED4], foodDefs[kind].quote);
     P_DoQuote(QUOTE_RESERVED4, ps);
-    A_PlaySound(328, ps->i);  // Duke's EATFOOD (soundefs.h); food gets its own sounds with the audio pass
-    P_PalFrom(ps, 16, 0, 24, 0);  // a green flash, like Duke's health pickups
+    S_PlaySound(DUKE_GET);        // the sound and green flash of Duke's health pickups (GAME.CON's quikget)
+    P_PalFrom(ps, 16, 0, 32, 0);
     return true;
 }
 
