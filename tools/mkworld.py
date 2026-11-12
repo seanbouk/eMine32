@@ -427,6 +427,7 @@ def write_textures():
     lines.append('// the night sky: one panorama, wrapped once around the horizon (horizon at 3/4 of its height)')
     lines.append('tilefromtexture %d { file "textures/sky.png" }' % SKYTILE)
     lines.append('// the title screen, replacing BETASCREEN in its own size and palette (tools/mktitle.py)')
+    lines.append('artfile { file "textures/studio.art" }  // over DREALMS, the studio screen before the title')
     lines.append('artfile { file "textures/title.art" }')
     lines.append('artfile { file "textures/logo_shift.art" }    // over DUKENUKEM')
     lines.append('artfile { file "textures/logo_happens.art" }  // over THREEDEE')

@@ -22,6 +22,8 @@ MENUTILE = 2456  # MENUSCREEN
 WIDE = os.path.join(ROOT, 'art', 'title', 'logo_wide.png')  # "SHIFT HAPPENS" on one line, on white
 WIDETILE = 2499  # INGAMEDUKETHREEDEE: the name at the top of the menu you get in play (203x32)
 WIDE_GAP = 3     # the gap between the two words, times the painting's
+STUDIO = os.path.join(ROOT, 'art', 'title', 'studio.jpg')  # the studio screen before the title
+STUDIOTILE = 2492  # DREALMS: 320x200, shown in its own palette (DREALMSPAL)
 MENUPREVIEW = os.path.join(ROOT, 'art', 'title', 'menu_320x200.png')
 LOGO = os.path.join(ROOT, 'art', 'title', 'logo.jpg')
 LOGO_WHITE = os.path.join(ROOT, 'art', 'title', 'logo_white.jpg')  # the same render on white: for the cut-out only
@@ -33,12 +35,13 @@ ZOOM = 60 / 64
 PIXEL_ASPECT = 1.2  # 320x200 shown at 4:3: pixels are 1.2 times taller than wide
 
 
-def title_palette():
+def title_palette(block=2):
+    """A palette from LOOKUP.DAT: after the lookup tables come water, slime, title (2), 3D Realms (3), ending."""
     sys.path.insert(0, HERE)
     import mksprite
     d = mksprite.grp_file(mksprite.GRP, 'LOOKUP.DAT')
     n = d[0]
-    base = 1 + n * 257 + 2 * 768  # after the lookups: water, slime, then the title palette
+    base = 1 + n * 257 + block * 768
     return np.frombuffer(d[base:base + 768], np.uint8).reshape(256, 3).astype(np.int32) << 2
 
 
@@ -145,6 +148,8 @@ def main():
     from scipy import ndimage
     a = np.asarray(Image.open(WIDE).convert('RGB'), np.float32)
     m = (a.mean(2) < 215) | (a.max(2) - a.min(2) > 40)
+    # the shape from the white render, the colours from the rock one (the same render: white would fringe the edges)
+    a = np.asarray(Image.open(MENU).convert('RGB').resize((a.shape[1], a.shape[0]), Image.LANCZOS), np.float32)
     m = ndimage.binary_opening(m, np.ones((2, 2)))
     lab, n = ndimage.label(m)
     m = np.isin(lab, 1 + np.nonzero(ndimage.sum(m, lab, range(1, n + 1)) > 200)[0])
@@ -160,7 +165,7 @@ def main():
         x += 1
     _, g0, g1 = max(runs)
     extra = (g1 - g0) * (WIDE_GAP - 1)
-    a = np.concatenate([a[:, :g0], np.full((a.shape[0], extra, 3), 255, np.float32), a[:, g0:]], 1)
+    a = np.concatenate([a[:, :g0], np.zeros((a.shape[0], extra, 3), np.float32), a[:, g0:]], 1)
     m = np.concatenate([m[:, :g0], np.zeros((m.shape[0], extra), bool), m[:, g0:]], 1)
     tw, th = 203, 32
     s = min(tw / a.shape[1], th * PIXEL_ASPECT / a.shape[0])
@@ -184,6 +189,15 @@ def main():
     write_art(path, MENUTILE, midx)
     print(path)
     Image.fromarray(gpal[midx].astype(np.uint8)).resize((640, 480), Image.NEAREST).save(MENUPREVIEW)
+
+    # the studio screen (in place of 3D Realms'), in its palette
+    spal = title_palette(3)
+    sidx = to_palette(Image.open(STUDIO).convert('RGB').resize((320, 200), Image.LANCZOS), spal)
+    path = os.path.join(ROOT, 'game', 'textures', 'studio.art')
+    write_art(path, STUDIOTILE, sidx)
+    print(path)
+    Image.fromarray(spal[sidx].astype(np.uint8)).resize((640, 480), Image.NEAREST).save(
+        os.path.join(ROOT, 'art', 'title', 'studio_320x200.png'))
 
 
 if __name__ == '__main__':
