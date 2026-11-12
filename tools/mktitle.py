@@ -24,6 +24,11 @@ WIDETILE = 2499  # INGAMEDUKETHREEDEE: the name at the top of the menu you get i
 WIDE_GAP = 3     # the gap between the two words, times the painting's
 STUDIO = os.path.join(ROOT, 'art', 'title', 'studio.jpg')  # the studio screen before the title
 STUDIOTILE = 2492  # DREALMS: 320x200, shown in its own palette (DREALMSPAL)
+LOADING = os.path.join(ROOT, 'art', 'loading', 'loading.png')  # an aerial shot of the world (4:3)
+LOADINGTILE = 3281  # LOADSCREEN: 320x200, game palette
+LOADING_BLUR = 14   # Gaussian radius in the shot's pixels (1280 wide): the blocks melt away
+LOADING_LOGO = (180, 162)  # the name's width and centre row on the 320x200 screen (the game writes "Loading" and
+                           # the level name at rows 90-125, and a status line at 180)
 MENUPREVIEW = os.path.join(ROOT, 'art', 'title', 'menu_320x200.png')
 LOGO = os.path.join(ROOT, 'art', 'title', 'logo.jpg')
 LOGO_WHITE = os.path.join(ROOT, 'art', 'title', 'logo_white.jpg')  # the same render on white: for the cut-out only
@@ -117,6 +122,38 @@ def logo_word(src, mask, band, face_w, want_y, drawn_y, pal):
     return np.vstack([idx, blank] if pad > 0 else [blank, idx])
 
 
+def wide_logo(width):
+    """"SHIFT HAPPENS" on one line: (RGB image, alpha mask) `width` 320x200 pixels wide (on its tall pixels). Cut
+    from the white render, coloured from the rock one, the gap between the words widened."""
+    from scipy import ndimage
+    a = np.asarray(Image.open(WIDE).convert('RGB'), np.float32)
+    m = (a.mean(2) < 215) | (a.max(2) - a.min(2) > 40)
+    # the shape from the white render, the colours from the rock one (the same render: white would fringe the edges)
+    a = np.asarray(Image.open(MENU).convert('RGB').resize((a.shape[1], a.shape[0]), Image.LANCZOS), np.float32)
+    m = ndimage.binary_opening(m, np.ones((2, 2)))
+    lab, n = ndimage.label(m)
+    m = np.isin(lab, 1 + np.nonzero(ndimage.sum(m, lab, range(1, n + 1)) > 200)[0])
+    ys, xs = np.nonzero(m)
+    a, m = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1], m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    empty = ~m.any(0)
+    runs, x = [], 0  # the widest run of empty columns is the space between the words
+    while x < len(empty):
+        if empty[x]:
+            x0 = x
+            while x < len(empty) and empty[x]: x += 1
+            runs.append((x - x0, x0, x))
+        x += 1
+    _, g0, g1 = max(runs)
+    extra = (g1 - g0) * (WIDE_GAP - 1)
+    a = np.concatenate([a[:, :g0], np.zeros((a.shape[0], extra, 3), np.float32), a[:, g0:]], 1)
+    m = np.concatenate([m[:, :g0], np.zeros((m.shape[0], extra), bool), m[:, g0:]], 1)
+    w = width
+    h = round(a.shape[0] * width / a.shape[1] / PIXEL_ASPECT)
+    rgb = Image.fromarray(a.astype(np.uint8)).resize((w, h), Image.LANCZOS)
+    al = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((w, h), Image.LANCZOS)) >= 128
+    return rgb, al
+
+
 def main():
     pal = title_palette()
     im = Image.open(SRC).convert('RGB').resize((320, 200), Image.LANCZOS)  # 4:3 shown with tall pixels
@@ -144,34 +181,10 @@ def main():
     # the menu backdrop
     gpal, fullbright = game_palette()
 
-    # the name over the in-game menu: cut from white, the gap between the words widened, fitted to Duke's tile
-    from scipy import ndimage
-    a = np.asarray(Image.open(WIDE).convert('RGB'), np.float32)
-    m = (a.mean(2) < 215) | (a.max(2) - a.min(2) > 40)
-    # the shape from the white render, the colours from the rock one (the same render: white would fringe the edges)
-    a = np.asarray(Image.open(MENU).convert('RGB').resize((a.shape[1], a.shape[0]), Image.LANCZOS), np.float32)
-    m = ndimage.binary_opening(m, np.ones((2, 2)))
-    lab, n = ndimage.label(m)
-    m = np.isin(lab, 1 + np.nonzero(ndimage.sum(m, lab, range(1, n + 1)) > 200)[0])
-    ys, xs = np.nonzero(m)
-    a, m = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1], m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
-    empty = ~m.any(0)
-    runs, x = [], 0  # the widest run of empty columns is the space between the words
-    while x < len(empty):
-        if empty[x]:
-            x0 = x
-            while x < len(empty) and empty[x]: x += 1
-            runs.append((x - x0, x0, x))
-        x += 1
-    _, g0, g1 = max(runs)
-    extra = (g1 - g0) * (WIDE_GAP - 1)
-    a = np.concatenate([a[:, :g0], np.zeros((a.shape[0], extra, 3), np.float32), a[:, g0:]], 1)
-    m = np.concatenate([m[:, :g0], np.zeros((m.shape[0], extra), bool), m[:, g0:]], 1)
+    # the name over the in-game menu, fitted to Duke's tile
     tw, th = 203, 32
-    s = min(tw / a.shape[1], th * PIXEL_ASPECT / a.shape[0])
-    w, h = round(a.shape[1] * s), round(a.shape[0] * s / PIXEL_ASPECT)
-    rgb = Image.fromarray(a.astype(np.uint8)).resize((w, h), Image.LANCZOS)
-    al = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((w, h), Image.LANCZOS)) >= 128
+    rgb, al = wide_logo(tw)
+    w, h = rgb.size
     word = np.where(al, to_palette(rgb, gpal, fullbright), 255).astype(np.uint8)
     wide = np.full((th, tw), 255, np.uint8)
     y0, x0 = (th - h) // 2, (tw - w) // 2
@@ -189,6 +202,23 @@ def main():
     write_art(path, MENUTILE, midx)
     print(path)
     Image.fromarray(gpal[midx].astype(np.uint8)).resize((640, 480), Image.NEAREST).save(MENUPREVIEW)
+
+    # the loading screen: the world, blurred until it's just shapes and light, with the name low in the middle
+    from PIL import ImageFilter
+    shot = Image.open(LOADING).convert('RGB')
+    shot = shot.filter(ImageFilter.GaussianBlur(LOADING_BLUR * shot.width / 1280)).resize((320, 200), Image.LANCZOS)
+    lw, ly = LOADING_LOGO
+    rgb, al = wide_logo(lw)
+    x0, y0 = (320 - lw) // 2, ly - rgb.height // 2
+    canvas = np.asarray(shot, np.float32).copy()
+    region = canvas[y0:y0 + rgb.height, x0:x0 + lw]
+    region[al] = np.asarray(rgb, np.float32)[al]
+    lidx = to_palette(Image.fromarray(canvas.astype(np.uint8)), gpal, fullbright)
+    path = os.path.join(ROOT, 'game', 'textures', 'loading.art')
+    write_art(path, LOADINGTILE, lidx)
+    print(path)
+    Image.fromarray(gpal[lidx].astype(np.uint8)).resize((640, 480), Image.NEAREST).save(
+        os.path.join(ROOT, 'art', 'loading', 'loading_320x200.png'))
 
     # the studio screen (in place of 3D Realms'), in its palette
     spal = title_palette(3)

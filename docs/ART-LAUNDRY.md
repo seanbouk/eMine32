@@ -128,7 +128,7 @@ Each mob also needs spawn rules and Minecraft-style navigation.
 | [x] | Title / menu background | MENUSCREEN 2456, BETASCREEN 2493 | R | Done: "Shift Happens" title picture and rock menu backdrop, 320x200 in each screen's own palette (`tools/mktitle.py`, art in `art/title/`). |
 | [x] | Logos | DREALMS 2492, DUKENUKEM 2497, THREEDEE 2498, INGAMEDUKETHREEDEE 2499 | R | Done (`tools/mktitle.py`): the SeanOfEarth studio screen over DREALMS, SHIFT / HAPPENS flying in over the title, SHIFT HAPPENS over the in-game menu. |
 | [x] | Menu cursor | SPINNINGNUKEICON 2813-2819 | R | Done: a spinning grass block from our block faces (`tools/mkcursor.py`). |
-| [ ] | Loading screen | LOADSCREEN 3281 | R | |
+| [x] | Loading screen | LOADSCREEN 3281 | R | Done: an aerial shot of the world blurred to shapes and light, SHIFT HAPPENS low in the middle (`tools/mktitle.py`, `art/loading/loading.png`). The progress bar the game draws over it (tile 929) is still Duke's. |
 | [ ] | Help / ordering / story screens | F1HELP 2445, ORDERING 3270–3273, TEXTSTORY 3280 | C | Or one help screen of our own. |
 | [ ] | Player third-person sprite | APLAYER 1405 | C? | Only seen in mirrors, multiplayer and death cam. |
 
