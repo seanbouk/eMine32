@@ -1446,6 +1446,10 @@ void fadepal(int32_t r, int32_t g, int32_t b, int32_t start, int32_t end, int32_
 }
 
 // START and END limits are always inclusive!
+// eMine32: our own title picture replaces Duke's (and his name flying in over it). It's a big tile (game/emine32.def,
+// tools/mktitle.py), already dithered into the game palette, drawn to fill the screen's height.
+#define EMINE_TITLE 7300
+
 static void fadepaltile(int32_t r, int32_t g, int32_t b, int32_t start, int32_t end, int32_t step, int32_t tile)
 {
     if (ud.screenfade == 0)
@@ -1466,7 +1470,8 @@ static void fadepaltile(int32_t r, int32_t g, int32_t b, int32_t start, int32_t 
             return;
         }
 
-        rotatesprite_fs(160<<16, 100<<16, 65536L, 0, tile, 0, 0, 2+8+64+BGSTRETCH);
+        if (tile == EMINE_TITLE) rotatesprite_fs(160<<16, 100<<16, divscale16(200, tilesiz[tile].y), 0, tile, 0, 0, 2+8+64);
+        else rotatesprite_fs(160<<16, 100<<16, 65536L, 0, tile, 0, 0, 2+8+64+BGSTRETCH);
         G_FadePalette(r, g, b, start);
         start += step;
     } while (start != end+step);
@@ -1594,19 +1599,27 @@ void gameDisplay3DRScreen()
     }
 }
 
+static bool emineTitle(void) { return tilesiz[EMINE_TITLE].y > 0; }
+static void emineDrawTitle(void)
+{
+    rotatesprite_fs(160 << 16, 100 << 16, divscale16(200, tilesiz[EMINE_TITLE].y), 0, EMINE_TITLE, 0, 0, 2 + 8 + 64);
+}
+
 void gameDisplayTitleScreen(void)
 {
     int titlesound  = 0;
-    int32_t const logoflags = G_GetLogoFlags();
+    int32_t const logoflags = emineTitle() ? 0 : G_GetLogoFlags();
+    int const titleTile = emineTitle() ? EMINE_TITLE : BETASCREEN;
 
     videoClearScreen(0);
 
     // g_player[myconnectindex].ps->palette = titlepal;
-    P_SetGamePalette(g_player[myconnectindex].ps, TITLEPAL, 8 + 2 + 1);  // JBF 20040308
+    P_SetGamePalette(g_player[myconnectindex].ps, emineTitle() ? BASEPAL : TITLEPAL, 8 + 2 + 1);  // JBF 20040308
     renderFlushPerms();
-    rotatesprite_fs(160 << 16, 100 << 16, 65536L, 0, BETASCREEN, 0, 0, 2 + 8 + 64 + BGSTRETCH);
+    if (emineTitle()) emineDrawTitle();
+    else rotatesprite_fs(160 << 16, 100 << 16, 65536L, 0, BETASCREEN, 0, 0, 2 + 8 + 64 + BGSTRETCH);
     KB_FlushKeyboardQueue();
-    fadepaltile(0, 0, 0, 252, 0, -28, BETASCREEN);
+    fadepaltile(0, 0, 0, 252, 0, -28, titleTile);
     totalclock = 0;
 
     while (
@@ -1618,7 +1631,8 @@ void gameDisplayTitleScreen(void)
         if (engineFPSLimit(true))
         {
             videoClearScreen(0);
-            rotatesprite_fs(160 << 16, 100 << 16, 65536L, 0, BETASCREEN, 0, 0, 2 + 8 + 64 + BGSTRETCH);
+            if (emineTitle()) emineDrawTitle();
+            else rotatesprite_fs(160 << 16, 100 << 16, 65536L, 0, BETASCREEN, 0, 0, 2 + 8 + 64 + BGSTRETCH);
             rotatespritesmoothratio = calc_smoothratio(totalclock, ototalclock, REALGAMETICSPERSEC);
 
             if (logoflags & LOGO_DUKENUKEM)
