@@ -589,6 +589,19 @@ static int osdcmd_emine_find(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+// Dev console: `emine_look <horiz>` sets where the player looks up/down (Build's horiz: 100 is level, lower looks
+// down: the horizon sits at about horiz/200 of the way down the screen). For screenshots.
+static int osdcmd_emine_look(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (parm->numparms < 1 || p->i < 0) return OSDCMD_SHOWHELP;
+    p->q16horiz = fix16_from_int(Batol(parm->parms[0]));
+    p->q16horizoff = 0;
+    p->oq16horiz = p->q16horiz;
+    OSD_Printf("emine_look: horiz %d\n", fix16_to_int(p->q16horiz));
+    return OSDCMD_OK;
+}
+
 // Dev console: `emine_where` toggles printing what the player is standing/swimming in.
 static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 {
@@ -598,6 +611,7 @@ static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 
 void Emine_RegisterOSD(void)
 {
+    OSD_RegisterFunction("emine_look", "emine_look <horiz>: dev - set the view pitch (100 level, lower looks down)", osdcmd_emine_look);
     OSD_RegisterFunction("emine_find", "emine_find <blocktype>: dev - stand on the nearest column topped with that block (31 = snow)", osdcmd_emine_find);
     OSD_RegisterFunction("emine_ore", "emine_ore <blocktype>: dev - drop what breaking that ore gives (11 coal, 12 iron, 13 gold, 14 redstone, 33 lapis, 34 diamond)", osdcmd_emine_ore);
     OSD_RegisterFunction("emine_spawn", "emine_spawn <tile> [blocks]: dev - spawn that sprite/actor on the ground in front of you (default 4 blocks)", osdcmd_emine_spawn);
