@@ -5336,7 +5336,7 @@ int Menu_Change(MenuID_t cm)
         ud.m_level_number = 0;
         M_SKILL.currentEntry = 1;
         ud.m_player_skill = 2;
-        ud.skill_voice = S_PlaySound(DUKE_GETWEAPON2);
+        ud.skill_voice = S_PlaySound(BONUS_SPEECH1);  // "Let's rock!", as the skill menu plays for it
         ud.m_respawn_monsters = 0;
         ud.m_monsters_off = ud.monsters_off = 0;
         ud.m_respawn_items = 0;
