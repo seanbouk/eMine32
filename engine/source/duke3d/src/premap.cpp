@@ -385,10 +385,7 @@ static void G_DoLoadScreen(const char *statustext, int percent)
     }
     else
     {
-        menutext_center(90, "Loading");
-
-        if (g_mapInfo[(ud.volume_number*MAXLEVELS) + ud.level_number].name != NULL)
-            menutext_center(90+16+8, g_mapInfo[(ud.volume_number*MAXLEVELS) + ud.level_number].name);
+        menutext_center(90, "Loading");  // eMine32: no level name under it (the name shows as play starts)
     }
 
 #ifndef EDUKE32_TOUCH_DEVICES
@@ -1949,6 +1946,14 @@ int G_EnterLevel(int gameMode)
     Bassert((unsigned)mapidx < ARRAY_SIZE(g_mapInfo));
 
     auto &m = g_mapInfo[mapidx];
+
+    // eMine32: one world, and it's ours: whatever the game data calls the first map, it's "The Mines" (shown as play
+    // starts, in the window title and on saves)
+    if (mapidx == 0 && m.name != NULL && Bstrcmp(m.name, "The Mines"))
+    {
+        Xfree(m.name);
+        m.name = Xstrdup("The Mines");
+    }
 
     if (VOLUMEONE || !Menu_HaveUserMap())
     {
