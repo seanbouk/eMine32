@@ -120,13 +120,13 @@ Each mob also needs spawn rules and Minecraft-style navigation.
 | ✓ | Asset | Tile(s) | Disp. | Notes |
 |---|---|---|---|---|
 | [ ] | Status bar | BOTTOMSTATUSBAR 2462 | R | Or use the minimal HUD only. |
-| [ ] | HUD digits | DIGITALNUM 2472 | R | 10 glyphs. |
-| [ ] | Menu font | STARTALPHANUM 2822 | R | ~64 glyphs. |
-| [ ] | Big font (menu titles) | BIGALPHANUM 2940 | R | |
-| [ ] | Mini font | MINIFONT 3072 | R | |
+| [x] | HUD digits | DIGITALNUM 2472 | R | Done: Anton (OFL), `tools/mkfont.py`. |
+| [x] | Small font (messages, small menu text) | STARTALPHANUM 2822 | R | Done: Press Start 2P (OFL), `tools/mkfont.py`. |
+| [x] | Menu font (big red, and its grey twin) | BIGALPHANUM 2929-3009, BIGAPPOS 3022 | R | Done: Anton (OFL), `tools/mkfont.py`. |
+| [x] | Mini font | MINIFONT 3072 | R | Done: Silkscreen (OFL), `tools/mkfont.py`; lowercase filled in too. |
 | [ ] | Inventory/ammo HUD icons | | R/C | Only for items we keep. |
-| [ ] | Title / menu background | MENUSCREEN 2456, BETASCREEN 2493 | R | eMine32 title. |
-| [ ] | Logos | DREALMS 2492, THREEDEE 2498, INGAMEDUKETHREEDEE 2499 | R/C | |
+| [x] | Title / menu background | MENUSCREEN 2456, BETASCREEN 2493 | R | Done: "Shift Happens" title picture and rock menu backdrop, 320x200 in each screen's own palette (`tools/mktitle.py`, art in `art/title/`). |
+| [~] | Logos | DREALMS 2492, DUKENUKEM 2497, THREEDEE 2498, INGAMEDUKETHREEDEE 2499 | R/C | DUKENUKEM and THREEDEE done: SHIFT / HAPPENS fly in over the title (`tools/mktitle.py`). Still Duke's: the 3D Realms logo before the title (DREALMS) and the in-game menu logo (INGAMEDUKETHREEDEE). |
 | [ ] | Loading screen | LOADSCREEN 3281 | R | |
 | [ ] | Help / ordering / story screens | F1HELP 2445, ORDERING 3270–3273, TEXTSTORY 3280 | C | Or one help screen of our own. |
 | [ ] | Player third-person sprite | APLAYER 1405 | C? | Only seen in mirrors, multiplayer and death cam. |

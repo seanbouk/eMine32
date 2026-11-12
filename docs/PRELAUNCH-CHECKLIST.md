@@ -13,6 +13,10 @@ Run through this before publishing to itch.io / Game Off.
 - [ ] EDuke32 GPLv2 obligations: source public (this repo), licence + credits included in the build.
 - [ ] Repo is public and matches the submitted build (Game Off rule).
 
+## Font licences (SIL Open Font Licence 1.1)
+- [ ] Ship each font's `OFL.txt` with the build (`art/fonts/anton`, `pressstart2p`, `silkscreen`) and credit them:
+      Anton (The Anton Project Authors), Press Start 2P (CodeMan38), Silkscreen (The Silkscreen Project Authors).
+
 ## Build engine licence (Ken Silverman, BUILDLIC.TXT) - applies on top of GPL
 - [ ] Distributed only over the internet, completely free of charge (itch.io free / no paid tiers or donations-gated builds).
 - [ ] Ship `BUILDLIC.TXT` and the "Build Engine & Tools Copyright (c) 1993-1997 Ken Silverman" notice with every build (incl. web).
