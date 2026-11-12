@@ -887,6 +887,7 @@ void P_ResetWeapons(int playerNum)
     p.ammo_amount[PISTOL_WEAPON] = min<int16_t>(p.max_ammo_amount[PISTOL_WEAPON], 48);
     Emine_ResetWeapons(playerNum);  // eMine32
     Emine_MobsLevelStart();         // eMine32
+    Emine_FoodLevelStart();         // eMine32
 
     VM_OnEvent(EVENT_RESETWEAPONS, p.i, playerNum);
 }

@@ -12,7 +12,9 @@
 //  - paths: A* over the blocks (hop up one block, drop up to three, room to stand, no lava); spiders climb.
 //  - when hurt: knocked back with a little hop, flinches, and turns on the player even if it can't see them.
 //  - idle: strolls somewhere within 10 blocks every ~6 seconds.
-//  - dies with its fall-over frames, lies there 10 seconds, then puffs away. Explosives gib it.
+//  - dies with its fall-over frames, lies there 10 seconds, then puffs away. Killed by an explosion, it goes down in
+//    flames; a body blown up afterwards is gibbed.
+//  - zombies drop meat (emine_food.cpp): raw, or cooked if the explosion killed them.
 //
 // Zombie   (PIGCOP)   follow 35 blocks, melee within 1.4 blocks once a second, alerts other zombies when hurt.
 // Skeleton (LIZTROOP) follow 16 blocks; shoots arrows (they arc and stick in blocks) every 2 seconds from up to 15
@@ -128,6 +130,7 @@ struct Mob
     bool spawned, cave;  // by the spawner, and where
     bool climbing;
     int fuse;            // creeper
+    int burn;            // tics left on fire (killed by an explosion)
     int strafe, strafeTics, draw;  // skeleton: strafe direction (+1/-1), when to maybe switch, bow draw
     std::vector<Node> path;
     size_t step;         // next path node
@@ -417,11 +420,24 @@ void alertOthers(int i, int playerSprite)
     }
 }
 
-void startDying(int i, Mob &m, DukePlayer_t *ps)
+int constexpr MOB_BURN = 75;  // tics a body killed by an explosion burns for
+
+void startDying(int i, Mob &m, DukePlayer_t *ps, bool burnt = false)
 {
     auto &s = sprite[i];
     auto const &d = mobDefs[m.type];
     P_AddKills(ps, 1);
+    if (m.type == MT_ZOMBIE)
+    {
+        vec3_t const at = { s.x, s.y, s.z - spriteHeight(s) / 2 };
+        Emine_FoodDrop(burnt ? EMINE_FOOD_COOKED : EMINE_FOOD_MEAT, at, i);
+        if (krand() % 3 == 0) Emine_FoodDrop(burnt ? EMINE_FOOD_COOKED : EMINE_FOOD_MEAT, at, i);
+    }
+    if (burnt && mobActions(m.type).dying)
+    {
+        m.burn = MOB_BURN;
+        s.shade = 24;  // charred
+    }
     m.path.clear();
     s.cstat &= ~257;  // the body doesn't block or catch shots
     if (d.sndDie) A_PlaySound(d.sndDie, i);
@@ -453,8 +469,7 @@ void hurt(int i, Mob &m, int weapon, DukePlayer_t *ps)
     if (d.bleeds) A_Spawn(i, BLOOD);
     if (s.extra <= 0)
     {
-        if (isExplosive(weapon) && d.bleeds) { P_AddKills(ps, 1); gib(i, m); return; }
-        startDying(i, m, ps);
+        startDying(i, m, ps, isExplosive(weapon));
         return;
     }
     if (d.sndPain) A_PlaySound(d.sndPain, i);
@@ -621,7 +636,20 @@ int mobThink(int i, int playerNum)
     if (m.state != MS_LIVE)
     {
         A_Fall(i);
-        if (isExplosive(weapon) && d.bleeds) gib(i, m);  // blow the body apart
+        if (isExplosive(weapon) && d.bleeds && m.burn <= 0) gib(i, m);  // blow the body apart
+        if (m.burn > 0 && --m.burn % 5 == 0)
+        {
+            // flames licking up the body, thinning out as it burns down
+            if (m.burn > MOB_BURN / 3 || (krand() & 1))
+            {
+                int const f = A_Spawn(i, BURNING);
+                int const h = spriteHeight(s);
+                vec3_t const at = { s.x + (krand() % 161) - 80, s.y + (krand() % 161) - 80,
+                                    s.z - (m.state == MS_DEAD ? h / 6 : (int32_t)(krand() % max(1, h * 3 / 4))) };
+                setsprite(f, &at);
+            }
+            if (m.burn % 20 == 0) A_Spawn(i, SMALLSMOKE);
+        }
         if (m.state == MS_DYING && AC_ACTION_COUNT(t) >= d.dyingFrames)
         {
             m.state = MS_DEAD;

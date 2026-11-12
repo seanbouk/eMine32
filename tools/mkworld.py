@@ -240,6 +240,10 @@ TEXTURES = [
     ('snow_side',  snow_side),
     ('lapis_ore',  lambda: ore(33, (36, 70, 190))),
     ('diamond_ore', lambda: ore(34, (100, 230, 225), clusters=4)),
+    ('melon_side', lambda: noise_tex(35, (60, 120, 40), 0.25)),
+    ('melon_top',  lambda: noise_tex(36, (70, 130, 45), 0.25)),
+    ('melon_vine', tallgrass),
+    ('mushroom',   tallgrass),
 ]
 
 def cracks():
@@ -304,7 +308,7 @@ def snap(im):
     out[..., :3] = pal[i].reshape(a.shape[0], a.shape[1], 3)
     return Image.fromarray(out.astype(np.uint8), 'RGBA' if im.mode == 'RGBA' else None).convert(im.mode)
 
-PLANTS = ('tallgrass', 'flower_red', 'flower_yellow')
+PLANTS = ('tallgrass', 'flower_red', 'flower_yellow', 'melon_vine', 'mushroom')
 
 def face(name, fn):
     """The OUT x OUT face: painted art downsampled (box filter: an honest average, then a touch of sharpening so it

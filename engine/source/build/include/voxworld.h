@@ -63,6 +63,9 @@ enum vwblock_t : uint8_t
     VW_SNOWBLOCK,  // solid snow, on the highest peaks
     VW_LAPIS,      // rare ore, middling depth
     VW_DIAMOND,    // rarest ore, deepest
+    VW_MELON,      // food: breaks into melon slices; grows back (see emine_food.cpp)
+    VW_MELON_VINE, // plant: the vine round a melon patch
+    VW_MUSHROOM,   // plant: grows in the dark in caves, glows a little blue; walk into it to eat it
     VW_NUMTYPES
 };
 
@@ -148,7 +151,7 @@ int32_t voxworld_floorz(int32_t x, int32_t y, int32_t z, int32_t def);
 // Build shade. Returns the extra shade for a point in the world (0 in full daylight).
 #define VW_LIGHTMAX 15
 // Colours of block light (each gets a tinted shade table).
-enum { VW_TINT_NONE, VW_TINT_LAVA, VW_TINT_REDSTONE, VW_NUMTINTS };
+enum { VW_TINT_NONE, VW_TINT_LAVA, VW_TINT_REDSTONE, VW_TINT_MUSHROOM, VW_NUMTINTS };
 int     voxworld_lightshade(int32_t x, int32_t y, int32_t z);
 // Light level 0..VW_LIGHTMAX of a cell (the brighter of sky and block light), Minecraft style: mobs use it to decide
 // where to spawn and whether to be hostile.

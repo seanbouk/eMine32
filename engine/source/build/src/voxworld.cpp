@@ -90,7 +90,8 @@ static void        vw_fluidstep(int kind);
 
 static FORCE_INLINE bool vw_iswater(uint8_t t) { return t >= VW_WATER && t <= VW_WATER_F1; }
 static FORCE_INLINE bool vw_islava(uint8_t t) { return t >= VW_LAVA && t <= VW_LAVA_F1; }
-static FORCE_INLINE bool vw_isplant(uint8_t t) { return t >= VW_TALLGRASS && t <= VW_FLOWER_YELLOW; }
+static FORCE_INLINE int vw_flags(uint8_t type);
+static FORCE_INLINE bool vw_isplant(uint8_t t) { return vw_flags(t) & VW_BF_PLANT; }
 // air, or as good as: plants don't block anything
 static FORCE_INLINE bool vw_isopen(uint8_t t) { return t == VW_AIR || vw_isplant(t); }
 static FORCE_INLINE bool vw_isglass(uint8_t t) { return t == VW_GLASS; }
@@ -604,6 +605,7 @@ static const uint8_t vw_tintrgb[VW_NUMTINTS][3] =
     { 255, 255, 255 },  // none
     { 255, 120,  30 },  // lava: orange
     { 255,  40,  30 },  // redstone: red
+    {  60, 140, 255 },  // mushroom: blue
 };
 static uint8_t *vw_tintlut[VW_NUMTINTS*8];  // [tint*8 + strength][shade*256 + colour]
 
@@ -663,7 +665,7 @@ enum
 {
     T_GRASS_TOP, T_GRASS_SIDE, T_DIRT, T_STONE, T_BEDROCK, T_SAND, T_WOOD_SIDE, T_WOOD_TOP, T_LEAVES, T_PLANKS, T_COBBLE,
     T_GRAVEL, T_COAL, T_IRON, T_GOLD, T_REDSTONE, T_LAVA, T_WATER, T_OBSIDIAN, T_TALLGRASS, T_FLOWER_RED, T_FLOWER_YELLOW,
-    T_GLASS, T_SNOW, T_SNOW_SIDE, T_LAPIS, T_DIAMOND,
+    T_GLASS, T_SNOW, T_SNOW_SIDE, T_LAPIS, T_DIAMOND, T_MELON_SIDE, T_MELON_TOP, T_MELON_VINE, T_MUSHROOM,
     T_COUNT
 };
 #define VW_CRACKBASE (VW_TILEBASE + T_COUNT)  // damage-stage crack masks follow the face tiles (see emine32.def)
@@ -713,11 +715,14 @@ static const vwblockdef_t vw_blockdefs[VW_NUMTYPES] =
     { T_SNOW, T_SNOW, T_SNOW, 10 },                 // snow block
     { T_LAPIS, T_LAPIS, T_LAPIS, 56 },              // lapis ore
     { T_DIAMOND, T_DIAMOND, T_DIAMOND, 72 },        // diamond ore
+    { T_MELON_TOP, T_MELON_SIDE, T_MELON_TOP, 10 }, // melon
+    { T_MELON_VINE, T_MELON_VINE, T_MELON_VINE, 1, 0, 0, VW_PLANTFLAGS },  // melon vine
+    { T_MUSHROOM, T_MUSHROOM, T_MUSHROOM, 1, 5, VW_TINT_MUSHROOM, VW_PLANTFLAGS },  // mushroom: a little blue light
 };
 
 static int     vw_emit(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].emit : 0; }
 static bool    vw_issolid(uint8_t type) { return type != VW_AIR && !(type < VW_NUMTYPES && (vw_blockdefs[type].flags & VW_BF_NONSOLID)); }
-static FORCE_INLINE int vw_flags(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].flags : 0; }
+static FORCE_INLINE int vw_flags(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].flags : 0; }  // (declared up top)
 int voxworld_blockflags(int type) { return (unsigned)type < VW_NUMTYPES ? vw_blockdefs[type].flags : 0; }
 static uint8_t vw_emittint(uint8_t type) { return type < VW_NUMTYPES ? vw_blockdefs[type].tint : 0; }
 
@@ -1199,6 +1204,42 @@ static void vw_genscratch(int x0, int y0)
                         if ((dx || dy || dz > trunk) && abs(dx) + abs(dy) <= r + 1 && vw_gget(x+dx, y+dy, s+dz) == VW_AIR)
                             vw_put(x + dx, y + dy, s + dz, VW_LEAVES);
             }
+        }
+
+    // Melon patches: now and then on open grass, a vine with melons on the grass round it (reaches 2 blocks, like a
+    // tree, so the apron covers it).
+    for (int x = max(vw_gx0, 2); x < min(x1, vw_wsx - 2); x++)
+        for (int y = max(vw_gy0, 2); y < min(y1, vw_wsy - 2); y++)
+        {
+            if (vw_hash(x, y, vw_seed + 111) % 700) continue;
+            auto open = [](int x, int y, int *s) {
+                *s = vw_height(x, y);
+                return *s + 1 < vw_sz && vw_gget(x, y, *s) == VW_GRASS && vw_gget(x, y, *s + 1) == VW_AIR;
+            };
+            int s;
+            if (!open(x, y, &s)) continue;
+            vw_put(x, y, s + 1, VW_MELON_VINE);
+            for (int dx = -2; dx <= 2; dx++)
+                for (int dy = -2; dy <= 2; dy++)
+                {
+                    int ns;
+                    if (!(dx || dy) || !open(x + dx, y + dy, &ns) || abs(ns - s) > 1) continue;
+                    uint32_t const r = vw_hash(x + dx, y + dy, vw_seed + 113) % 10;
+                    if (abs(dx) <= 1 && abs(dy) <= 1 && r < 4) vw_put(x + dx, y + dy, ns + 1, VW_MELON);
+                    else if (r < 6) vw_put(x + dx, y + dy, ns + 1, VW_MELON_VINE);
+                }
+        }
+
+    // Mushrooms on cave floors (well underground, above the lava), in patches.
+    for (int x = vw_gx0; x < x1; x++)
+        for (int y = vw_gy0; y < y1; y++)
+        {
+            if (vw_hash(x >> 3, y >> 3, vw_seed + 91) % 3) continue;
+            uint8_t *b = vw_gcol(x, y);
+            int const top = vw_height(x, y) - 4;
+            for (int z = vw_lavaline + 2; z < top; z++)
+                if (b[z] == VW_AIR && vw_issolid(b[z-1]) && b[z-1] != VW_WOOD && vw_hash(x * 131 + z, y, vw_seed + 93) % 24 == 0)
+                    b[z] = VW_MUSHROOM;
         }
 
     // Plants on open grass: mostly tall grass, thicker in meadow patches; the odd sparse clump of flowers of one colour.
@@ -2486,7 +2527,7 @@ bool voxworld_raycast(const vec3_t *start, int32_t vx, int32_t vy, int32_t vz, f
         if (face >= 0)  // don't count the block we start in
         {
             uint8_t const b = voxworld_get(bx, by, bz);
-            if (hit && vw_isplant(b) && vw_nshotplants < VW_MAXSHOTPLANTS)
+            if (hit && vw_isplant(b) && b != VW_MUSHROOM && vw_nshotplants < VW_MAXSHOTPLANTS)
                 vw_shotplants[vw_nshotplants++] = { (int16_t)bx, (int16_t)by, (int16_t)bz };
             if (b != VW_AIR && bz >= 0 && !(vw_flags(b) & VW_BF_CLEAR) && !(!hit && vw_isglass(b)))  // sight sees through glass
             {

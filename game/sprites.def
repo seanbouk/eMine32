@@ -312,3 +312,11 @@ tilefromtexture 2376 { file "sprites/slime_3.png" xoffset 0 yoffset 0 }
 tilefromtexture 2377 { file "sprites/slime_3.png" xoffset 0 yoffset 0 }
 // arrow (from art/props/arrow.png, replaces (new: the skeleton's arrow, tile 7100))
 tilefromtexture 7100 { file "sprites/arrow_0_main0.png" xoffset 0 yoffset 0 }
+// melon_slice (from art/props/melon_slice.png, replaces (new: food pickup, tile 7150; emine_food.cpp))
+tilefromtexture 7150 { file "sprites/melon_slice_0_main0.png" xoffset 0 yoffset 0 }
+// apple (from art/props/apple.png, replaces (new: food pickup, tile 7151; emine_food.cpp))
+tilefromtexture 7151 { file "sprites/apple_0_main0.png" xoffset 0 yoffset 0 }
+// meat_raw (from art/props/meat_raw.png, replaces (new: food pickup, tile 7152; emine_food.cpp))
+tilefromtexture 7152 { file "sprites/meat_raw_0_main0.png" xoffset 0 yoffset 0 }
+// meat_cooked (from art/props/meat_cooked.png, replaces (new: food pickup, tile 7153; emine_food.cpp))
+tilefromtexture 7153 { file "sprites/meat_cooked_0_main0.png" xoffset 0 yoffset 0 }

@@ -179,3 +179,15 @@ of a block. `A_MoveSpriteClipdist` now traces a projectile's real diagonal step 
   radian); Duke's narrow sky tiles keep the old 4x wrap.
 - `tools/mkworld.py` snaps faces to Duke's palette itself, skipping fullbright colours (they never fade with
   distance) and any colour that duplicates one, and paints the night sky (tile 7200).
+
+## Food: melons, mushrooms, block-light colours (2026-11-12)
+- New block types appended after `VW_DIAMOND`: `VW_MELON` (solid, hardness 10), `VW_MELON_VINE` and `VW_MUSHROOM`
+  (plants). Face tiles 7027-7030 (crack masks moved to 7031-7033). `vw_isplant` is now the `VW_BF_PLANT` flag, not
+  an id range, so plants can be added anywhere in the enum.
+- Mushrooms give off light 5 in a new blue tint (`VW_TINT_MUSHROOM`). Shots pass mushrooms without smashing them
+  (they're eaten by walking into them).
+- World generation: melon patches (a vine with melons and more vine on the grass within 2 blocks, about 1 in 700 grass
+  columns) and mushroom patches on cave floors between the lava line and 4 below the surface.
+- Game side is `duke3d/src/emine_food.cpp`: food pickups (tiles 7150-7153), apples from leaves, melon slices and
+  regrowth, mushroom spawning in the dark, and zombie meat (raw, or cooked when an explosion kills it; such deaths
+  now burn instead of gibbing). Dev command `emine_food`.

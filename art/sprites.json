@@ -155,5 +155,33 @@
     "groups": [
       { "tiles": [7100, 7100], "height": 7 }
     ]
+  },
+  "melon_slice": {
+    "source": "art/props/melon_slice.png",
+    "replaces": "(new: food pickup, tile 7150; emine_food.cpp)",
+    "groups": [
+      { "tiles": [7150, 7150], "height": 30 }
+    ]
+  },
+  "apple": {
+    "source": "art/props/apple.png",
+    "replaces": "(new: food pickup, tile 7151; emine_food.cpp)",
+    "groups": [
+      { "tiles": [7151, 7151], "height": 32 }
+    ]
+  },
+  "meat_raw": {
+    "source": "art/props/meat_raw.png",
+    "replaces": "(new: food pickup, tile 7152; emine_food.cpp)",
+    "groups": [
+      { "tiles": [7152, 7152], "height": 28 }
+    ]
+  },
+  "meat_cooked": {
+    "source": "art/props/meat_cooked.png",
+    "replaces": "(new: food pickup, tile 7153; emine_food.cpp)",
+    "groups": [
+      { "tiles": [7153, 7153], "height": 28 }
+    ]
   }
 }

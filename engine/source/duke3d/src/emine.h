@@ -42,6 +42,16 @@ void Emine_MobsLevelStart(void);  // clears Duke's map-placed enemies and our mo
 int Emine_MobTile(int spriteNum, int tile);  // the tile to draw for a mob (creepers draw from their own range)
 void Emine_RegisterMobOSD(void);
 
+// Food (emine_food.cpp): pickups that heal, melons that grow back, mushrooms in the dark.
+enum { EMINE_FOOD_MELON, EMINE_FOOD_APPLE, EMINE_FOOD_MEAT, EMINE_FOOD_COOKED, EMINE_FOOD_MUSHROOM, EMINE_FOOD_COUNT };
+void Emine_FoodDrop(int kind, vec3_t const &at, int owner);  // a pickup pops out at `at` and bounces to rest
+void Emine_FoodBlockBroken(int bx, int by, int bz, int type, int owner);  // leaves may drop an apple, melons slices
+void Emine_FoodTick(void);
+void Emine_FoodLevelStart(void);
+void Emine_RegisterFoodOSD(void);
+// A dropped sprite at height z: pop it up a little and let it fall and bounce to rest on the blocks (emine.cpp).
+void Emine_Bounce(int spriteNum, int32_t z);
+
 // Block water. Is this point in water?
 bool Emine_InWaterAt(vec3_t const &pos);
 // The sector lotag the player's movement should use: ST_2_UNDERWATER (swimming) while their body is in block

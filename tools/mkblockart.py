@@ -20,8 +20,11 @@ N = 1024
 
 SEAMLESS = ['grass_top', 'dirt', 'stone', 'bedrock', 'sand', 'wood_side', 'leaves', 'gravel', 'lava', 'water',
             'obsidian', 'snow', 'coal_ore', 'iron_ore', 'gold_ore', 'redstone_ore', 'lapis_ore', 'diamond_ore']
-AS_IS = ['planks', 'cobble', 'wood_top']
-KEYED = ['tallgrass', 'flower_red', 'flower_yellow', 'glass']  # painted on flat magenta: that becomes see-through
+AS_IS = ['planks', 'cobble', 'wood_top', 'melon_side', 'melon_top']
+KEYED = ['tallgrass', 'flower_red', 'flower_yellow', 'glass', 'melon_vine']  # painted on flat magenta: that becomes see-through
+# small plants: keyed art scaled down to this fraction of the face, standing at the bottom middle (art/props/fal has
+# the source, shared with the pickup sprites)
+SMALL = {'mushroom': 0.5}
 
 
 def load(name):
@@ -111,6 +114,18 @@ def main():
     for name in KEYED:
         if os.path.exists(os.path.join(RAW, name + '.png')):
             save(key_magenta(load(name)), name)
+
+    for name, f in SMALL.items():
+        src = os.path.join(ROOT, '..', 'props', 'fal', name + '.png')
+        if os.path.exists(src):
+            a = key_magenta(np.asarray(Image.open(src).convert('RGB').resize((N, N), Image.LANCZOS), np.float32))
+            im = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
+            im = im.crop(im.getchannel('A').point(lambda v: 255 if v >= 128 else 0).getbbox())
+            s = N * f / max(im.size)
+            im = im.resize((round(im.width * s), round(im.height * s)), Image.LANCZOS)
+            out = Image.new('RGBA', (N, N), (0, 0, 0, 0))
+            out.paste(im, ((N - im.width) // 2, N - im.height))
+            save(np.asarray(out, np.float32), name)
 
     for name in AS_IS:
         if os.path.exists(os.path.join(RAW, name + '.png')):

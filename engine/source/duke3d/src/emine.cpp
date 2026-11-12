@@ -94,6 +94,12 @@ static void Emine_MoveDrops(void)
     }
 }
 
+void Emine_Bounce(int spriteNum, int32_t z)
+{
+    if (emine_ndrops < EMINE_MAXDROPS)
+        emine_drops[emine_ndrops++] = { (int16_t)spriteNum, sprite[spriteNum].picnum, z, -500 - (krand() & 255), 0 };
+}
+
 static bool Emine_OreDrop(int bx, int by, int bz, int type, int ownerSprite)
 {
     int count;
@@ -128,6 +134,7 @@ void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit)
         int const owner = sprite[shotSprite].owner >= 0 ? sprite[shotSprite].owner : shotSprite;
         Emine_BlockDestroyedFX(bx, by, bz, type, owner, 5, true);
         Emine_OreDrop(bx, by, bz, type, owner);
+        Emine_FoodBlockBroken(bx, by, bz, type, owner);
     }
 }
 
@@ -152,7 +159,7 @@ void Emine_ShotPlants(int shooterSprite, const vec3_t *start, int32_t reach)
     voxworld_smashplants(start, reach, Emine_OnPlantSmashed, &shooterSprite);
 }
 
-struct emine_blastctx { int owner, count, drops; };
+struct emine_blastctx { int owner, count, drops, food; };
 
 static void Emine_OnBlastDestroyed(int bx, int by, int bz, int type, void *ud)
 {
@@ -164,6 +171,11 @@ static void Emine_OnBlastDestroyed(int bx, int by, int bz, int type, void *ud)
     // ores blown out drop their ammo too, up to a few per blast (a rocket into a coal seam shouldn't carpet the floor)
     if (ctx.drops < 6 && Emine_OreDrop(bx, by, bz, type, ctx.owner))
         ctx.drops++;
+    if (ctx.food < 8 && (type == VW_LEAVES || type == VW_MELON))
+    {
+        Emine_FoodBlockBroken(bx, by, bz, type, ctx.owner);
+        ctx.food++;
+    }
 }
 
 void Emine_ExplosionBlocks(int spriteNum, int blastRadius, int maxDamage)
@@ -173,7 +185,7 @@ void Emine_ExplosionBlocks(int spriteNum, int blastRadius, int maxDamage)
 
     // Blocks get the explosion's full damage at the centre falling to zero at the edge, scaled up so a
     // rocket digs a proper crater (RPG: ~140 damage, 1780 radius -> ~2 blocks of stone).
-    emine_blastctx ctx = { spriteNum, 0, 0 };
+    emine_blastctx ctx = { spriteNum, 0, 0, 0 };
     voxworld_explode(&sprite[spriteNum].xyz, blastRadius, maxDamage * 2, Emine_OnBlastDestroyed, &ctx);
 }
 
@@ -417,6 +429,7 @@ void Emine_Tick(void)
     if (p->i >= 0) voxworld_stream(p->pos.x, p->pos.y);
     voxworld_tick();
     Emine_MoveDrops();
+    Emine_FoodTick();
 
     if (emine_where && p->i >= 0 && emine_tic % 15 == 0)
     {
@@ -594,6 +607,7 @@ void Emine_RegisterOSD(void)
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);
     voxworld_seteventfn(Emine_OnWorldEvent);
     Emine_RegisterMobOSD();
+    Emine_RegisterFoodOSD();
     OSD_RegisterFunction("emine_glow", "emine_glow [minlight 1-15]: dev - teleport next to the nearest glowing block", osdcmd_emine_cave);
     OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);
     OSD_RegisterFunction("emine_cave", "emine_cave [maxlight 0-15]: dev - teleport to the nearest dark cave", osdcmd_emine_cave);
