@@ -38,6 +38,8 @@ TEXT = {
     'gib-1': 'How about a mesquite for that grill!?',
     'eat-cooked-first': 'Charred, tender, juicy....',
     'low-health': "A Western Double Chee would go down well about now.",
+    'gib-9': 'Remember when I promised to jib you last!?',  # "gib" with a soft G
+    'gib-10': 'If you can bleed, I can jib you!',
 }
 # foley, made with the sound-effects model: (description, seconds)
 SFX = {
