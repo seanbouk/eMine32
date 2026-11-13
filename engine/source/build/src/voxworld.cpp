@@ -53,6 +53,13 @@ struct vwcolumn_t
     uint8_t  plants[VW_MAXPLANTS];
     uint8_t  ngruns;             // glass: solid, drawn as cut-out faces
     vwrun_t  gruns[VW_MAXGRUNS];
+    // Far away (past r_voxleafdist) leaves are drawn as solid blocks, so a ray stops at the first tree instead of
+    // carrying on through every canopy behind it (see-through leaves made the renderer 2x slower in wooded views):
+    uint8_t  nlruns;             // opaque blocks counting leaves as opaque
+    vwrun_t  lruns[VW_MAXRUNS];
+    uint8_t  nggruns;            // glass only (no leaves)
+    vwrun_t  ggruns[VW_MAXGRUNS];
+    uint8_t  hasleaves;          // any leaves in the column
 };
 
 static bool        vw_active;
@@ -124,18 +131,20 @@ static void vw_rebuildcolumn(int bx, int by)
 {
     uint8_t const *b = vw_colblocks(bx, by);
     vwcolumn_t *c = vw_col(bx, by);
-    for (int pass = 0; pass < 4; pass++)
+    for (int pass = 0; pass < 6; pass++)
     {
-        vwrun_t *runs = pass == 0 ? c->runs : pass == 1 ? c->sruns : pass == 2 ? c->wruns : c->gruns;
-        uint8_t &n = pass == 0 ? c->nruns : pass == 1 ? c->nsruns : pass == 2 ? c->nwruns : c->ngruns;
-        int const maxn = pass == 2 ? VW_MAXWRUNS : pass == 3 ? VW_MAXGRUNS : VW_MAXRUNS;
+        vwrun_t *runs = pass == 0 ? c->runs : pass == 1 ? c->sruns : pass == 2 ? c->wruns : pass == 3 ? c->gruns : pass == 4 ? c->lruns : c->ggruns;
+        uint8_t &n = pass == 0 ? c->nruns : pass == 1 ? c->nsruns : pass == 2 ? c->nwruns : pass == 3 ? c->ngruns : pass == 4 ? c->nlruns : c->nggruns;
+        int const maxn = pass == 2 ? VW_MAXWRUNS : (pass == 3 || pass == 5) ? VW_MAXGRUNS : VW_MAXRUNS;
         auto in = [&](int z) {
             switch (pass)
             {
                 case 0: return !vw_lightpass(b[z]) && !vw_iscutout(b[z]);  // opaque: not air, plants, glass, leaves or water
                 case 1: return vw_issolid(b[z]);
                 case 2: return vw_iswater(b[z]);
-                default: return vw_iscutout(b[z]);
+                case 3: return vw_iscutout(b[z]);
+                case 4: return (!vw_lightpass(b[z]) && !vw_iscutout(b[z])) || b[z] == VW_LEAVES;  // far: leaves opaque
+                default: return vw_isglass(b[z]);
             }
         };
         n = 0;
@@ -152,6 +161,8 @@ static void vw_rebuildcolumn(int bx, int by)
                 runs[maxn-1].z1 = (uint8_t)z;  // merge overflow into the top run (rare)
         }
     }
+    c->hasleaves = 0;
+    for (int z = 0; z < vw_sz && !c->hasleaves; z++) c->hasleaves = b[z] == VW_LEAVES;
     c->nplants = 0;
     for (int z = 0; z < vw_sz; z++)
         if (vw_isplant(b[z]))
@@ -751,6 +762,8 @@ static FORCE_INLINE int vw_dmgshade(size_t idx, uint8_t type)
 // Texel data for each face tile, column-major (Build tile order): tex[u*VW_TEXSIZE + v].
 // Falls back to a generated checker if the tile isn't present or isn't VW_TEXSIZE square.
 static uint8_t vw_tex[T_COUNT][VW_TEXSIZE*VW_TEXSIZE];
+static uint8_t vw_leafsolid[VW_TEXSIZE*VW_TEXSIZE];  // leaves with their holes filled (drawn solid, far away)
+static int     vw_leafdist = 16;                     // blocks; OSD: r_voxleafdist (past it, leaves are solid)
 static uint8_t vw_crack[VW_CRACKSTAGES][T_COUNT][VW_TEXSIZE*VW_TEXSIZE];  // each face pre-cracked, per damage stage
 static uint8_t vw_lavabase[VW_TEXSIZE*VW_TEXSIZE];   // lava as loaded; vw_tex[T_LAVA] is it scrolled (vw_animate)
 static uint8_t vw_waterbase[VW_TEXSIZE*VW_TEXSIZE];  // same for water
@@ -802,6 +815,23 @@ static void vw_loadtextures(void)
                 dst[u*VW_TEXSIZE + v] = ((u ^ v) & 4) ? c1 : c2;
     }
 
+    // Leaves drawn solid (far away): the holes take the texture's darkest common colour, the shadowed inside of the
+    // canopy that shows through them.
+    {
+        uint8_t const *const lt = vw_tex[T_LEAVES];
+        int count[256] = {};
+        for (int i = 0; i < VW_TEXSIZE*VW_TEXSIZE; i++) count[lt[i]]++;
+        int best = -1, bestlum = INT_MAX;
+        for (int i = 0; i < 255; i++)
+        {
+            if (count[i] < VW_TEXSIZE*VW_TEXSIZE / 64) continue;  // only colours the painting really uses
+            int const lum = palette[i*3]*3 + palette[i*3+1]*6 + palette[i*3+2];
+            if (lum < bestlum) bestlum = lum, best = i;
+        }
+        for (int i = 0; i < VW_TEXSIZE*VW_TEXSIZE; i++)
+            vw_leafsolid[i] = (lt[i] == 255 && best >= 0) ? (uint8_t)best : lt[i];
+    }
+
     // Crack overlays (tiles VW_CRACKBASE..): one mask per damage stage, shared by every block. Opaque mask texels
     // darken the face texel under them by up to 16 shades (black = darkest); transparent ones leave it alone.
     vw_hascracks = true;
@@ -836,6 +866,11 @@ static void vw_loadtextures(void)
 static FORCE_INLINE uint8_t const *vw_facetex(int tex, int stage)
 {
     return (stage && vw_hascracks) ? vw_crack[stage-1][tex] : vw_tex[tex];
+}
+// The same for the opaque runs, where far-away leaves are drawn solid (their holes filled).
+static FORCE_INLINE uint8_t const *vw_solidtex(uint8_t block, int tex, int stage)
+{
+    return block == VW_LEAVES ? vw_leafsolid : vw_facetex(tex, stage);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1739,7 +1774,7 @@ static __attribute__((noinline)) void vw_drawplantcell(vwcolumn_t const *c, uint
 // glass, on the near side (entered at din through `side`) and the far side (left at dout into cell nx,ny through
 // `nside`), plus tops and bottoms: you see a glass block's whole frame. Opaque texels go into the cut-out overlay
 // with the plants, nearest wins.
-static __attribute__((noinline)) void vw_drawglasscell(vwcolumn_t const *c, uint8_t const *cb, int gx, int gy, int side, float din,
+static __attribute__((noinline)) void vw_drawglasscell(vwcolumn_t const *c, vwrun_t const *gruns, int ngruns, uint8_t const *cb, int gx, int gy, int side, float din,
                                                        int nx, int ny, int nside, float dout, float dx, float dy,
                                                        vwgap_t const *gaps, int ng)
 {
@@ -1802,9 +1837,9 @@ static __attribute__((noinline)) void vw_drawglasscell(vwcolumn_t const *c, uint
         });
     };
 
-    for (int ri = 0; ri < c->ngruns; ri++)
+    for (int ri = 0; ri < ngruns; ri++)
     {
-        vwrun_t const r = c->gruns[ri];
+        vwrun_t const r = gruns[ri];
 
         // near and far sides, where the neighbour there isn't glass
         for (int back = 0; back < 2; back++)
@@ -1884,6 +1919,8 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
     vwmurkyq_t mq;  // water rows to close once they're deep enough in murk
     // under water, everything past the fog is fog
     float const maxdist = vw_camwater ? min(vw_maxdist, VW_UWFAR + VW_BLOCKXY) : vw_maxdist;
+    float const leafdist = (float)vw_leafdist * VW_BLOCKXY;  // past this, leaves are drawn solid (r_voxleafdist)
+    bool pastleaves = false;
 
     for (;;)
     {
@@ -1892,11 +1929,16 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
         if (vw_inxy(gx, gy))
         {
             vwcolumn_t const *c = vw_col(gx, gy);
-            int const nr = c->nruns, nw = c->nwruns, np = c->nplants, ngl = c->ngruns;
+            // near: leaves are cut-outs (see-through); far, or once the ray has been through one column of leaves:
+            // opaque, so the ray stops at the next tree (through a gap in the leaves you see the canopy's dark
+            // inside, not every leaf face of the whole canopy behind it)
+            bool const far = din > leafdist || pastleaves;
+            vwrun_t const *const runs = far ? c->lruns : c->runs, *const gruns = far ? c->ggruns : c->gruns;
+            int const nr = far ? c->nlruns : c->nruns, nw = c->nwruns, np = c->nplants, ngl = far ? c->nggruns : c->ngruns;
             // Cheap reject: if even the top of this block column projects below every open row, skip it.
             // (The top face's far edge is its highest point when it's below the eye, else the near edge.)
-            float const colztop = (float)vw_layertop(max(max(nr ? c->runs[nr-1].z1 : 0, nw ? c->wruns[nw-1].z1 : 0),
-                                                         max(np ? c->plants[np-1] + 1 : 0, ngl ? c->gruns[ngl-1].z1 : 0)));
+            float const colztop = (float)vw_layertop(max(max(nr ? runs[nr-1].z1 : 0, nw ? c->wruns[nw-1].z1 : 0),
+                                                         max(np ? c->plants[np-1] + 1 : 0, ngl ? gruns[ngl-1].z1 : 0)));
             if ((nr || nw || np || ngl) && din > VW_NEAR)
             {
                 float const dz = colztop - vw_cz;
@@ -1911,9 +1953,10 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
             if (ngl)
             {
                 bool const xnext = tmx < tmy;
-                vw_drawglasscell(c, vw_colblocks(gx, gy), gx, gy, side, din, xnext ? gx + stepx : gx, xnext ? gy : gy + stepy,
+                vw_drawglasscell(c, gruns, ngl, vw_colblocks(gx, gy), gx, gy, side, din, xnext ? gx + stepx : gx, xnext ? gy : gy + stepy,
                                  xnext ? (stepx > 0 ? 0 : 1) : (stepy > 0 ? 2 : 3), dout, dx, dy, gaps, ng);
             }
+            if (ngl && !far && c->hasleaves) pastleaves = true;  // drawn see-through here; solid from the next column on
             if (np)
                 vw_drawplantcell(c, vw_colblocks(gx, gy), gx, gy, k, gaps, ng);
             if (nr)
@@ -1921,7 +1964,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                 // Runs at/below eye level going down, then above eye level going up: within a cell,
                 // that is front-to-back for every ray.
                 int split = 0;
-                while (split < nr && c->runs[split].z0 <= eyelayer) split++;  // runs[0..split) start at/below eye
+                while (split < nr && runs[split].z0 <= eyelayer) split++;  // runs[0..split) start at/below eye
 
                 uint8_t const *cb = vw_colblocks(gx, gy);
                 float const dclip = max(din, VW_NEAR);
@@ -1929,7 +1972,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                 for (int pass = 0; pass < nr; pass++)
                 {
                     int const ri = pass < split ? split - 1 - pass : pass;
-                    vwrun_t const r = c->runs[ri];
+                    vwrun_t const r = runs[ri];
                     float const ztop = (float)vw_layertop(r.z1);  // smaller Build z = higher
                     float const zbot = (float)vw_layertop(r.z0);
 
@@ -1979,7 +2022,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                         if (layer != curlayer)
                                         {
                                             curlayer = layer;
-                                            tex = vw_facetex(vw_blockdefs[cb[layer]].side, vw_dmgstage(colidx + layer, cb[layer])) + ucol;
+                                            tex = vw_solidtex(cb[layer], vw_blockdefs[cb[layer]].side, vw_dmgstage(colidx + layer, cb[layer])) + ucol;
                                             if (vw_flags(cb[layer]) & VW_BF_FULLBRIGHT)
                                                 pal = vw_shadetab(0, 0, din, 0);
                                             else
@@ -2012,7 +2055,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                 int const fl = vw_lightshade(gx, gy, r.z1, &ftint);
                                 bool const fb = vw_flags(cb[r.z1-1]) & VW_BF_FULLBRIGHT;
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
-                                            vw_facetex(vw_blockdefs[cb[r.z1-1]].top, vw_dmgstage(vw_index(gx, gy, r.z1-1), cb[r.z1-1])),
+                                            vw_solidtex(cb[r.z1-1], vw_blockdefs[cb[r.z1-1]].top, vw_dmgstage(vw_index(gx, gy, r.z1-1), cb[r.z1-1])),
                                             fb ? 0 : vw_faceshade[4] + vw_dmgshade(vw_index(gx, gy, r.z1-1), cb[r.z1-1]),
                                             fb ? 0 : fl, vw_tinttable(fb ? 0 : ftint));
                             }
@@ -2034,7 +2077,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                                 int const fl = vw_lightshade(gx, gy, r.z0 - 1, &ftint);
                                 bool const fb = vw_flags(cb[r.z0]) & VW_BF_FULLBRIGHT;
                                 vw_drawflat(col, zc, vis, nv, hz, dclip, dout, dx, dy,
-                                            vw_facetex(vw_blockdefs[cb[r.z0]].bottom, vw_dmgstage(vw_index(gx, gy, r.z0), cb[r.z0])),
+                                            vw_solidtex(cb[r.z0], vw_blockdefs[cb[r.z0]].bottom, vw_dmgstage(vw_index(gx, gy, r.z0), cb[r.z0])),
                                             fb ? 0 : vw_faceshade[5] + vw_dmgshade(vw_index(gx, gy, r.z0), cb[r.z0]),
                                             fb ? 0 : fl, vw_tinttable(fb ? 0 : ftint));
                             }
@@ -2926,6 +2969,14 @@ static int osdcmd_voxdist(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+static int osdcmd_voxleafdist(osdcmdptr_t parm)
+{
+    if (parm->numparms == 1)
+        vw_leafdist = clamp(Batol(parm->parms[0]), 0, 512);
+    OSD_Printf("r_voxleafdist %d (blocks: nearer than this leaves are see-through, past it solid)\n", vw_leafdist);
+    return OSDCMD_OK;
+}
+
 static int osdcmd_voxdark(osdcmdptr_t parm)
 {
     if (parm->numparms == 1)
@@ -3304,6 +3355,7 @@ static void vw_registerosd(void)
     if (done) return;
     done = true;
     OSD_RegisterFunction("r_voxdist", "r_voxdist <blocks>: block world view distance", osdcmd_voxdist);
+    OSD_RegisterFunction("r_voxleafdist", "r_voxleafdist <blocks>: leaves are see-through nearer than this, solid past it (cheaper)", osdcmd_voxleafdist);
     OSD_RegisterFunction("r_voxdark", "r_voxdark <0-31>: how dark caves get", osdcmd_voxdark);
     static osdcvardata_t cvl = { "r_voxlantern", "blocks until cave darkness is at full strength (0 = off)", (void *)&vw_lantern, CVAR_INT, 0, 64 };
     OSD_RegisterCvar(&cvl, osdcmd_cvar_set);
