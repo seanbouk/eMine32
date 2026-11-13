@@ -2,7 +2,7 @@
 // URL options:
 //   ?args=-foo%20bar   extra engine command-line args
 //   ?res=1720x720      exact render resolution
-//   ?scale=2           render at window size / 2 (default 1 = native window pixels)
+//   ?scale=2           render at window size / 2 (default 1 = native window pixels; then adapted, see shell.html)
 //   ?stats             once-a-second timing in the JS console
 var emineParams = new URLSearchParams(location.search);
 Module['arguments'] = ['-nosetup', '-usecwd', '-j', '/game', '-j', '/emine', '-mh', 'emine32.def', '-gamegrp', 'DUKE3D.GRP'];
@@ -16,7 +16,7 @@ Module['emineArgs'] = Module['arguments'];
 Module['emineRes'] = function () {
   var m = (emineParams.get('res') || '').match(/^(\d+)x(\d+)$/);
   if (m) return [+m[1], +m[2]];
-  var scale = parseFloat(emineParams.get('scale')) || 1;
+  var scale = (parseFloat(emineParams.get('scale')) || 1) * (Module['emineAutoScale'] || 1);
   var dpr = window.devicePixelRatio || 1;
   var w = Math.round(window.innerWidth * dpr / scale), h = Math.round(window.innerHeight * dpr / scale);
   return [w & ~3, h & ~1];  // keep the width a multiple of 4 for the column renderer

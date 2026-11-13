@@ -191,3 +191,15 @@ of a block. `A_MoveSpriteClipdist` now traces a projectile's real diagonal step 
 - Game side is `duke3d/src/emine_food.cpp`: food pickups (tiles 7150-7153), apples from leaves, melon slices and
   regrowth, mushroom spawning in the dark, and zombie meat (raw, or cooked when an explosion kills it; such deaths
   now burn instead of gibbing). Dev command `emine_food`.
+
+## Adaptive render resolution on the web (2026-11-13)
+- Jumpy turning was the frame rate halving: the page presents on each display refresh, so a frame that takes a little
+  longer than one refresh waits for the next one (60 to 30 fps). Turning toward open landscape and trees costs more
+  per frame than looking at a wall, which tipped heavy views over the line. The renderer's cost goes with the width
+  (one ray per column), so fewer pixels helps in proportion.
+- `sdlayer.cpp` exports `emine_frame_work_ms()` (the engine's work per presented frame since the last call).
+  `web/shell.html` measures the display's refresh with its own requestAnimationFrame loop and checks once a second:
+  work above 85% of the refresh for 2 s renders 1.2x fewer pixels per side (down to a third), below 50% for 6 s
+  steps back up, but not for a minute after a step down. Load spikes are ignored. `?res=` or `?scale=` turn it off;
+  the steps are logged to the JS console ("eMine32 render scale").
+- Dev: `emine_viewtrace [frames]` prints, per drawn frame, the game clock, the tic fraction and the view angle.

@@ -370,6 +370,10 @@ def offsets(pa, w, h, pad, dx=0):
     return (pa & ~0xFFFF00) | ((xo & 255) << 8) | ((yo & 255) << 16)
 
 
+# boxes (x0, y0, x1, y1, in our tile's pixels) to clear: things fal painted that don't belong. 2536: a side-on cluster
+# of barrels to the right of the chaingun's receiver (the barrels are their own tile, 2537, drawn above it)
+ERASE = {2536: [(200, 0, 999, 66), (238, 0, 999, 999)]}
+
 # screen pixels to move a weapon right (the shotgun: its barrel, carried on, passed left of the crosshair)
 SHIFT = {n: 16 for n in range(2613, 2620)}
 
@@ -401,6 +405,8 @@ def build():
                 continue
             rgb, al, pad = built[n]
             on = al >= 0.5
+            for x0, y0, x1, y1 in ERASE.get(n, []):
+                on[y0:y1, x0:x1] = False
             flash = n in (2541, 2542, 2543, 2614, 2615) or (n in TILES and TILES[n][3])
             idx = dither(rgb, on, pal, usable)
             if flash:  # flashes may glow: bright, warm pixels get the full palette (fullbright included)

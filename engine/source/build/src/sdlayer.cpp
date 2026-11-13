@@ -27,9 +27,21 @@ EM_ASYNC_JS(void, em_wait_animation_frame, (), {
 static double em_lastYield;
 static double em_statStart, em_busy, em_maxSlice;
 static int    em_frames, em_statsOn = -1;
+// Work per drawn frame for web/shell.html's adaptive resolution: the time the engine ran between its yields,
+// summed and divided by the frames presented since the last call.
+static double em_workSum;
+static int    em_workFrames;
+extern "C" EMSCRIPTEN_KEEPALIVE double emine_frame_work_ms(void)
+{
+    double const ms = em_workFrames ? em_workSum / em_workFrames : 0.0;
+    em_workSum = 0.0, em_workFrames = 0;
+    return ms;
+}
 void emine_sleep(double ms, bool frame)
 {
     double const now = emscripten_get_now();
+    em_workSum += now - em_lastYield;
+    em_workFrames += frame;
     if (em_statsOn < 0)
         em_statsOn = EM_ASM_INT({ return /[?&]stats/.test(location.search) ? 1 : 0; });
     if (em_statsOn)
