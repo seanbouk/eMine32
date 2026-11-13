@@ -6,6 +6,8 @@ Things we've agreed to do "at some point", not yet scheduled. Newest at the bott
 - **Jump**: Duke's jump feels wrong. Make it feel more like Doom's (low priority). Note: original Doom has no jump at
   all, so decide what "Doom-like" means when we get here (snappier, shorter, less floaty arc, likely tied to block
   height so you can hop exactly one block).
+- **Ore by depth**: there's a gap below the coal layer before the other ores start. Rebalance the depth bands in world
+  generation so going deeper keeps paying out.
 
 ## AI
 - Monsters get stuck in pits in the block world (they react to the player fine). Revisit when we do our own AI/monsters.

@@ -83,7 +83,7 @@ Each mob also needs spawn rules and Minecraft-style navigation.
 | ✓ | Asset | Disp. | Notes |
 |---|---|---|---|
 | [ ] | 2–3 passive animals | R | Same sprite spec as mobs, minus attack frames. |
-| [ ] | Raw and cooked meat pickups | R | |
+| [x] | Raw and cooked meat pickups | R | Done: zombie meat, raw or cooked (burnt by explosives), plus melons, apples and cave mushrooms (`emine_food.cpp`). |
 
 ## 4. Player weapons (first-person HUD)
 
@@ -140,7 +140,7 @@ Each mob also needs spawn rules and Minecraft-style navigation.
 
 | ✓ | Asset | Count | Notes |
 |---|---|---|---|
-| [ ] | Sound effects + Duke voice lines | 181 VOC | Replace the ones we use; cut the rest. The new character needs a new voice. Ours can be WAV/OGG. |
+| [~] | Sound effects + Duke voice lines | 181 VOC | Voice done (see 6). Sound effects still Duke's: replace the ones we use, cut the rest. Ours must be WAV (the web build has no Ogg decoder). |
 | [ ] | Music | 7 MIDI + `D3DTIMBR.TMB` | **Music:** currently MIDI played through EDuke32's built-in OPL3 (AdLib FM) emulator, voiced by Duke's timbre bank. **Replacement:** OGG Vorbis (MP3 isn't supported; OGG is the same idea, about the same size). FLAC, or tracker modules (.mod/.xm/.it), also work. |
 
 ## 9. Before going public (deferred)
