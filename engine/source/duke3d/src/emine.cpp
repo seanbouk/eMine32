@@ -105,6 +105,7 @@ static bool Emine_OreDrop(int bx, int by, int bz, int type, int ownerSprite)
     int count;
     int const tile = Emine_OreAmmo(type, &count);
     if (!count) return false;
+    Emine_VoiceOre(type);
     vec3_t c;
     voxworld_blockcenter(bx, by, bz, &c);
     int const sect = voxworld_sector();
@@ -128,6 +129,9 @@ void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit)
         return;
 
     int const damage = sprite[shotSprite].extra > 0 ? sprite[shotSprite].extra : 6;
+    int const owner0 = sprite[shotSprite].owner;
+    if (voxworld_get(bx, by, bz) == VW_BEDROCK && owner0 >= 0 && sprite[owner0].picnum == APLAYER)
+        Emine_Say("bedrock", 4);
     int const type = voxworld_damage(bx, by, bz, damage);
     if (type != VW_AIR)
     {
@@ -280,6 +284,7 @@ static bool Emine_CrushCell(int bx, int by, int bz, float speed)
             a.htowner  = i;
             a.htang    = krand() & 2047;
             hit = true;
+            if (s.picnum == APLAYER) Emine_Say("gravel", 2);
         }
     return hit;
 }
@@ -430,6 +435,7 @@ void Emine_Tick(void)
     voxworld_tick();
     Emine_MoveDrops();
     Emine_FoodTick();
+    Emine_VoiceTick();
 
     if (emine_where && p->i >= 0 && emine_tic % 15 == 0)
     {
@@ -622,6 +628,7 @@ void Emine_RegisterOSD(void)
     voxworld_seteventfn(Emine_OnWorldEvent);
     Emine_RegisterMobOSD();
     Emine_RegisterFoodOSD();
+    Emine_RegisterVoiceOSD();
     OSD_RegisterFunction("emine_glow", "emine_glow [minlight 1-15]: dev - teleport next to the nearest glowing block", osdcmd_emine_cave);
     OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);
     OSD_RegisterFunction("emine_cave", "emine_cave [maxlight 0-15]: dev - teleport to the nearest dark cave", osdcmd_emine_cave);

@@ -61,7 +61,9 @@ bool eat(DukePlayer_t *ps, int kind)
 {
     auto &health = sprite[ps->i].extra;
     if (health <= 0 || health >= ps->max_player_health) return false;
+    int const before = health;
     health = min(ps->max_player_health, health + foodDefs[kind].heal);
+    Emine_VoiceAte(kind, before, health, ps->max_player_health);
     Bstrcpy(apStrings[QUOTE_RESERVED4], foodDefs[kind].quote);
     P_DoQuote(QUOTE_RESERVED4, ps);
     S_PlaySound(DUKE_GET);        // the sound and green flash of Duke's health pickups (GAME.CON's quikget)
@@ -162,7 +164,10 @@ void Emine_FoodBlockBroken(int bx, int by, int bz, int type, int owner)
     vec3_t c;
     voxworld_blockcenter(bx, by, bz, &c);
     if (type == VW_LEAVES && krand() % APPLE_CHANCE == 0)
+    {
         Emine_FoodDrop(EMINE_FOOD_APPLE, c, owner);
+        Emine_Say("apple", 3);
+    }
     else if (type == VW_MELON)
     {
         for (int i = 0, n = 3 + krand() % 3; i < n; i++) Emine_FoodDrop(EMINE_FOOD_MELON, c, owner);

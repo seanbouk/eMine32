@@ -52,6 +52,23 @@ void Emine_RegisterFoodOSD(void);
 // A dropped sprite at height z: pop it up a little and let it fall and bounce to rest on the blocks (emine.cpp).
 void Emine_Bounce(int spriteNum, int32_t z);
 
+// Voice (emine_voice.cpp): our lines in Duke's voice slots and for the moments Duke never had.
+void Emine_VoiceInit(void);                       // once the game script has defined Duke's sounds
+void Emine_VoiceTick(void);
+void Emine_VoiceLevelStart(void);                 // play starts (or restarts after dying)
+void Emine_VoiceReset(void);
+// Say a line (an id from the voice sheet): always the first time (once Duke isn't already talking), then 1 in
+// oneIn (0: never again). True if it played.
+bool Emine_Say(const char *line, int oneIn = 1);
+// 1 in oneIn: one of the lines whose ids start with prefix ("gib-").
+bool Emine_SayChance(const char *prefix, int oneIn);
+void Emine_VoiceFoley(const char *take);          // a non-speech take ("gulp")
+void Emine_VoiceKill(int mobType, bool explosive, bool burnt, bool fused);  // the player killed a mob
+void Emine_VoiceBlast(vec3_t const &at);          // a creeper went off
+void Emine_VoiceAte(int kind, int before, int after, int maxHealth);
+void Emine_VoiceOre(int blockType);               // an ore broke
+void Emine_RegisterVoiceOSD(void);
+
 // Block water. Is this point in water?
 bool Emine_InWaterAt(vec3_t const &pos);
 // The sector lotag the player's movement should use: ST_2_UNDERWATER (swimming) while their body is in block

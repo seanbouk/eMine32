@@ -1699,6 +1699,7 @@ void G_ResetTimers(bool saveMoveCnt)
     totalclock = g_cloudClock = ototalclock = lockclock = 0;
     ready2send = 1;
     g_levelTextTime = 85;
+    Emine_VoiceLevelStart();  // eMine32
 
     if (!saveMoveCnt)
         g_moveThingsCount = 0;

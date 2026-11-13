@@ -1646,6 +1646,7 @@ void gameDisplayTitleScreen(void)
                     {
                         titlesound++;
                         S_PlaySound(PIPEBOMB_EXPLODE);
+                        S_PlaySound(273);  // eMine32: DUKE_STEPONFECES (soundefs.h), which says "Shift happens." now
                     }
 
                     if (logoflags & LOGO_DUKENUKEM)

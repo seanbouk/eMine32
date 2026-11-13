@@ -6088,6 +6088,7 @@ static void G_CompileScripts(void)
     labeltype = (uint8_t *) Xrealloc(labeltype, g_labelCnt * sizeof(uint8_t));
 
     VM_OnEvent(EVENT_INIT);
+    Emine_VoiceInit();  // eMine32: our lines in Duke's voice slots
     pathsearchmode = psm;
 }
 

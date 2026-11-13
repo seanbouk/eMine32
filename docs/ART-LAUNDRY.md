@@ -128,6 +128,7 @@ Each mob also needs spawn rules and Minecraft-style navigation.
 | [x] | Title / menu background | MENUSCREEN 2456, BETASCREEN 2493 | R | Done: "Shift Happens" title picture and rock menu backdrop, 320x200 in each screen's own palette (`tools/mktitle.py`, art in `art/title/`). |
 | [x] | Logos | DREALMS 2492, DUKENUKEM 2497, THREEDEE 2498, INGAMEDUKETHREEDEE 2499 | R | Done (`tools/mktitle.py`): the SeanOfEarth studio screen over DREALMS, SHIFT / HAPPENS flying in over the title, SHIFT HAPPENS over the in-game menu. |
 | [x] | Menu cursor | SPINNINGNUKEICON 2813-2819 | R | Done: a spinning grass block from our block faces (`tools/mkcursor.py`). |
+| [x] | Duke's voice | 69 voice slots (DUKE_*, JIBBED_ACTOR*, BONUS_SPEECH*, map quips) | R/C | Done: our lines in our designed voice, or silence where cut (`tools/mkvoice.py`, `emine_voice.cpp`, `docs/VOICE.md`). Other sound effects still Duke's. |
 | [x] | Help and credits | F1HELP, TEXTSTORY, credits 2504+ | C | Cut: no Help or Credits in the menus, F1 does nothing, no "Press F1 for help" (LOGO_NOHELP / LOGO_NOCREDITS forced in `G_GetLogoFlags`). |
 | [x] | Menu title bar | MENUBAR 2457 | C | Cut (LOGO_NOTITLEBAR forced); the load and save screens have no title at all. |
 | [x] | Options slider, save picture frame, save name box | SLIDEBAR 2489-2490, WINDOWBORDER1 2494, TEXTBOX 2495, WINDOWBORDER2 2496 | R | Done: stone bar with a grass-block knob, stone lines (`tools/mkui.py`). |

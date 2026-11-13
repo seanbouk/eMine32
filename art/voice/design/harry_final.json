@@ -1,0 +1,43 @@
+{
+  "text": "Night shift. Let's get digging... Stay dead this time. Bullets don't mine themselves. Tastes like chicken. Don't ask.",
+  "previews": [
+    {
+      "audio": {
+        "url": "https://v3b.fal.media/files/b/0ab23b3f/CiHz4f6auN2jmRSuIMr-Q_preview0.mp3",
+        "content_type": "audio/mpeg",
+        "file_name": "preview0.mp3",
+        "file_size": 170989
+      },
+      "generated_voice_id": "m5pB7oZWGpxRPROPEp7z",
+      "media_type": "audio/mpeg",
+      "duration_seconds": 10.6868125,
+      "language": "en"
+    },
+    {
+      "audio": {
+        "url": "https://v3b.fal.media/files/b/0ab23b3f/uYU60kXAkaer4Miz_gjMv_preview1.mp3",
+        "content_type": "audio/mpeg",
+        "file_name": "preview1.mp3",
+        "file_size": 164301
+      },
+      "generated_voice_id": "aqSgjFGO1TAUvs0sluej",
+      "media_type": "audio/mpeg",
+      "duration_seconds": 10.2688125,
+      "language": "en"
+    },
+    {
+      "audio": {
+        "url": "https://v3b.fal.media/files/b/0ab23b3f/PE92crkaCN2MdHfvzVlpk_preview2.mp3",
+        "content_type": "audio/mpeg",
+        "file_name": "preview2.mp3",
+        "file_size": 169735
+      },
+      "generated_voice_id": "KWkOOj1j8rO2Nknf68HU",
+      "media_type": "audio/mpeg",
+      "duration_seconds": 10.6084375,
+      "language": "en"
+    }
+  ],
+  "seed": 41,
+  "voice_id": "m5pB7oZWGpxRPROPEp7z"
+}

@@ -572,6 +572,15 @@ static int32_t S_DefineAudioIfSupported(char** fn, const char* name)
     return 0;
 }
 
+bool S_TalkPlaying(void) { return g_dukeTalk; }
+
+void S_SetSoundFile(int soundNum, const char *filename)
+{
+    if ((unsigned)soundNum >= MAXSOUNDS || g_sounds[soundNum] == &nullsound) return;
+    realloc_copy(&g_sounds[soundNum]->filename, filename);
+    g_sounds[soundNum]->ptr = nullptr;  // load the new file when it's next played
+}
+
 int32_t S_DefineSound(int sndidx, const char *name, int minpitch, int maxpitch, int priority, int type, int distance, float volume)
 {
     if (/*EDUKE32_PREDICT_FALSE*/((unsigned)sndidx >= MAXSOUNDS))

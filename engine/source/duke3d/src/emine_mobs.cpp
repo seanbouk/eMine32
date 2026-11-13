@@ -392,7 +392,7 @@ void hurtPlayer(DukePlayer_t *ps, int damage, int ang, int push)
     if (!ud.god)
         sprite[ps->i].extra = max(0, sprite[ps->i].extra - damage);
     P_PalFrom(ps, 32, 32, 0, 0);
-    A_PlaySound(DUKE_GRUNT, ps->i);
+    Emine_SayChance("hurt", 1);  // one of the grunts (unless Duke's already saying something)
     ps->vel.x += sintable[(ang + 512) & 2047] * push;
     ps->vel.y += sintable[ang & 2047] * push;
 }
@@ -427,6 +427,7 @@ void startDying(int i, Mob &m, DukePlayer_t *ps, bool burnt = false)
     auto &s = sprite[i];
     auto const &d = mobDefs[m.type];
     P_AddKills(ps, 1);
+    Emine_VoiceKill(m.type, burnt, burnt && m.type == MT_ZOMBIE, m.type == MT_CREEPER && m.fuse > 0);
     if (m.type == MT_ZOMBIE)
     {
         vec3_t const at = { s.x, s.y, s.z - spriteHeight(s) / 2 };
@@ -557,6 +558,7 @@ void moveArrows(void)
                 float const cx = a.x + a.vx * u - ps->pos.x, cy = a.y + a.vy * u - ps->pos.y, cz = a.z + a.vz * u;
                 if (cx * cx + cy * cy < 220.f * 220.f && cz > ps->pos.z - 1536 && cz < sprite[ps->i].z)
                 {
+                    Emine_Say("arrow-hit", 3);
                     hurtPlayer(ps, skillDmg(mobDefs[MT_SKELETON].dmg), getangle((int)a.vx, (int)a.vy), 30);
                     done = true;
                 }
@@ -611,6 +613,7 @@ bool wantsToHunt(int i, Mob const &m)
 
 void explode(int i)
 {
+    Emine_VoiceBlast(sprite[i].xyz);
     A_Spawn(i, EXPLOSION2);
     A_PlaySound(SND_PIPEBOMB_EXPLODE, i);
     int const d = CREEPER_DAMAGE;
@@ -686,6 +689,8 @@ int mobThink(int i, int playerNum)
             setTarget(m, ps->i);
             sees = true;
             MOBLOG("%s %d: sees you at %d blocks\n", d.name, i, pdist / BXY);
+            static char const *const meet[MT_COUNT] = { "zombie-see", "skeleton-see", "spider-see", "creeper-see" };
+            Emine_Say(meet[m.type], 0);
         }
     }
     else
@@ -870,6 +875,7 @@ int mobThink(int i, int playerNum)
         s.zvel = -1500;
         m.pose = 17;
         MOBLOG("spider %d: leaps\n", i);
+        Emine_Say("spider-leap", 3);
     }
 
     // skeleton: draw the bow for half a second, then loose
@@ -897,7 +903,7 @@ int mobThink(int i, int playerNum)
         bool const keep = m.fuse > 0 && m.target >= 0 && sees && hdist < CREEPER_CANCEL;
         if (close || keep)
         {
-            if (m.fuse == 0) { A_PlaySound(SND_STEAM_HISSING, i); MOBLOG("creeper %d: hisses\n", i); }
+            if (m.fuse == 0) { A_PlaySound(SND_STEAM_HISSING, i); MOBLOG("creeper %d: hisses\n", i); Emine_Say("creeper-hiss", 2); }
             if (++m.fuse >= CREEPER_FUSE)
             {
                 MOBLOG("creeper %d: boom\n", i);
@@ -1267,6 +1273,18 @@ void Emine_MobTick(void)
     mob_tic++;
     moveArrows();
     spawnerTick();
+
+    // now and then: a zombie close by that you can't see
+    auto const ps = g_player[myconnectindex].ps;
+    if (mob_tic % (20 * 30) == 0 && playerAlive(ps))
+        for (auto const &kv : mobs)
+        {
+            auto const &s = sprite[kv.first];
+            if (kv.second.type != MT_ZOMBIE || kv.second.state != MS_LIVE) continue;
+            if (FindDistance2D(s.x - ps->pos.x, s.y - ps->pos.y) > 12 * BXY || seesPlayer(s, ps)) continue;
+            Emine_Say("zombie-near", 3);
+            break;
+        }
 }
 
 void Emine_MobsLevelStart(void) { mob_purge = true; }

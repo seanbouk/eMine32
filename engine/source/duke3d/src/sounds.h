@@ -87,6 +87,8 @@ int A_PlaySound(int soundNum, int spriteNum);
 void S_Callback(intptr_t num);
 int A_CheckAnySoundPlaying(int spriteNum);
 int S_CheckSoundPlaying(int soundNum);
+bool S_TalkPlaying(void);                                // a talk (SF_TALK) sound is playing
+void S_SetSoundFile(int soundNum, const char *filename); // point a defined sound at another file (eMine32)
 void S_Cleanup(void);
 void S_ClearSoundLocks(void);
 int32_t S_LoadSound(uint32_t num);

@@ -1,0 +1,821 @@
+[
+ {
+  "id": "start",
+  "group": "duke-live",
+  "trigger": "New Game",
+  "decision": "keep",
+  "final": "Let's rock.",
+  "original": "\"Let's rock!\"",
+  "sound": "BONUS_SPEECH1 · letsrk03"
+ },
+ {
+  "id": "idle-crack",
+  "group": "duke-live",
+  "trigger": "Standing still a while",
+  "decision": "keep",
+  "final": "(knuckle crack)",
+  "original": "(knuckle crack)",
+  "sound": "DUKE_CRACK_FIRST · knuckle"
+ },
+ {
+  "id": "idle-1",
+  "group": "duke-live",
+  "trigger": "Standing still longer",
+  "decision": "replace",
+  "final": "I wonder if it's a crime to loiter here!?",
+  "original": "\"What are you waiting for? Christmas?\"",
+  "sound": "DUKE_CRACK · waitin03"
+ },
+ {
+  "id": "idle-2",
+  "group": "duke-live",
+  "trigger": "Standing still longer",
+  "decision": "replace",
+  "final": "Let's get on with it!!",
+  "original": "\"Come on!\"",
+  "sound": "DUKE_CRACK2 · comeon02"
+ },
+ {
+  "id": "use-nothing",
+  "group": "duke-live",
+  "trigger": "Pressing Use on nothing",
+  "decision": "keep",
+  "final": "(grunt) / Where is it?",
+  "original": "(grunt) / \"Where is it?\"",
+  "sound": "DUKE_SEARCH, DUKE_SEARCH2 · pain87, whrsit05"
+ },
+ {
+  "id": "hurt",
+  "group": "duke-live",
+  "trigger": "Hurt by a mob or an arrow",
+  "decision": "keep",
+  "final": "(grunt)",
+  "original": "(grunt)",
+  "sound": "DUKE_GRUNT · exert"
+ },
+ {
+  "id": "burning",
+  "group": "duke-live",
+  "trigger": "Burning in lava",
+  "decision": "keep",
+  "final": "(gasps and screams)",
+  "original": "(gasps and screams, 8 takes)",
+  "sound": "DUKE_LONGTERM_PAIN 1-8"
+ },
+ {
+  "id": "land-hurt",
+  "group": "duke-live",
+  "trigger": "Landing from a big fall",
+  "decision": "keep",
+  "final": "(pained grunt)",
+  "original": "(pained grunt)",
+  "sound": "DUKE_LAND_HURT · pain39"
+ },
+ {
+  "id": "fall-scream",
+  "group": "duke-live",
+  "trigger": "Falling a long way",
+  "decision": "keep",
+  "final": "(scream)",
+  "original": "(scream)",
+  "sound": "DUKE_SCREAM · dscrem04"
+ },
+ {
+  "id": "gasp",
+  "group": "duke-live",
+  "trigger": "Coming up after a long swim",
+  "decision": "keep",
+  "final": "(gasp for air)",
+  "original": "(gasp for air)",
+  "sound": "DUKE_GASP · gasp"
+ },
+ {
+  "id": "death-1",
+  "group": "duke-live",
+  "trigger": "Dying",
+  "decision": "keep",
+  "final": "Damn.",
+  "original": "\"Damn.\"",
+  "sound": "DUKE_KILLED1 · damn03"
+ },
+ {
+  "id": "death-2",
+  "group": "duke-live",
+  "trigger": "Dying",
+  "decision": "keep",
+  "final": "Damn it.",
+  "original": "\"Damn it.\"",
+  "sound": "DUKE_KILLED2 · damnit04"
+ },
+ {
+  "id": "death-3",
+  "group": "duke-live",
+  "trigger": "Dying",
+  "decision": "replace",
+  "final": "Sure; seems about right!!",
+  "original": "\"This sucks.\"",
+  "sound": "DUKE_KILLED3 · thsuk13a"
+ },
+ {
+  "id": "death-4",
+  "group": "duke-live",
+  "trigger": "Dying",
+  "decision": "replace",
+  "final": "Goddamn it!",
+  "original": "\"That really pisses me off.\"",
+  "sound": "DUKE_KILLED5 · pisses01"
+ },
+ {
+  "id": "death-gibbed",
+  "group": "duke-live",
+  "trigger": "Blown apart",
+  "decision": "keep",
+  "final": "(death scream)",
+  "original": "(death scream)",
+  "sound": "DUKE_KILLED4, DUKE_DEAD · dscrem18, dmdeath"
+ },
+ {
+  "id": "medkit",
+  "group": "duke-live",
+  "trigger": "Using a medkit from the inventory",
+  "decision": "keep",
+  "final": "Ahhh.",
+  "original": "\"Ahhh.\"",
+  "sound": "DUKE_USEMEDKIT · ahh04"
+ },
+ {
+  "id": "gib-1",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "How about a mosquite for that grill!?",
+  "original": "\"What a mess.\"",
+  "sound": "JIBBED_ACTOR1 · amess06"
+ },
+ {
+  "id": "gib-2",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "I'm not cleaning that up!",
+  "original": "\"Bitchin'!\"",
+  "sound": "JIBBED_ACTOR2 · bitchn04"
+ },
+ {
+  "id": "gib-3",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "The smell hits you before the wet bits!",
+  "original": "\"Holy cow!\"",
+  "sound": "JIBBED_ACTOR3 · holycw01"
+ },
+ {
+  "id": "gib-4",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "I love my job!",
+  "original": "\"Holy sh*t!\"",
+  "sound": "JIBBED_ACTOR4 · holysh02"
+ },
+ {
+  "id": "gib-5",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "Dodge This!",
+  "original": "\"Damn, I'm good.\"",
+  "sound": "JIBBED_ACTOR5 · imgood12"
+ },
+ {
+  "id": "gib-6",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "Nicely tenderized!",
+  "original": "\"Piece of cake.\"",
+  "sound": "JIBBED_ACTOR6 · piece02"
+ },
+ {
+  "id": "gib-7",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "Got 'em all!",
+  "original": "\"That's gotta hurt.\"",
+  "sound": "JIBBED_ACTOR7 · gothrt01"
+ },
+ {
+  "id": "gib-8",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "Where y'going; the party's just gettin' started!",
+  "original": "\"Blow it out your ass.\"",
+  "sound": "JIBBED_ACTOR8 · blowit01"
+ },
+ {
+  "id": "gib-9",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "Remember when I promised to kill you last!?",
+  "original": "\"Eat sh*t and die.\"",
+  "sound": "JIBBED_ACTOR9 · eatsht01"
+ },
+ {
+  "id": "gib-10",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "If you can bleed, I can kill you!",
+  "original": "\"In your face!\"",
+  "sound": "JIBBED_ACTOR10 · face01"
+ },
+ {
+  "id": "gib-11",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "You're the disease, and I'm the cure!",
+  "original": "\"See you in hell.\"",
+  "sound": "JIBBED_ACTOR11 · inhell01"
+ },
+ {
+  "id": "gib-12",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "This is my boomstick!",
+  "original": "\"Suck it down.\"",
+  "sound": "JIBBED_ACTOR12 · sukit01"
+ },
+ {
+  "id": "gib-13",
+  "group": "duke-silent",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "decision": "replace",
+  "final": "Let the dirt sort 'em out.",
+  "original": "\"Let God sort 'em out.\"",
+  "sound": "JIBBED_ACTOR13 · letgod01"
+ },
+ {
+  "id": "weapon-1",
+  "group": "duke-silent",
+  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "decision": "replace",
+  "final": "Look ma.... I'm mining!",
+  "original": "\"Cool.\"",
+  "sound": "DUKE_GETWEAPON1 · cool01"
+ },
+ {
+  "id": "weapon-2",
+  "group": "duke-silent",
+  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "decision": "replace",
+  "final": "This town's made of ammo!",
+  "original": "\"Come get some.\"",
+  "sound": "DUKE_GETWEAPON2 · getsom1a"
+ },
+ {
+  "id": "weapon-3",
+  "group": "duke-silent",
+  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "decision": "replace",
+  "final": "For me!?",
+  "original": "\"Groovy.\"",
+  "sound": "DUKE_GETWEAPON3 · groovy02"
+ },
+ {
+  "id": "weapon-4",
+  "group": "duke-silent",
+  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "decision": "replace",
+  "final": "Don't mind if I do!",
+  "original": "\"Wanna dance?\"",
+  "sound": "DUKE_GETWEAPON4 · wansom4a"
+ },
+ {
+  "id": "weapon-6",
+  "group": "duke-silent",
+  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "decision": "keep",
+  "final": "Hail to the king, baby.",
+  "original": "\"Hail to the king, baby.\"",
+  "sound": "DUKE_GETWEAPON6 · hail01"
+ },
+ {
+  "id": "heal-low",
+  "group": "duke-silent",
+  "trigger": "Was: a health pickup when low. Now: eating when your health is low.",
+  "decision": "keep",
+  "final": "I needed that.",
+  "original": "\"Ooh, I needed that.\"",
+  "sound": "DUKE_GOTHEALTHATLOW · needed03"
+ },
+ {
+  "id": "relief",
+  "group": "duke-silent",
+  "trigger": "Was: using a toilet. Now: healed back to full health.",
+  "decision": "keep",
+  "final": "Ahh. Much better.",
+  "original": "\"Ahh, much better.\"",
+  "sound": "DUKE_PISSRELIEF · ahmuch03"
+ },
+ {
+  "id": "happens",
+  "group": "duke-silent",
+  "trigger": "Was: stepping in dog mess. Now: the SHIFT HAPPENS logo slamming in on the title screen.",
+  "decision": "replace",
+  "final": "Shift happens.",
+  "original": "\"Sh*t happens.\"",
+  "sound": "DUKE_STEPONFECES · happen01"
+ },
+ {
+  "id": "gulp",
+  "group": "duke-silent",
+  "trigger": "Was: taking steroids. Now: swallowing food.",
+  "decision": "keep",
+  "final": "(gulp)",
+  "original": "(gulp)",
+  "sound": "DUKE_TAKEPILLS · gulp01"
+ },
+ {
+  "id": "ready",
+  "group": "duke-silent",
+  "trigger": "Was: the end-of-level bonus screen. Now: respawning.",
+  "decision": "keep",
+  "final": "Ready for action.",
+  "original": "\"Ready for action.\"",
+  "sound": "BONUS_SPEECH2 · ready2a"
+ },
+ {
+  "id": "rip",
+  "group": "duke-silent",
+  "trigger": "End-of-level bonus screen",
+  "decision": "cut",
+  "final": "",
+  "original": "\"Let's rip!\" / \"Rockin'!\"",
+  "sound": "BONUS_SPEECH3, BONUS_SPEECH4 · ripem08, rockin02"
+ },
+ {
+  "id": "drink",
+  "group": "duke-silent",
+  "trigger": "Drinking from a toilet or fountain",
+  "decision": "cut",
+  "final": "",
+  "original": "(slurp)",
+  "sound": "DUKE_DRINKING · drink18"
+ },
+ {
+  "id": "mirror",
+  "group": "duke-silent",
+  "trigger": "Looking in a mirror",
+  "decision": "cut",
+  "final": "",
+  "original": "\"Lookin' good.\"",
+  "sound": "DUKE_LOOKINTOMIRROR · lookin01"
+ },
+ {
+  "id": "strippers",
+  "group": "duke-silent",
+  "trigger": "Strippers",
+  "decision": "cut",
+  "final": "",
+  "original": "\"Shake it, baby\" and others",
+  "sound": "DUKE_TIP1/2, DUKE_HIT_STRIPPER1/2, DUKE_BOOBY"
+ },
+ {
+  "id": "boss",
+  "group": "duke-silent",
+  "trigger": "Boss fights",
+  "decision": "cut",
+  "final": "",
+  "original": "boss taunts, \"Die, you son of a b*tch\"",
+  "sound": "DUKETALKTOBOSS, DUKE_TALKTOBOSSFALL"
+ },
+ {
+  "id": "map-lines",
+  "group": "duke-silent",
+  "trigger": "Placed by hand in Duke's maps",
+  "decision": "cut",
+  "final": "",
+  "original": "\"Nobody steals our chicks and lives\", \"kick ass and chew bubblegum\" and others",
+  "sound": "WAR_AMBIENCE9/10, GENERIC_AMBIENCE13-17, 23"
+ },
+ {
+  "id": "zombie-see",
+  "group": "new-monsters",
+  "trigger": "First zombie you meet",
+  "decision": "new",
+  "final": "Great. The neighbours are up.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "zombie-kill",
+  "group": "new-monsters",
+  "trigger": "Killing a zombie (sometimes)",
+  "decision": "new",
+  "final": "Stay dead this time",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "zombie-near",
+  "group": "new-monsters",
+  "trigger": "A zombie groaning nearby, out of sight",
+  "decision": "new",
+  "final": "I can hear you. Sort of breathing.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "skeleton-see",
+  "group": "new-monsters",
+  "trigger": "First skeleton you meet",
+  "decision": "new",
+  "final": "A skeleton with a bow. Sure. Why not.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "arrow-hit",
+  "group": "new-monsters",
+  "trigger": "Hit by an arrow",
+  "decision": "new",
+  "final": "Pointy!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "skeleton-kill",
+  "group": "new-monsters",
+  "trigger": "Killing a skeleton (sometimes)",
+  "decision": "new",
+  "final": "Deader than you ever could imagine. Yeah!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "spider-see",
+  "group": "new-monsters",
+  "trigger": "First spider you meet",
+  "decision": "new",
+  "final": "Spiders!? I hate spiders! Especially big ones!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "spider-leap",
+  "group": "new-monsters",
+  "trigger": "A spider leaps on you",
+  "decision": "new",
+  "final": "Spiders smell like armpits",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "spider-kill",
+  "group": "new-monsters",
+  "trigger": "Killing a spider (sometimes)",
+  "decision": "new",
+  "final": "Eight legs. Zero chances.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "creeper-see",
+  "group": "new-monsters",
+  "trigger": "First creeper you meet",
+  "decision": "new",
+  "final": "...What the hell are you?",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "creeper-hiss",
+  "group": "new-monsters",
+  "trigger": "A creeper starts hissing next to you",
+  "decision": "new",
+  "final": "Oh, you've gotta be kidding me.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "creeper-boom",
+  "group": "new-monsters",
+  "trigger": "Surviving a creeper blast",
+  "decision": "new",
+  "final": "...Gross! It popped",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "creeper-kill",
+  "group": "new-monsters",
+  "trigger": "Shooting a creeper before it goes off",
+  "decision": "new",
+  "final": "Not today, pal.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "cooked",
+  "group": "new-monsters",
+  "trigger": "Killing a zombie with an explosion (it drops cooked meat)",
+  "decision": "new",
+  "final": "Barbeque time!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "multi-kill",
+  "group": "new-monsters",
+  "trigger": "One explosion kills three or more",
+  "decision": "new",
+  "final": "Hat trick!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "enderman",
+  "group": "new-monsters",
+  "trigger": "(Later) An enderman stares at you",
+  "decision": "cut",
+  "final": "Don't look at me like that.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "slime-split",
+  "group": "new-monsters",
+  "trigger": "(Later) A slime splits in two",
+  "decision": "cut",
+  "final": "Oh, now there's two of you.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "level-start",
+  "group": "new-places",
+  "trigger": "Play starts in The Mines",
+  "decision": "new",
+  "final": "Mines! Crafty",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "cave-first",
+  "group": "new-places",
+  "trigger": "First time underground in the dark",
+  "decision": "new",
+  "final": "Smells like crotch in here!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "cave-deep",
+  "group": "new-places",
+  "trigger": "First time down at diamond depth",
+  "decision": "new",
+  "final": "This deep, you find two things. Diamonds and trouble.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "lava-first",
+  "group": "new-places",
+  "trigger": "First time you see lava",
+  "decision": "new",
+  "final": "Lava. Naturally.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "water-first",
+  "group": "new-places",
+  "trigger": "First swim",
+  "decision": "new",
+  "final": "Aaaah. A refreshing Bud!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "peak",
+  "group": "new-places",
+  "trigger": "First time on a snowy peak",
+  "decision": "new",
+  "final": "Nice view. Shame about the neighbourhood.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "bedrock",
+  "group": "new-places",
+  "trigger": "Shooting bedrock",
+  "decision": "new",
+  "final": "Not even I can dig through that.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "gravel",
+  "group": "new-places",
+  "trigger": "Sand or gravel falls on you",
+  "decision": "new",
+  "final": "I think I got a stone in my shoe!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "ore-coal",
+  "group": "new-finds",
+  "trigger": "First coal (pistol ammo)",
+  "decision": "new",
+  "final": "Coal. Bullets for the peashooter.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "ore-iron",
+  "group": "new-finds",
+  "trigger": "First iron (shotgun shells)",
+  "decision": "new",
+  "final": "Iron. Now the shotgun's interested.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "ore-gold",
+  "group": "new-finds",
+  "trigger": "First gold (chaingun ammo)",
+  "decision": "new",
+  "final": "Gold. Feed the chaingun.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "ore-redstone",
+  "group": "new-finds",
+  "trigger": "First redstone (pipe bombs)",
+  "decision": "new",
+  "final": "Red rocks that go boom. My kind of geology.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "ore-lapis",
+  "group": "new-finds",
+  "trigger": "First lapis (freeze thrower)",
+  "decision": "new",
+  "final": "Blue stuff. Cold to the touch.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "ore-diamond",
+  "group": "new-finds",
+  "trigger": "First diamond (rockets)",
+  "decision": "new",
+  "final": "Diamonds. A rocket's best friend.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "ore-any",
+  "group": "new-finds",
+  "trigger": "Any ore after that (sometimes)",
+  "decision": "new",
+  "final": "Now we're talking. / Bullets don't mine themselves.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "out-of-ammo",
+  "group": "new-finds",
+  "trigger": "Running out of ammo",
+  "decision": "new",
+  "final": "Empty. Figures.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "mushroom-first",
+  "group": "new-finds",
+  "trigger": "First glowing mushroom you see",
+  "decision": "new",
+  "final": "That mushroom's glowing. That can't be good.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "melon-first",
+  "group": "new-finds",
+  "trigger": "First melon patch",
+  "decision": "new",
+  "final": "Melons? Out here!? Sure!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "apple",
+  "group": "new-finds",
+  "trigger": "An apple drops from leaves",
+  "decision": "new",
+  "final": "How's them apples!?",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "eat-raw-first",
+  "group": "new-eating",
+  "trigger": "Eating raw meat: the first time, then 1 in n after",
+  "decision": "new",
+  "final": "Yum... Zombie tartare",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "eat-raw",
+  "group": "new-eating",
+  "trigger": "Eating raw meat: a second take, mixed in on the 1-in-n plays",
+  "decision": "new",
+  "final": "Needs salt!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "eat-cooked-first",
+  "group": "new-eating",
+  "trigger": "Eating cooked meat: the first time, then 1 in n after",
+  "decision": "new",
+  "final": "Chared, tender, juicy.... ",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "eat-melon-first",
+  "group": "new-eating",
+  "trigger": "Eating a melon slice: the first time, then 1 in n after",
+  "decision": "new",
+  "final": "What, no fried chicken!?",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "eat-apple-first",
+  "group": "new-eating",
+  "trigger": "Eating an apple: the first time, then 1 in n after",
+  "decision": "new",
+  "final": "Keeps the doctor away. Not the zombies!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "eat-mushroom-first",
+  "group": "new-eating",
+  "trigger": "Eating a mushroom: the first time, then 1 in n after",
+  "decision": "new",
+  "final": "Happy trails!",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "not-hungry",
+  "group": "new-eating",
+  "trigger": "Walking over food at full health",
+  "decision": "cut",
+  "final": "Not hungry.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "low-health",
+  "group": "new-health",
+  "trigger": "Health drops low",
+  "decision": "new",
+  "final": "A Western Double Chee' would go down well about now",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "respawn",
+  "group": "new-health",
+  "trigger": "Coming back after dying",
+  "decision": "new",
+  "final": "Round two.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "death-creeper",
+  "group": "new-health",
+  "trigger": "Killed by a creeper",
+  "decision": "new",
+  "final": "...Should've seen that coming.",
+  "original": "",
+  "sound": ""
+ }
+]

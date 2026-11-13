@@ -1,5 +1,16 @@
 # Voice: what Duke says now, and the plan for our own
 
+> **Status (2026-11-13): done.** All 82 lines from the voice sheet are in, in our designed voice ("A3+ 3", ElevenLabs
+> voice `m5pB7oZWGpxRPROPEp7z`), except two that fal's content checker refused (gib-9, gib-10; see below). Every one
+> of the 69 slots in Duke's script that used his voice now plays our line or a moment of silence.
+> - The sheet: https://claude.ai/artifact/B137hj684LeMQigvnjGRNt, exported to `art/voice/lines.json`.
+> - `python tools/mkvoice.py` makes what's missing (fal, then trimmed and levelled to 22 kHz mono 8-bit WAV in
+>   `game/sounds/voice/`, plus `takes.txt`). Raw takes and their URLs are kept in `art/voice/raw/`.
+> - `engine/source/duke3d/src/emine_voice.cpp` maps Duke's slots and says the new lines (`Emine_Say`); dev console:
+>   `emine_voice` (check the slots), `emine_voice <line>`, `emine_voice log`.
+>
+> The rest of this file is the original survey and plan.
+
 Duke's lines are part of the shareware data, so all of them have to go before launch (see `ART-LAUNDRY.md`). This is
 what's there, what makes each line play in eMine32 today, and how we make our own: an original gravel-voiced,
 deadpan Dirty Harry type, made with fal.
