@@ -110,40 +110,13 @@
   if (Module.emineRawOK)
     document.addEventListener('pointerrawupdate', function (e) {
       if (document.pointerLockElement !== canvas) return;
+      // Chrome now and then reports a huge jump under pointer lock (thousands of px in one event): drop those
+      if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) { Module.emineRawSpikes = (Module.emineRawSpikes | 0) + 1; return; }
       Module.emineRawX += e.movementX || 0; Module.emineRawY += e.movementY || 0;
       Module.emineRawN++;
       var lag = performance.now() - e.timeStamp;
       if (lag > Module.emineRawLag) Module.emineRawLag = lag;
     }, true);
-  // Adaptive resolution. The browser shows a frame on each display refresh, so a frame that takes even a little
-  // longer than one refresh waits for the next: the frame rate halves and turning looks jumpy. Watch the engine's
-  // work per frame (its slow frames: the 90th percentile) against the refresh interval; when they run close to the
-  // budget, render fewer pixels (the canvas
-  // is stretched to the window either way), and when there's plenty to spare, go back up. ?res or ?scale turn it off.
-  (function () {
-    if (/[?&](res|scale)=/.test(location.search)) return;
-    var deltas = [], last = 0, over = 0, under = 0, STEP = 1.2, MAX = 3, holdUntil = 0;  // no going back up for a while after a step down (no bouncing)
-    Module.emineAutoScale = 1;
-    function tick(t) { if (last) { deltas.push(t - last); if (deltas.length > 120) deltas.shift(); } last = t; requestAnimationFrame(tick); }
-    requestAnimationFrame(tick);
-    function rescale(f) {
-      Module.emineAutoScale = Math.min(MAX, Math.max(1, Module.emineAutoScale * f));
-      if (Module.emineAutoScale < 1.01) Module.emineAutoScale = 1;
-      var r = Module.emineRes();
-      Module._emine_request_resize(r[0], r[1]);
-      console.log('eMine32 render scale ' + Module.emineAutoScale.toFixed(2) + ': ' + r[0] + 'x' + r[1]);
-      over = under = 0;
-    }
-    setInterval(function () {
-      if (!Module._emine_frame_work_ms || !Module._emine_request_resize || deltas.length < 30 || document.hidden) return;
-      var work = Module._emine_frame_work_ms();
-      if (!work || work > 3 * 16.7) return;  // nothing drawn, or a level loading: not a measure of drawing
-      var refresh = deltas.slice().sort(function (a, b) { return a - b; })[deltas.length >> 1];  // median
-      if (work > 0.8 * refresh) { under = 0; if (++over >= 2 && Module.emineAutoScale < MAX) { rescale(STEP); holdUntil = Date.now() + 60000; } }
-      else if (work < 0.5 * refresh) { over = 0; if (++under >= 6 && Module.emineAutoScale > 1 && Date.now() > holdUntil) rescale(1 / STEP); }
-      else over = under = 0;
-    }, 1000);
-  })();
   window.addEventListener('error', function (e) { statusEl.textContent = 'Error: ' + e.message; });
 </script>
 {{{ SCRIPT }}}

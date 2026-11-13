@@ -66,7 +66,22 @@ char SDLAudioDriverName[16];
 char *SDLAudioDriverNameEnv;
 #endif
 
+static void fillData_(void * userdata, Uint8 * ptr, int remaining);
+#ifdef __EMSCRIPTEN__
+# include <emscripten.h>
+#endif
+double emine_audioMs;  // eMine32 emine_perf: time spent mixing audio (in the browser it runs on the game's thread)
 static void fillData(void * userdata, Uint8 * ptr, int remaining)
+{
+#ifdef __EMSCRIPTEN__
+    double const t = emscripten_get_now();
+    fillData_(userdata, ptr, remaining);
+    emine_audioMs += emscripten_get_now() - t;
+#else
+    fillData_(userdata, ptr, remaining);
+#endif
+}
+static void fillData_(void * userdata, Uint8 * ptr, int remaining)
 {
     UNREFERENCED_PARAMETER(userdata);
 

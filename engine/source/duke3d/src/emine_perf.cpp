@@ -67,13 +67,32 @@ void Emine_PerfFrame(double drawms, double waitms, int q16ang)
     // `emine_perf mouse`: movement that stopped coming for a while and then came in a lump
     if (logMouse)
     {
-        extern int emine_rawmouse;
-        if ((cur.jsx && pageStill >= 4) || (cur.mousex && gameStill >= 4) || cur.jslag > 50 || cur.rawlag > 50)
-            OSD_Printf("emine_perf: mouse after %d still frames (page) / %d (game): mousemove %d px in %d events, latest %d ms late; raw %d events, latest %d ms late; game %d (%s); frame gap %.1f ms\n",
-                       pageStill, gameStill, cur.jsx, cur.jsn, cur.jslag, cur.rawn, cur.rawlag, cur.mousex,
-                       emine_rawmouse ? "reads raw" : "reads mousemove", prev ? cur.end - prev->end : 0.0);
-        pageStill = cur.jsx ? 0 : pageStill + 1;
-        gameStill = cur.mousex ? 0 : gameStill + 1;
+        // one line a second (a line a frame floods the console, and with DevTools open that adds lag itself)
+        extern double emine_audioMs;
+        static double secStart = -1, audio0, gap, gapMax, work, workMax, part[5], wait;
+        static int frames, mmEvents, mmLagMax, rawEvents, rawLagMax, late;
+        if (secStart < 0) secStart = cur.end, audio0 = emine_audioMs;
+        double const g = prev ? cur.end - prev->end : 0.0, w = cur.draw + cur.tic;
+        frames++; gap += g; gapMax = max(gapMax, g); late += g > 20.0;
+        work += w; workMax = max(workMax, w); wait += cur.wait;
+        for (int i = 0; i < 5; i++) part[i] += cur.part[i];
+        mmEvents += cur.jsn; mmLagMax = max(mmLagMax, cur.jslag);
+        rawEvents += cur.rawn; rawLagMax = max(rawLagMax, cur.rawlag);
+        if (cur.end - secStart >= 1000.0)
+        {
+            double const span = cur.end - secStart;
+            int const spikes = EM_ASM_INT({ var v = Module.emineRawSpikes | 0; Module.emineRawSpikes = 0; return v; });
+            OSD_Printf("emine_perf: 1s: %d frames (gap avg %.1f max %.1f, %d over 20 ms); game work per frame avg %.1f max %.1f ms "
+                       "(world %.1f hud %.1f present %.1f sound %.1f input %.1f), waiting %.1f; audio mixing %.0f ms/s; "
+                       "mouse: %d mousemove (max %d ms late), %d raw (max %d ms late), %d spikes dropped\n",
+                       frames, gap / frames, gapMax, late, work / frames, workMax,
+                       part[1] / frames, part[2] / frames, part[3] / frames, part[4] / frames, part[0] / frames, wait / frames,
+                       (emine_audioMs - audio0) * 1000.0 / span, mmEvents, mmLagMax, rawEvents, rawLagMax, spikes);
+            secStart = cur.end, audio0 = emine_audioMs;
+            frames = mmEvents = mmLagMax = rawEvents = rawLagMax = late = 0;
+            gap = gapMax = work = workMax = wait = 0;
+            for (double &p : part) p = 0;
+        }
     }
     ring[head] = cur;
     head = (head + 1) % N;
