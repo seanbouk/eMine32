@@ -87,14 +87,19 @@ TILES = {
     2609: ('a rocket in flight seen from the side and a little from behind, as in the guide, a bright exhaust flame at its tail: brass body, blue-grey pointed warhead, small dark steel fins at the tail', 'rocket', 2608, True),
     2610: ('a rocket in flight seen from behind at an angle, foreshortened, a bright yellow-orange exhaust flame at its tail', 'rocket', 2608, True),
     2611: ('a rocket in flight seen straight from behind: four small dark fins in an X around a bright yellow-orange exhaust flame', 'rocket', 2608, True),
+    # the devastator (lapis): the shareware has no art for it, so our own layout guide; the game draws it in the right
+    # hand and mirrored in the left
+    2510: (HAND + ' gripping ' + "a chunky futuristic twin-tube mini-rocket launcher (gunmetal body with lapis-blue armour panels, two short rocket tubes side by side on top), held low at the bottom right of the view and pointing forward and a little left, seen from behind the shooter", 'rocket launcher', None, False),
+    2511: (HAND + ' gripping ' + "a chunky futuristic twin-tube mini-rocket launcher (gunmetal body with lapis-blue armour panels, two short rocket tubes side by side on top), held low at the bottom right of the view and pointing forward and a little left, seen from behind the shooter" + '; it is firing, bright yellow-orange flashes at the mouths of both tubes', 'rocket launcher', 2510, True),
+    42: ('an ammo pickup for the game: a small lapis-blue steel box with its lid open, packed with a row of small brass mini rockets with blue-grey tips', 'ammo box', None, False),
     51: ('a game HUD icon: a chunky glossy red heart with a bright highlight, filling the guide', 'heart icon', None, False),
     54: ('a game HUD icon: a riveted iron chest plate (body armour), front view, filling the guide', 'armour icon', None, False),
 }
 # world sprites and icons: not padded (a world sprite's bottom edge sits on the floor; icons keep their size)
-PICKUPS = (37, 40, 41, 44, 47, 49, 26, 51, 54, 2605, 2606, 2607, 2608, 2609, 2610, 2611)
+PICKUPS = (37, 40, 41, 42, 44, 47, 49, 26, 51, 54, 2605, 2606, 2607, 2608, 2609, 2610, 2611)
 LOCAL = [2523, 2533, 2534, 2535, 2538, 2539, 2540, 2541, 2542, 2543, 2614, 2615]
 GROUPS = [(2324, 2327), (2521, 2526), (2528, 2546), (2570, 2575), (2613, 2619), (37, 38), (40, 41), (44, 44), (47, 47), (49, 49),
-          (26, 26), (51, 51), (54, 54), (2605, 2611)]
+          (26, 26), (51, 51), (54, 54), (2605, 2611), (42, 42), (2510, 2511)]
 COPIES = {38: 37}
 FLIP = {2608}  # painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
 ASPECTS = [(21, 9), (16, 9), (3, 2), (4, 3), (1, 1), (3, 4), (2, 3), (9, 16)]
@@ -119,6 +124,27 @@ def duke(n):
         pa = 0
     if n == 38 and px is None:
         return duke(37)
+    if n == 42 and px is None:  # devastator ammo: a box on the floor, like the others
+        px = np.full((32, 44), 255, np.uint8)
+        px[6:32, 2:42] = 15
+        pa = 0
+    if n in (2510, 2511) and px is None:
+        # Devastator: our own layout. A gun body slanting up and left from the bottom right, a hand and forearm on it.
+        # Offsets put it low in the right of the screen (the game draws it at x 268, y 238 of 320x200, and a mirrored
+        # copy at x 30 for the left hand).
+        w, h = 110, 96
+        yy, xx = np.mgrid[0:h, 0:w].astype(float)
+        a = np.radians(-28)
+        u = (xx - 62) * np.cos(a) - (yy - 52) * np.sin(a)
+        v = (xx - 62) * np.sin(a) + (yy - 52) * np.cos(a)
+        gun = (np.abs(u) < 46) & (np.abs(v) < 17)
+        tubes = (np.abs(u + 30) < 22) & (np.abs(v + 21) < 9)
+        hand = ((xx - 84) ** 2 / 20 ** 2 + (yy - 74) ** 2 / 16 ** 2) < 1
+        arm = (xx > 82) & (yy > 70) & (yy - 70 > (xx - 82) * -0.2)
+        grey, blue, skin = (int(np.argmin(((_pal - c) ** 2).sum(1)[:255])) for c in ((95, 95, 100), (60, 90, 170), (200, 150, 110)))
+        px = np.full((h, w), 255, np.uint8)
+        px[gun] = grey; px[tubes] = blue; px[hand | arm] = skin
+        pa = ((-20 & 255) << 8) | ((28 & 255) << 16)  # low in the corner, the cut-off forearm off the bottom and side
     if n in (51, 54):  # HUD icons: our own outlines (a heart, a chest plate) at Duke's icon sizes
         w, h = (23, 16) if n == 51 else (27, 26)
         yy, xx = np.mgrid[0:h, 0:w].astype(float)

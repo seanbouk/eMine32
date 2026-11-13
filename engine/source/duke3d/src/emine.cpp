@@ -54,7 +54,7 @@ static int Emine_OreAmmo(int type, int *count)
         case VW_IRON:     *count = 3; return SHOTGUNAMMO;  // shotgun shells
         case VW_GOLD:     *count = 2; return BATTERYAMMO;  // chaingun ammo
         case VW_REDSTONE: return HBOMBAMMO;    // pipe bombs
-        case VW_LAPIS:    return FREEZEAMMO;   // freeze thrower
+        case VW_LAPIS:    return DEVISTATORAMMO;  // devastator (twin mini-rocket launcher)
         case VW_DIAMOND:  return RPGAMMO;      // rockets
         default:          *count = 0; return 0;
     }
@@ -498,6 +498,20 @@ void Emine_ResetWeapons(int playerNum)
     p.ammo_amount[PISTOL_WEAPON] = min<int16_t>(p.max_ammo_amount[PISTOL_WEAPON], 12);
 }
 
+// Dev console: `emine_ammo <weapon> <amount>` sets that weapon's ammo (weapon numbers as Duke's: 1 pistol, 2 shotgun,
+// 3 chaingun, 4 RPG, 5 pipe bomb, 7 devastator, ...). For testing a weapon without mining for it.
+static int osdcmd_emine_ammo(osdcmdptr_t parm)
+{
+    if (parm->numparms < 2) return OSDCMD_SHOWHELP;
+    auto const p = g_player[myconnectindex].ps;
+    int const w = Batol(parm->parms[0]);
+    if ((unsigned)w >= MAX_WEAPONS) return OSDCMD_SHOWHELP;
+    p->gotweapon |= 1 << w;
+    p->ammo_amount[w] = clamp(Batol(parm->parms[1]), 0, (int)p->max_ammo_amount[w]);
+    OSD_Printf("emine_ammo: weapon %d has %d (max %d)\n", w, p->ammo_amount[w], p->max_ammo_amount[w]);
+    return OSDCMD_OK;
+}
+
 // Dev console: `emine_ore <blocktype>` drops what breaking that ore would, a couple of blocks in front of the player.
 static int osdcmd_emine_ore(osdcmdptr_t parm)
 {
@@ -625,6 +639,7 @@ void Emine_RegisterOSD(void)
 {
     OSD_RegisterFunction("emine_look", "emine_look <horiz>: dev - set the view pitch (100 level, lower looks down)", osdcmd_emine_look);
     OSD_RegisterFunction("emine_find", "emine_find <blocktype>: dev - stand on the nearest column topped with that block (31 = snow)", osdcmd_emine_find);
+    OSD_RegisterFunction("emine_ammo", "emine_ammo <weapon> <amount>: dev - set a weapon's ammo (7 = devastator)", osdcmd_emine_ammo);
     OSD_RegisterFunction("emine_ore", "emine_ore <blocktype>: dev - drop what breaking that ore gives (11 coal, 12 iron, 13 gold, 14 redstone, 33 lapis, 34 diamond)", osdcmd_emine_ore);
     OSD_RegisterFunction("emine_spawn", "emine_spawn <tile> [blocks]: dev - spawn that sprite/actor on the ground in front of you (default 4 blocks)", osdcmd_emine_spawn);
     OSD_RegisterFunction("emine_list", "emine_list [blocks]: dev - list the enemies near you (default 32 blocks)", osdcmd_emine_list);

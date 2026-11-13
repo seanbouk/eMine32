@@ -99,9 +99,9 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 | [x] | Shotgun | SHOTGUN 2613 | iron | R | Done, with the pump and loading frames, red shells and flashes (`tools/mkweapons.py`). |
 | [x] | Chaingun | CHAINGUN 2536 | gold | R | Done: receiver, barrels (heating up locally drawn) and flashes (`tools/mkweapons.py`). |
 | [x] | Pipe bomb + detonator | HANDTHROW 2573 / HANDREMOTE 2570 | redstone | R | Done: canister with hazard caps, throw and detonator hand (`tools/mkweapons.py`). |
-| [ ] | Freezer | FREEZE 2548 | lapis | R | idle, fire 2 (missing from shareware anyway) |
+| [x] | ~~Freezer~~ → Devastator | DEVISTATOR 2510-2511 | lapis | R | The freezer is cut (no art in the shareware, no ore feeds it now). Lapis gives devastator ammo instead: our own twin mini-rocket launcher (fal, from our own layout guide, drawn in both hands), a lapis-blue box of mini rockets as its pickup and HUD icon (tile 42). Its shots are our rocket. |
 | [x] | RPG | RPGGUN 2544 | diamond | R | Done, with its two blast frames (`tools/mkweapons.py`). |
-| [ ] | Shrinker, Devastator, Trip mine | | — | C | No ore gives their ammo |
+| [ ] | Shrinker, Trip mine, Freezer | | — | C | No ore gives their ammo, so they can't be selected. Remaining chore: hide them from the weapon list entirely. |
 | [x] | Crosshair | CROSSHAIR 2523 | | R | Done: a small gapped plus (`tools/mkweapons.py`). |
 | [x] | Projectiles in the world: rocket, pipe bomb, freeze bolt, shotspark, shell casings, muzzle flashes | | | R | Done: rocket in flight (7 views) and the pipe bomb lying in the world painted (`tools/mkweapons.py`); bullet sparks procedural (`tools/mkfx.py`); casings ours. No freeze bolt (no freezer art). |
 | [x] | Explosion, smoke, glass shards, water splash, fire | EXPLOSION2 1890, SMALLSMOKE, GLASSPIECES 1031… | | R | Done, procedural (`tools/mkfx.py`): the 20-frame explosion, both 14-frame flames (burning mobs, fire), smoke puffs, water splashes. Glass shards still Duke's (only if glass breaks). |
