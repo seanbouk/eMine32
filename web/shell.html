@@ -89,7 +89,8 @@
   });
   // Adaptive resolution. The browser shows a frame on each display refresh, so a frame that takes even a little
   // longer than one refresh waits for the next: the frame rate halves and turning looks jumpy. Watch the engine's
-  // work per frame against the refresh interval; when it runs close to the budget, render fewer pixels (the canvas
+  // work per frame (its slow frames: the 90th percentile) against the refresh interval; when they run close to the
+  // budget, render fewer pixels (the canvas
   // is stretched to the window either way), and when there's plenty to spare, go back up. ?res or ?scale turn it off.
   (function () {
     if (/[?&](res|scale)=/.test(location.search)) return;
@@ -110,7 +111,7 @@
       var work = Module._emine_frame_work_ms();
       if (!work || work > 3 * 16.7) return;  // nothing drawn, or a level loading: not a measure of drawing
       var refresh = deltas.slice().sort(function (a, b) { return a - b; })[deltas.length >> 1];  // median
-      if (work > 0.85 * refresh) { under = 0; if (++over >= 2 && Module.emineAutoScale < MAX) { rescale(STEP); holdUntil = Date.now() + 60000; } }
+      if (work > 0.8 * refresh) { under = 0; if (++over >= 2 && Module.emineAutoScale < MAX) { rescale(STEP); holdUntil = Date.now() + 60000; } }
       else if (work < 0.5 * refresh) { over = 0; if (++under >= 6 && Module.emineAutoScale > 1 && Date.now() > holdUntil) rescale(1 / STEP); }
       else over = under = 0;
     }, 1000);

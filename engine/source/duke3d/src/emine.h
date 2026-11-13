@@ -30,6 +30,15 @@ int Emine_LightShade(int spriteNum);
 
 // Console commands and world event hooks (called once from registerosdcommands).
 void Emine_RegisterOSD(void);
+// frame timing for play-testing (emine_perf.cpp): our systems, timed inside a tic
+#define EMINE_PERF_SYSTEMS 5
+enum { EMINE_PERF_MOBS, EMINE_PERF_WORLD, EMINE_PERF_FOOD, EMINE_PERF_VOICE, EMINE_PERF_OTHER };
+void Emine_PerfSystem(int sys, double ms);
+void Emine_PerfMouse(int mousex);
+void Emine_PerfTics(int tics, double ms);
+void Emine_PerfFrame(double drawms, double waitms, int q16ang);
+void Emine_PerfPart(int part, double ms);  // 0 input, 1 world, 2 HUD and weapon, 3 present, 4 sound
+void Emine_RegisterPerfOSD(void);
 
 // Once per game tic (G_MoveWorld): falling blocks etc.
 void Emine_Tick(void);

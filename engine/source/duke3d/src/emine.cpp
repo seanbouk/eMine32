@@ -427,15 +427,21 @@ void Emine_SwimSink(int playerNum, uint32_t playerBits, int32_t floorZ)
 void Emine_Tick(void)
 {
     emine_tic++;
+    double t = timerGetFractionalTicks(), t1;
+    auto lap = [&](int sys) { t1 = timerGetFractionalTicks(); Emine_PerfSystem(sys, t1 - t); t = t1; };
     Emine_MobTick();
     Emine_LavaBurn();
+    lap(EMINE_PERF_MOBS);
 
     auto const p = g_player[myconnectindex].ps;
     if (p->i >= 0) voxworld_stream(p->pos.x, p->pos.y);
     voxworld_tick();
     Emine_MoveDrops();
+    lap(EMINE_PERF_WORLD);
     Emine_FoodTick();
+    lap(EMINE_PERF_FOOD);
     Emine_VoiceTick();
+    lap(EMINE_PERF_VOICE);
 
     if (emine_where && p->i >= 0 && emine_tic % 15 == 0)
     {
@@ -637,6 +643,7 @@ void Emine_RegisterOSD(void)
     Emine_RegisterMobOSD();
     Emine_RegisterFoodOSD();
     Emine_RegisterVoiceOSD();
+    Emine_RegisterPerfOSD();
     OSD_RegisterFunction("emine_glow", "emine_glow [minlight 1-15]: dev - teleport next to the nearest glowing block", osdcmd_emine_cave);
     OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);
     OSD_RegisterFunction("emine_cave", "emine_cave [maxlight 0-15]: dev - teleport to the nearest dark cave", osdcmd_emine_cave);

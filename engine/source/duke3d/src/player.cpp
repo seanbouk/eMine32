@@ -3246,6 +3246,7 @@ void P_GetInput(int const playerNum)
     }
 
     CONTROL_GetInput(&info);
+    Emine_PerfMouse(info.mousex);  // eMine32: emine_perf
 
     if (ud.config.MouseBias)
     {

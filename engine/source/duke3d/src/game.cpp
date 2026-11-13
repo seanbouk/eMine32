@@ -6484,6 +6484,10 @@ void drawframe_do(void)
     MICROPROFILE_SCOPEI("Game", EDUKE32_FUNCTION, MP_YELLOWGREEN);
 
     g_lastFrameStartTime = timerGetNanoTicks();
+    extern double emine_yieldMs;
+    double pt = timerGetFractionalTicks(), pt1, py = emine_yieldMs;
+    // emine_perf: time each part of the frame (less any time yielded to the browser inside it)
+    auto lap = [&](int part) { pt1 = timerGetFractionalTicks(); Emine_PerfPart(part, pt1 - pt - (emine_yieldMs - py)); pt = pt1; py = emine_yieldMs; };
 
     if (!g_saveRequested)
     {
@@ -6502,13 +6506,16 @@ void drawframe_do(void)
     }
 
     int const smoothratio = calc_smoothratio(totalclock, ototalclock);
+    lap(0);
 
     G_DrawRooms(screenpeek, smoothratio);
+    lap(1);
 
     if (videoGetRenderMode() >= REND_POLYMOST)
         G_DrawBackground();
 
     G_DisplayRest(smoothratio);
+    lap(2);
 
     g_frameJustDrawn = true;
     g_lastFrameEndTime = timerGetNanoTicks();
@@ -6516,7 +6523,9 @@ void drawframe_do(void)
     g_frameCounter++;
 
     videoNextPage();
+    lap(3);
     S_Update();
+    lap(4);
     g_lastFrameEndTime2 = timerGetNanoTicks();
     g_lastFrameDuration2 = g_lastFrameEndTime2 - g_lastFrameStartTime;
 }
@@ -7136,7 +7145,9 @@ MAIN_LOOP_RESTART:
                     {
                         g_frameJustDrawn = false;
                         Net_GetPackets();
+                        double const ticStart = timerGetFractionalTicks();
                         G_DoMoveThings();
+                        Emine_PerfTics(1, timerGetFractionalTicks() - ticStart);
                     }
 
                 }
@@ -7188,7 +7199,10 @@ MAIN_LOOP_RESTART:
             }
 
             //g_switchRoutine(co_drawframe);
+            extern double emine_yieldMs;
+            double const drawStart = timerGetFractionalTicks(), yieldStart = emine_yieldMs;
             drawframe_do();
+            Emine_PerfFrame(timerGetFractionalTicks() - drawStart, emine_yieldMs - yieldStart, CAMERA(q16ang));
         }
 
         // handle CON_SAVE and CON_SAVENN
