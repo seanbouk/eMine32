@@ -203,3 +203,16 @@ of a block. `A_MoveSpriteClipdist` now traces a projectile's real diagonal step 
   steps back up, but not for a minute after a step down. Load spikes are ignored. `?res=` or `?scale=` turn it off;
   the steps are logged to the JS console ("eMine32 render scale").
 - Dev: `emine_viewtrace [frames]` prints, per drawn frame, the game clock, the tic fraction and the view angle.
+
+## Rendering regression from see-through leaves, fixed (2026-11-13)
+Bisected with a fixed view at 1720x720 (headless Chrome, `voxworld: columns` timing; spawn view / after a fixed turn):
+11-10 7.6 / 10.7 ms, 54e8d36 (32x32 faces) 7.5 / 10.7, 917e566 (see-through leaves) 12.8 / 19.9, everything since the
+same. See-through leaves let every ray carry on through each canopy, drawing the front and back of every leaf block
+(three light lookups per face) and then the forest behind: in wooded views the renderer doubled, which is what made
+turning jumpy (frames over the display's refresh). Fix, in `voxworld.cpp`:
+- columns also keep `lruns` (opaque runs counting leaves as opaque) and `ggruns` (glass only); past `r_voxleafdist`
+  blocks (default 16), and once a ray has been through one column with leaves, it uses those: leaves are solid
+  (drawn with `vw_leafsolid`, the leaf texture with its holes filled by its darkest common colour) and the ray stops
+  at them. Near leaves still show sky and branches through their holes.
+- Now 9.2 / 13.0 ms (all-solid leaves would be 8.0 / 11.0).
+- Play-testing: `emine_perf` (emine_perf.cpp) summarises the last ~1000 frames (gaps, late frames, time per part).
