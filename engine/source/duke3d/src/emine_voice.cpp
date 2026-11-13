@@ -24,6 +24,20 @@ namespace
 {
 
 int constexpr FIRST_ID = 2000;  // our sounds go here (Duke's end well below)
+int constexpr GAP = 5 * 30;     // tics of quiet after Duke finishes a spoken line, before the next may start
+
+// What each of our sounds is, for the gap: speech waits for it; noises (grunts, screams, gasps, the gulp, the
+// knuckle crack) and dying never wait, and don't start it.
+enum Kind : char { SPEECH, NOISE, DEATH };
+std::unordered_map<int, Kind> soundKind;
+Kind kindOf(std::string const &line)
+{
+    static char const *const noise[] = { "hurt", "burning", "land-hurt", "fall-scream", "gasp", "gulp", "idle-crack", "medkit" };
+    for (auto n : noise) if (line == n) return NOISE;
+    return line.compare(0, 6, "death-") ? SPEECH : DEATH;
+}
+bool speaking;          // the talk sound playing is speech
+int lastSpeechEnd = -100000;
 
 struct Line { std::vector<int> ids; int said = 0, last = -1; };
 std::unordered_map<std::string, Line> lines;
@@ -167,6 +181,7 @@ void Emine_VoiceInit(void)
         S_DefineSound(id, voiceFile(take.c_str()).c_str(), 0, 0, foley ? 128 : 250, foley ? 0 : SF_TALK, 0, 1.f);
         takeId[take] = id;
         lines[line].ids.push_back(id);
+        soundKind[id] = kindOf(line);
         id++;
     }
     // Duke's slots: ours, or silence
@@ -174,7 +189,11 @@ void Emine_VoiceInit(void)
     {
         char const *take = (s.take[0] && takeId.count(s.take)) ? s.take : "";
         if ((unsigned)s.id < MAXSOUNDS && g_sounds[s.id] != &nullsound)
+        {
             S_SetSoundFile(s.id, voiceFile(take).c_str());
+            std::string const t = take;
+            soundKind[s.id] = kindOf(t.substr(0, t.find('_')));  // "use-nothing_2" -> "use-nothing"
+        }
     }
     for (auto &w : ammoKnown) w = -1;
     ready = true;
@@ -204,11 +223,11 @@ void Emine_VoiceKill(int type, bool explosive, bool burnt, bool fused)
         for (int t : killTics) recent += t && voice_tic - t < 15;
         if (recent >= 3 && Emine_Say("multi-kill")) { for (int &t : killTics) t = 0; return; }
     }
-    if (fused && Emine_Say("creeper-kill", 2)) return;
-    if (burnt && Emine_Say("cooked", 3)) return;
-    if (explosive) { Emine_SayChance("gib-", 3); return; }
+    if (fused && Emine_Say("creeper-kill", 3)) return;
+    if (burnt && Emine_Say("cooked", 4)) return;
+    if (explosive) { Emine_SayChance("gib-", 5); return; }
     static char const *const kill[] = { "zombie-kill", "skeleton-kill", "spider-kill", nullptr };
-    if ((unsigned)type < 3) Emine_Say(kill[type], 4);
+    if ((unsigned)type < 3) Emine_Say(kill[type], 6);
 }
 
 void Emine_VoiceBlast(vec3_t const &at) { blastTic = voice_tic; blastAt = at; }
@@ -216,15 +235,15 @@ void Emine_VoiceBlast(vec3_t const &at) { blastTic = voice_tic; blastAt = at; }
 void Emine_VoiceAte(int kind, int before, int after, int maxHealth)
 {
     Emine_VoiceFoley("gulp");
-    if (before < maxHealth * 3 / 10 && Emine_Say("heal-low", 2)) return;
+    if (before < maxHealth * 3 / 10 && Emine_Say("heal-low", 3)) return;
     static char const *const first[] = { "eat-melon-first", "eat-apple-first", "eat-raw-first", "eat-cooked-first", "eat-mushroom-first" };
     if ((unsigned)kind < 5)
     {
         // raw meat has a second line, mixed in once the first has been heard
-        if (kind == EMINE_FOOD_MEAT && lines[first[kind]].said && (krand() & 1)) { if (Emine_Say("eat-raw", 4)) return; }
-        else if (Emine_Say(first[kind], 4)) return;
+        if (kind == EMINE_FOOD_MEAT && lines[first[kind]].said && (krand() & 1)) { if (Emine_Say("eat-raw", 6)) return; }
+        else if (Emine_Say(first[kind], 6)) return;
     }
-    if (after >= maxHealth && before < maxHealth - 20) Emine_Say("relief", 3);
+    if (after >= maxHealth && before < maxHealth - 20) Emine_Say("relief", 5);
 }
 
 void Emine_VoiceOre(int type)
@@ -240,12 +259,26 @@ void Emine_VoiceOre(int type)
         case VW_DIAMOND: line = "ore-diamond"; break;
         default: return;
     }
-    if (!Emine_Say(line, 0)) Emine_SayChance("ore-any", 5);
+    if (!Emine_Say(line, 0)) Emine_SayChance("ore-any", 8);
+}
+
+bool Emine_VoiceGate(int soundNum)
+{
+    auto it = soundKind.find(soundNum);
+    if (it == soundKind.end() || it->second != SPEECH) return true;
+    // only in play: the menu's "Let's rock" and the title's "Shift happens" don't hold up the first line in the mines
+    if (!(g_player[myconnectindex].ps->gm & MODE_GAME)) return true;
+    if (voice_tic - lastSpeechEnd < GAP) return false;
+    speaking = true;
+    lastSpeechEnd = voice_tic;
+    return true;
 }
 
 void Emine_VoiceTick(void)
 {
     voice_tic++;
+    // the gap counts from when the line finishes
+    if (speaking) { if (S_TalkPlaying()) lastSpeechEnd = voice_tic; else speaking = false; }
     auto const ps = g_player[myconnectindex].ps;
     if (!ready || !voxworld_active() || ps->i < 0) return;
     int const health = sprite[ps->i].extra;
@@ -258,7 +291,7 @@ void Emine_VoiceTick(void)
         return;
     }
     if (voice_tic - blastTic == 25 && FindDistance2D(ps->pos.x - blastAt.x, ps->pos.y - blastAt.y) < 6 * VW_BLOCKXY)
-        Emine_Say("creeper-boom", 2);
+        Emine_Say("creeper-boom", 3);
 
     // low health: once on the way down, at most every 45 s
     if (lastHealth >= 25 && health < 25 && voice_tic - lowHealthTic > 45 * 30 && Emine_Say("low-health")) lowHealthTic = voice_tic;
@@ -272,7 +305,7 @@ void Emine_VoiceTick(void)
         if (ammoKnown[w] < 0 && a > 0 && (voice_tic <= 1 || Emine_SayChance("weapon-", 1))) ammoKnown[w] = 1;
     }
     int const cur = ps->curr_weapon, ca = ps->ammo_amount[cur];
-    if (cur == lastWeapon && lastAmmo > 0 && ca == 0 && cur != KNEE_WEAPON && voice_tic - outOfAmmoTic > 30 * 30 && Emine_Say("out-of-ammo", 2))
+    if (cur == lastWeapon && lastAmmo > 0 && ca == 0 && cur != KNEE_WEAPON && voice_tic - outOfAmmoTic > 30 * 30 && Emine_Say("out-of-ammo", 3))
         outOfAmmoTic = voice_tic;
     lastWeapon = cur; lastAmmo = ca;
 
@@ -317,7 +350,8 @@ static int osdcmd_emine_voice(osdcmdptr_t parm)
         if (it == lines.end()) { OSD_Printf("emine_voice: no line %s\n", parm->parms[0]); return OSDCMD_OK; }
         int const id = pick(it->second);
         int const v = S_PlaySound(id);
-        OSD_Printf("emine_voice: %s -> sound %d (%s): %s\n", parm->parms[0], id, g_sounds[id]->filename, v >= 0 ? "playing" : "did not play");
+        OSD_Printf("emine_voice: %s -> sound %d (%s): %s (tic %d, last spoke %d, talking %d)\n", parm->parms[0], id,
+                   g_sounds[id]->filename, v >= 0 ? "playing" : "did not play", voice_tic, lastSpeechEnd, (int)S_TalkPlaying());
         return OSDCMD_OK;
     }
     int takes = 0;

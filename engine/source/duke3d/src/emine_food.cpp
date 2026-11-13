@@ -166,7 +166,7 @@ void Emine_FoodBlockBroken(int bx, int by, int bz, int type, int owner)
     if (type == VW_LEAVES && krand() % APPLE_CHANCE == 0)
     {
         Emine_FoodDrop(EMINE_FOOD_APPLE, c, owner);
-        Emine_Say("apple", 3);
+        Emine_Say("apple", 5);
     }
     else if (type == VW_MELON)
     {

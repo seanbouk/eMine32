@@ -558,7 +558,7 @@ void moveArrows(void)
                 float const cx = a.x + a.vx * u - ps->pos.x, cy = a.y + a.vy * u - ps->pos.y, cz = a.z + a.vz * u;
                 if (cx * cx + cy * cy < 220.f * 220.f && cz > ps->pos.z - 1536 && cz < sprite[ps->i].z)
                 {
-                    Emine_Say("arrow-hit", 3);
+                    Emine_Say("arrow-hit", 5);
                     hurtPlayer(ps, skillDmg(mobDefs[MT_SKELETON].dmg), getangle((int)a.vx, (int)a.vy), 30);
                     done = true;
                 }
@@ -875,7 +875,7 @@ int mobThink(int i, int playerNum)
         s.zvel = -1500;
         m.pose = 17;
         MOBLOG("spider %d: leaps\n", i);
-        Emine_Say("spider-leap", 3);
+        Emine_Say("spider-leap", 5);
     }
 
     // skeleton: draw the bow for half a second, then loose
@@ -903,7 +903,7 @@ int mobThink(int i, int playerNum)
         bool const keep = m.fuse > 0 && m.target >= 0 && sees && hdist < CREEPER_CANCEL;
         if (close || keep)
         {
-            if (m.fuse == 0) { A_PlaySound(SND_STEAM_HISSING, i); MOBLOG("creeper %d: hisses\n", i); Emine_Say("creeper-hiss", 2); }
+            if (m.fuse == 0) { A_PlaySound(SND_STEAM_HISSING, i); MOBLOG("creeper %d: hisses\n", i); Emine_Say("creeper-hiss", 3); }
             if (++m.fuse >= CREEPER_FUSE)
             {
                 MOBLOG("creeper %d: boom\n", i);
@@ -1282,7 +1282,7 @@ void Emine_MobTick(void)
             auto const &s = sprite[kv.first];
             if (kv.second.type != MT_ZOMBIE || kv.second.state != MS_LIVE) continue;
             if (FindDistance2D(s.x - ps->pos.x, s.y - ps->pos.y) > 12 * BXY || seesPlayer(s, ps)) continue;
-            Emine_Say("zombie-near", 3);
+            Emine_Say("zombie-near", 5);
             break;
         }
 }

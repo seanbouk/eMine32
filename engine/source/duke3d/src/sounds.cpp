@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "duke3d.h"
 #include "renderlayer.h"  // for win_gethwnd()
 #include "vfs.h"
+#include "emine.h"
 
 #include <atomic>
 
@@ -864,6 +865,9 @@ int S_PlaySound3D(int num, int spriteNum, const vec3_t& pos)
         return 0;
     }
 
+    if (!Emine_VoiceGate(sndNum))  // eMine32: a gap after each spoken line
+        return -1;
+
     // Duke talk
     if (snd->flags & SF_TALK)
     {
@@ -975,6 +979,9 @@ int S_PlaySound(int num)
     auto &snd = g_sounds[(num = sndnum)];
 
     if ((!(ud.config.VoiceToggle & 1) && (snd->flags & SF_TALK)) || ((snd->flags & SF_ADULT) && ud.lockout))
+        return -1;
+
+    if (!Emine_VoiceGate(num))  // eMine32: a gap after each spoken line
         return -1;
 
     int const pitch = S_GetPitch(num);

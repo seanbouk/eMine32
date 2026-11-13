@@ -131,7 +131,7 @@ void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit)
     int const damage = sprite[shotSprite].extra > 0 ? sprite[shotSprite].extra : 6;
     int const owner0 = sprite[shotSprite].owner;
     if (voxworld_get(bx, by, bz) == VW_BEDROCK && owner0 >= 0 && sprite[owner0].picnum == APLAYER)
-        Emine_Say("bedrock", 4);
+        Emine_Say("bedrock", 6);
     int const type = voxworld_damage(bx, by, bz, damage);
     if (type != VW_AIR)
     {
@@ -284,7 +284,7 @@ static bool Emine_CrushCell(int bx, int by, int bz, float speed)
             a.htowner  = i;
             a.htang    = krand() & 2047;
             hit = true;
-            if (s.picnum == APLAYER) Emine_Say("gravel", 2);
+            if (s.picnum == APLAYER) Emine_Say("gravel", 3);
         }
     return hit;
 }

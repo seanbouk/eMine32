@@ -220,7 +220,7 @@
   "group": "duke-silent",
   "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
   "decision": "replace",
-  "final": "Remember when I promised to kill you last!?",
+  "final": "Remember when I promised to zorch you last!?",
   "original": "\"Eat sh*t and die.\"",
   "sound": "JIBBED_ACTOR9 · eatsht01"
  },
@@ -229,7 +229,7 @@
   "group": "duke-silent",
   "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
   "decision": "replace",
-  "final": "If you can bleed, I can kill you!",
+  "final": "If you can bleed, I can zorch you!",
   "original": "\"In your face!\"",
   "sound": "JIBBED_ACTOR10 · face01"
  },
@@ -562,7 +562,7 @@
   "group": "new-places",
   "trigger": "Play starts in The Mines",
   "decision": "new",
-  "final": "Mines! Crafty",
+  "final": "This looks like some sort of craft mine!",
   "original": "",
   "sound": ""
  },

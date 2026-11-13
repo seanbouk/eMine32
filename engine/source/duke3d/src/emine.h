@@ -68,6 +68,7 @@ void Emine_VoiceBlast(vec3_t const &at);          // a creeper went off
 void Emine_VoiceAte(int kind, int before, int after, int maxHealth);
 void Emine_VoiceOre(int blockType);               // an ore broke
 void Emine_RegisterVoiceOSD(void);
+bool Emine_VoiceGate(int soundNum);  // the sound engine asks before playing: false = wait (a gap after spoken lines)
 
 // Block water. Is this point in water?
 bool Emine_InWaterAt(vec3_t const &pos);
