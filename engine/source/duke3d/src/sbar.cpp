@@ -642,13 +642,16 @@ void G_DrawStatusBar(int32_t snum)
                 G_DrawAltDigiNum(40, -(hudoffset-22), p->last_extra, s, 10+16+256);
             }
 
-            rotatesprite_althud(62, hudoffset-25, sb15h, 0, SHIELD, 0, 0, 10+16+256);
-
             {
                 int32_t lAmount = G_GetMorale(p->i, snum);
                 if (lAmount == -1)
                     lAmount = p->inv_amount[GET_SHIELD];
-                G_DrawAltDigiNum(105, -(hudoffset-22), lAmount, -16, 10+16+256);
+                // eMine32: nothing in our world gives armour, so its icon and number only show if you have some
+                if (lAmount > 0)
+                {
+                    rotatesprite_althud(62, hudoffset-25, sb15h, 0, SHIELD, 0, 0, 10+16+256);
+                    G_DrawAltDigiNum(105, -(hudoffset-22), lAmount, -16, 10+16+256);
+                }
             }
 
             if (ammo_sprites[p->curr_weapon] >= 0)

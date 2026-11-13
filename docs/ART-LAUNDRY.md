@@ -19,7 +19,7 @@ Disposition key:
 
 | ✓ | Asset | Tile(s) | Disp. | Notes |
 |---|---|---|---|---|
-| [~] | Block faces (27) | 7000–7026 | O | Ours, generated at 16×16. Swap for the user's art at **32×32** (build-time downscale). Faces: grass top/side, dirt, stone, bedrock, sand, log side/top, leaves, planks, cobble, gravel, coal/iron/gold/redstone/lapis/diamond ore, lava, water, obsidian, tall grass, red/yellow flower, glass, snow top/side. |
+| [x] | Block faces (27) | 7000–7026 | O | Ours: painted 1024 sources in `art/blocks`, downsampled to **32×32** at build time. Faces: grass top/side, dirt, stone, bedrock, sand, log side/top, leaves, planks, cobble, gravel, coal/iron/gold/redstone/lapis/diamond ore, lava, water, obsidian, tall grass, red/yellow flower, glass, snow top/side. |
 | [~] | Block damage stages (3 crack masks) | 7027–7029 | O→R | Placeholder in (`crack_1..3.png`, generated). **Art spec:** one mask per stage, same size as block faces, shared by every block, each stage adding to the last. Transparent = untouched; opaque pixels darken the block under them by their darkness (black = darkest, mid-grey = a lighter chip). |
 | [x] | Sky | 89 (Duke city skyline) | R | Done: our night sky panorama (tile 7200, `tools/mkworld.py`). |
 | [ ] | Bullet holes / blood splats (wall decals) | BULLETHOLE 952, BLOODSPLAT1–4 | C? | Duke only puts these on Build walls, and the block world has none. |
@@ -103,8 +103,8 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 | [x] | RPG | RPGGUN 2544 | diamond | R | Done, with its two blast frames (`tools/mkweapons.py`). |
 | [ ] | Shrinker, Devastator, Trip mine | | — | C | No ore gives their ammo |
 | [x] | Crosshair | CROSSHAIR 2523 | | R | Done: a small gapped plus (`tools/mkweapons.py`). |
-| [ ] | Projectiles in the world: rocket, pipe bomb, freeze bolt, shotspark, shell casings, muzzle flashes | | | R | |
-| [ ] | Explosion, smoke, glass shards, water splash, fire | EXPLOSION2 1890, SMALLSMOKE, GLASSPIECES 1031… | | R | Explosion is the big one. |
+| [x] | Projectiles in the world: rocket, pipe bomb, freeze bolt, shotspark, shell casings, muzzle flashes | | | R | Done: rocket in flight (7 views) and the pipe bomb lying in the world painted (`tools/mkweapons.py`); bullet sparks procedural (`tools/mkfx.py`); casings ours. No freeze bolt (no freezer art). |
+| [x] | Explosion, smoke, glass shards, water splash, fire | EXPLOSION2 1890, SMALLSMOKE, GLASSPIECES 1031… | | R | Done, procedural (`tools/mkfx.py`): the 20-frame explosion, both 14-frame flames (burning mobs, fire), smoke puffs, water splashes. Glass shards still Duke's (only if glass breaks). |
 
 ## 5. Pickups (world sprites)
 
@@ -124,12 +124,12 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 
 | ✓ | Asset | Tile(s) | Disp. | Notes |
 |---|---|---|---|---|
-| [ ] | Status bar | BOTTOMSTATUSBAR 2462 | R | Or use the minimal HUD only. |
+| [x] | Status bar | BOTTOMSTATUSBAR 2462 | R | Cut: the view can only be no HUD or the mini HUD (`premap.cpp` clamps screen_size to 4). |
 | [x] | HUD digits | DIGITALNUM 2472 | R | Done: Anton (OFL), `tools/mkfont.py`. |
 | [x] | Small font (messages, small menu text) | STARTALPHANUM 2822 | R | Done: Press Start 2P (OFL), `tools/mkfont.py`. |
 | [x] | Menu font (big red, and its grey twin) | BIGALPHANUM 2929-3009, BIGAPPOS 3022 | R | Done: Anton (OFL), `tools/mkfont.py`. |
 | [x] | Mini font | MINIFONT 3072 | R | Done: Silkscreen (OFL), `tools/mkfont.py`; lowercase filled in too. |
-| [ ] | Inventory/ammo HUD icons | | R/C | Only for items we keep. |
+| [x] | Inventory/ammo HUD icons | | R/C | Done: health is a heart, armour a chest plate (shown only when you have some), ammo icons are our pickups (freezer ammo copied to tile 38 for the HUD). Inventory icons only appear with cheats. |
 | [x] | Title / menu background | MENUSCREEN 2456, BETASCREEN 2493 | R | Done: "Shift Happens" title picture and rock menu backdrop, 320x200 in each screen's own palette (`tools/mktitle.py`, art in `art/title/`). |
 | [x] | Logos | DREALMS 2492, DUKENUKEM 2497, THREEDEE 2498, INGAMEDUKETHREEDEE 2499 | R | Done (`tools/mktitle.py`): the SeanOfEarth studio screen over DREALMS, SHIFT / HAPPENS flying in over the title, SHIFT HAPPENS over the in-game menu. |
 | [x] | Menu cursor | SPINNINGNUKEICON 2813-2819 | R | Done: a spinning grass block from our block faces (`tools/mkcursor.py`). |

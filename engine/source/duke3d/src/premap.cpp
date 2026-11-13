@@ -562,7 +562,8 @@ void G_UpdateScreenArea(void)
     if (!in3dmode())
         return;
 
-    if ((ud.screen_size = clamp(ud.screen_size, 0, 64)) == 0)
+    // eMine32: no HUD or the mini HUD only (4); Duke's full status bar (8 and up) isn't ours
+    if ((ud.screen_size = clamp(ud.screen_size, 0, 4)) == 0)
         renderFlushPerms();
 
     int const screenSize    = max(ud.screen_size - 8, 0);

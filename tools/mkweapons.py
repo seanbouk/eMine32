@@ -78,10 +78,25 @@ TILES = {
     47: ('an ammo pickup for the game: a low olive-green steel crate with steel pipe bombs (grey canisters with yellow and black hazard-striped end caps) lying on top of it; no hands, no people', 'pipe bomb', None, False),
     44: ('an ammo pickup for the game: a low olive-green steel crate with rockets (brass bodies, blue-grey pointed warheads) standing in it and leaning out of it', 'rocket crate', None, False),
     37: ('an ammo pickup for the game: a squat insulated canister of freezing coolant, white and pale icy blue with frost on it, a glowing blue window band round its middle and a steel cap and base', 'canister', None, False),
+    # things in the world: the pipe bomb thrown and lying there, the rocket in flight (7 views), and HUD icons
+    26: ('a squat steel pipe bomb lying on its side on the ground: a grey metal canister with yellow and black hazard-striped end caps and a small fuse box strapped to it; no hands, no people', 'pipe bomb', None, False),
+    2608: ('a rocket in flight seen from the side, in the same pose as the guide (nose and tail where its shape puts them): brass body, blue-grey pointed warhead, small dark steel fins at the tail; the rockets in the second image show the design', 'rocket', 44, False),
+    2605: ('a rocket in flight seen nose-on, coming straight at the viewer: the pointed blue-grey warhead in the middle, four small dark fins around it in an X', 'rocket', 2608, False),
+    2606: ('a rocket in flight seen from the front at an angle, foreshortened, as in the guide: brass body, blue-grey pointed warhead, small dark steel fins at the tail', 'rocket', 2608, False),
+    2607: ('a rocket in flight seen from the side and a little from the front, as in the guide: brass body, blue-grey pointed warhead, small dark steel fins at the tail', 'rocket', 2608, False),
+    2609: ('a rocket in flight seen from the side and a little from behind, as in the guide, a bright exhaust flame at its tail: brass body, blue-grey pointed warhead, small dark steel fins at the tail', 'rocket', 2608, True),
+    2610: ('a rocket in flight seen from behind at an angle, foreshortened, a bright yellow-orange exhaust flame at its tail', 'rocket', 2608, True),
+    2611: ('a rocket in flight seen straight from behind: four small dark fins in an X around a bright yellow-orange exhaust flame', 'rocket', 2608, True),
+    51: ('a game HUD icon: a chunky glossy red heart with a bright highlight, filling the guide', 'heart icon', None, False),
+    54: ('a game HUD icon: a riveted iron chest plate (body armour), front view, filling the guide', 'armour icon', None, False),
 }
-PICKUPS = (37, 40, 41, 44, 47, 49)  # world sprites: not padded (their bottom edge sits on the floor)
+# world sprites and icons: not padded (a world sprite's bottom edge sits on the floor; icons keep their size)
+PICKUPS = (37, 40, 41, 44, 47, 49, 26, 51, 54, 2605, 2606, 2607, 2608, 2609, 2610, 2611)
 LOCAL = [2523, 2533, 2534, 2535, 2538, 2539, 2540, 2541, 2542, 2543, 2614, 2615]
-GROUPS = [(2324, 2327), (2521, 2526), (2528, 2546), (2570, 2575), (2613, 2619), (37, 37), (40, 41), (44, 44), (47, 47), (49, 49)]  # one ART file each (consecutive tiles)
+GROUPS = [(2324, 2327), (2521, 2526), (2528, 2546), (2570, 2575), (2613, 2619), (37, 38), (40, 41), (44, 44), (47, 47), (49, 49),
+          (26, 26), (51, 51), (54, 54), (2605, 2611)]
+COPIES = {38: 37}
+FLIP = {2608}  # painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
 ASPECTS = [(21, 9), (16, 9), (3, 2), (4, 3), (1, 1), (3, 4), (2, 3), (9, 16)]
 LONG = 1024  # guide canvas, long side
 
@@ -102,6 +117,19 @@ def duke(n):
         cap = (np.abs(xx - 16.5) <= 9) & (yy >= 1) & (yy < 6)
         px[body | cap] = 15   # a grey; only the outline matters
         pa = 0
+    if n == 38 and px is None:
+        return duke(37)
+    if n in (51, 54):  # HUD icons: our own outlines (a heart, a chest plate) at Duke's icon sizes
+        w, h = (23, 16) if n == 51 else (27, 26)
+        yy, xx = np.mgrid[0:h, 0:w].astype(float)
+        if n == 51:
+            u, v = (xx - w / 2 + 0.5) / (w / 2), (h * 0.38 - yy) / (h / 2)
+            shape = (u * u + v * v - 1) ** 3 - u * u * v ** 3 <= 0
+        else:
+            u, v = np.abs(xx - w / 2 + 0.5) / (w / 2), yy / h
+            shape = ((v > 0.08) & (u < 0.95) & ~((v < 0.3) & (u < 0.32)) & ~((v < 0.45) & (u > 0.8)) & (v < 0.98))
+        px = np.where(shape, 15, 255).astype(np.uint8)
+        pa = (pa & ~0xFFFF00) if pa else 0
     rgba = np.zeros(px.shape + (4,), np.uint8)
     rgba[..., :3] = _pal[px]
     rgba[..., 3] = (px != 255) * 255
@@ -389,6 +417,13 @@ def build():
     for n in TILES:
         if os.path.exists(os.path.join(RAW, '%d.png' % n)):
             built[n] = fit(n, meta)
+    for n in FLIP:
+        if n in built:
+            rgb, al, pad = built[n]
+            built[n] = (rgb[:, ::-1], al[:, ::-1], (pad[2], pad[1], pad[0], pad[3]))
+    for n, src in COPIES.items():
+        if src in built:
+            built[n] = built[src]
     for n in LOCAL:
         if n in (2538, 2539, 2540) and 2537 not in built:
             continue
