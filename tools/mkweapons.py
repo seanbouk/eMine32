@@ -28,6 +28,7 @@ OUT = os.path.join(ROOT, 'game', 'textures')
 MAGENTA = np.array([255, 0, 255])
 
 HAND = 'a tanned muscular man\'s bare hand'
+BEHIND = ('seen from directly behind and a little above, the way the shooter sees it: the flat back of the squared-off slide faces the viewer and the barrel points straight ahead into the distance, so the gun is foreshortened to a chunky block')
 STYLE = ('Original artwork for a 1990s first-person shooter: a pre-rendered 3D look, chunky readable shapes, '
          'strong light from the upper left, crisp edges. The first image is a flat-colour layout guide: paint exactly '
          'the same silhouette, at the same size and position, filling each flat region with detailed, shaded '
@@ -46,9 +47,9 @@ TILES = {
     2327: (HAND + 's, fingers interlocked, cracking the knuckles, forearms running off the bottom', 'pair of hands', 2324, False),
     2521: ('a kicking leg seen from the kicker\'s own eyes: faded blue denim jeans and a scuffed black leather work boot with a thick tread sole, the boot sole toward the viewer', 'leg', None, False),
     2522: ('a leg seen from the kicker\'s own eyes, looking down along it: faded blue denim jeans and a scuffed black leather work boot with laces', 'leg', 2521, False),
-    2524: (HAND + ' from behind, gripping a chunky black semi-automatic pistol with a squared-off slide, pointing forward and away', 'pistol', None, False),
-    2525: (HAND + ' gripping a chunky black semi-automatic pistol firing, recoiling, a bright yellow-orange muzzle flash at its muzzle', 'pistol', 2524, True),
-    2526: (HAND + ' gripping a chunky black semi-automatic pistol just after firing, a fading orange muzzle flash at its muzzle', 'pistol', 2524, True),
+    2524: (HAND + ' from behind, gripping a chunky black semi-automatic pistol ' + BEHIND, 'pistol', None, False),
+    2525: (HAND + ' gripping a chunky black semi-automatic pistol ' + BEHIND + '; it is firing and kicking up, a bright yellow-orange muzzle flash bursting from the far end', 'pistol', 2524, True),
+    2526: (HAND + ' gripping a chunky black semi-automatic pistol ' + BEHIND + '; just after firing, a fading orange muzzle flash at the far end', 'pistol', 2524, True),
     2528: (HAND + ' holding a chunky black semi-automatic pistol tipped sideways to reload, the empty magazine well showing', 'pistol', 2524, False),
     2529: (HAND + ' holding a chunky black semi-automatic pistol tipped steeply over on its side to reload, the gun small at the top left as in the guide, wrist and forearm running off the bottom right', 'pistol', 2524, False),
     2530: ('a single black pistol magazine, slightly angled', 'pistol magazine', 2524, False),
@@ -70,9 +71,17 @@ TILES = {
     2617: (HAND + 's racking an all-black pump-action shotgun held steeply upright, barrel pointing up and slightly right exactly as in the guide, one fist on the pump at the left', 'shotgun', 2613, False),
     2618: (HAND + ' loading a red shotgun shell into the loading port of an all-black pump-action shotgun held upright', 'shotgun', 2613, False),
     2619: (HAND + ' pushing a red shotgun shell into the loading port of an all-black pump-action shotgun held upright', 'shotgun', 2613, False),
+    # ammo pickups: what the ores drop, lying in the world (and the ammo icons on the HUD)
+    40: ('an ammo pickup for the game: a single tall black pistol magazine standing upright, a brass cartridge showing at its top', 'pistol magazine', 2524, False),
+    49: ('an ammo pickup for the game: an open plain cardboard box of red shotgun shells with brass heads, a couple of loose shells beside it, no writing', 'shotgun shells', None, False),
+    41: ('an ammo pickup for the game: an olive-green steel ammunition can with its lid hinged open, a belt of brass machine-gun cartridges draped out over its side', 'ammunition can', None, False),
+    47: ('an ammo pickup for the game: a low olive-green steel crate with steel pipe bombs (grey canisters with yellow and black hazard-striped end caps) lying on top of it; no hands, no people', 'pipe bomb', None, False),
+    44: ('an ammo pickup for the game: a low olive-green steel crate with rockets (brass bodies, blue-grey pointed warheads) standing in it and leaning out of it', 'rocket crate', None, False),
+    37: ('an ammo pickup for the game: a squat insulated canister of freezing coolant, white and pale icy blue with frost on it, a glowing blue window band round its middle and a steel cap and base', 'canister', None, False),
 }
+PICKUPS = (37, 40, 41, 44, 47, 49)  # world sprites: not padded (their bottom edge sits on the floor)
 LOCAL = [2523, 2533, 2534, 2535, 2538, 2539, 2540, 2541, 2542, 2543, 2614, 2615]
-GROUPS = [(2324, 2327), (2521, 2526), (2528, 2546), (2570, 2575), (2613, 2619)]  # one ART file each (consecutive tiles)
+GROUPS = [(2324, 2327), (2521, 2526), (2528, 2546), (2570, 2575), (2613, 2619), (37, 37), (40, 41), (44, 44), (47, 47), (49, 49)]  # one ART file each (consecutive tiles)
 ASPECTS = [(21, 9), (16, 9), (3, 2), (4, 3), (1, 1), (3, 4), (2, 3), (9, 16)]
 LONG = 1024  # guide canvas, long side
 
@@ -86,6 +95,13 @@ def duke(n):
     if _tile is None:
         _tile, _pal = mkfont.grp_tiles()
     px, pa = _tile(n)
+    if px is None and n == 37:  # the shareware has no freezer ammo: our own outline, a squat canister on the floor
+        px = np.full((44, 34), 255, np.uint8)
+        yy, xx = np.mgrid[0:44, 0:34]
+        body = (np.abs(xx - 16.5) <= 14) & (yy >= 6) & (yy <= 43)
+        cap = (np.abs(xx - 16.5) <= 9) & (yy >= 1) & (yy < 6)
+        px[body | cap] = 15   # a grey; only the outline matters
+        pa = 0
     rgba = np.zeros(px.shape + (4,), np.uint8)
     rgba[..., :3] = _pal[px]
     rgba[..., 3] = (px != 255) * 255
@@ -253,7 +269,9 @@ def match(rgb, pal, idx):
 
 
 def fit(n, meta):
-    """The fal painting cut back to Duke's tile rectangle: (rgb float, alpha 0..1) at tile size."""
+    """The fal painting at tile scale: (rgb float, alpha 0..1, padding (left, top, right, bottom)). A weapon tile grows
+    past Duke's rectangle wherever the painting does (so nothing is cut off at the old edge); top and bottom are padded
+    alike, which keeps the offset sums right for tiles the game draws flipped. Pickups keep Duke's rectangle."""
     m = meta[n]
     im = Image.open(os.path.join(RAW, '%d.png' % n)).convert('RGB').resize(tuple(m['size']), Image.LANCZOS)
     a = np.asarray(im).astype(float)
@@ -263,12 +281,25 @@ def fit(n, meta):
     rgb = np.where(alpha[..., None] > 0, (a - (1 - alpha[..., None]) * MAGENTA) / np.maximum(alpha[..., None], 1e-3), 0)
     rgb = np.clip(rgb, 0, 255)
     s, (ox, oy), w, h = m['scale'], m['origin'], m['w'], m['h']
-    box = (ox, oy, ox + w * s, oy + h * s)
+    L = T = R = B = 0
+    if n not in PICKUPS:
+        ys, xs = np.nonzero(alpha > 0.5)
+        L = max(0, int(np.ceil((ox - xs.min()) / s)))
+        R = max(0, int(np.ceil((xs.max() + 1 - ox) / s)) - w)
+        T = max(0, int(np.ceil((oy - ys.min()) / s)))
+        B = max(0, int(np.ceil((ys.max() + 1 - oy) / s)) - h)
+        T = B = max(T, B)
+    # room round the canvas, so a box past its edge reads as empty
+    M = int((max(L, R, T, B) + 2) * s)
+    rgb = np.pad(rgb, ((M, M), (M, M), (0, 0)))
+    alpha = np.pad(alpha, M)
+    W, H = w + L + R, h + T + B
+    box = (M + ox - L * s, M + oy - T * s, M + ox + (w + R) * s, M + oy + (h + B) * s)
     chans = [Image.fromarray((rgb[..., c] * alpha).astype(np.float32), 'F') for c in range(3)] + [Image.fromarray((alpha * 255).astype(np.float32), 'F')]
-    small = [np.asarray(c.resize((w, h), Image.BOX, box=box)) for c in chans]
+    small = [np.asarray(c.resize((W, H), Image.BOX, box=box)) for c in chans]
     al = small[3] / 255
     col = np.stack(small[:3], -1) / np.maximum(al[..., None], 1e-3)
-    return np.clip(col, 0, 255), al
+    return np.clip(col, 0, 255), al, (L, T, R, B)
 
 
 def flame(alpha, rng, hot=1.0):
@@ -298,7 +329,7 @@ def local(n, built):
         for (y, x) in [(c, x) for x in range(w) if abs(x - c) >= 2] + [(y, c) for y in range(h) if abs(y - c) >= 2]:
             al[y, x] = 1
             rgb[y, x] = (230, 230, 230)
-        return rgb, al
+        return rgb, al, (0, 0, 0, 0)
     if n in (2533, 2534, 2535):  # casings: brass for the pistol, red plastic and brass for the shotgun
         from scipy import ndimage
         base = np.array([200, 150, 50]) if n == 2533 else np.array([190, 40, 30])
@@ -310,19 +341,37 @@ def local(n, built):
             rgb = np.where(head[..., None], np.array([210, 170, 70]) * light[..., None], rgb)
         edge = al.astype(bool) & ~ndimage.binary_erosion(al.astype(bool))
         rgb[edge] *= 0.6
-        return np.clip(rgb, 0, 255), al
+        return np.clip(rgb, 0, 255), al, (0, 0, 0, 0)
     if n in (2541, 2542, 2543, 2614, 2615):
-        return flame(al, rng, hot=1.2 if n in (2541, 2614) else 0.8), al
+        return flame(al, rng, hot=1.2 if n in (2541, 2614) else 0.8), al, (0, 0, 0, 0)
     if n in (2538, 2539, 2540):  # the chaingun's barrels, glowing hotter: our 2537 plus a glow where Duke's glows
-        rgb, a = built[2537]
+        rgb, a, pad = built[2537]
         orig = rgba[..., :3].astype(float)
         hot = ((orig[..., 0] > 150) & (orig[..., 0] > orig[..., 2] + 60) & (rgba[..., 3] > 0)).astype(float)
         from scipy import ndimage
         glow = np.clip(ndimage.gaussian_filter(hot, 1.5) * 2.2, 0, 1)
+        glow = np.pad(glow, ((pad[1], pad[3]), (pad[0], pad[2])))  # 2537's padding
         fire = np.array([255, 150, 40])
         rgb = rgb * (1 - glow[..., None]) + fire * glow[..., None]
-        return rgb, np.maximum(a, (glow > 0.3) * 1.0)
+        return rgb, np.maximum(a, (glow > 0.3) * 1.0), pad
     raise KeyError(n)
+
+
+def offsets(pa, w, h, pad, dx=0):
+    """Duke's picanm with the offsets moved so a tile padded by pad = (left, top, right, bottom) draws its original
+    pixels where his were (the game draws from the tile's centre plus its offsets), then dx screen pixels right."""
+    L, T, R, B = pad
+    W, H = w + L + R, h + T + B
+    xo, yo = (pa >> 8) & 255, (pa >> 16) & 255
+    xo, yo = (xo - 256 if xo > 127 else xo), (yo - 256 if yo > 127 else yo)
+    xo += L + (w >> 1) - (W >> 1) - dx
+    yo += T + (h >> 1) - (H >> 1)
+    assert -128 <= xo <= 127 and -128 <= yo <= 127, (xo, yo)
+    return (pa & ~0xFFFF00) | ((xo & 255) << 8) | ((yo & 255) << 16)
+
+
+# screen pixels to move a weapon right (the shotgun: its barrel, carried on, passed left of the crosshair)
+SHIFT = {n: 16 for n in range(2613, 2620)}
 
 
 def iou(a, b):
@@ -350,7 +399,7 @@ def build():
                 tiles.append((px, pa))  # not made yet: keep Duke's for now
                 print('  %d: still Duke\'s' % n)
                 continue
-            rgb, al = built[n]
+            rgb, al, pad = built[n]
             on = al >= 0.5
             flash = n in (2541, 2542, 2543, 2614, 2615) or (n in TILES and TILES[n][3])
             idx = dither(rgb, on, pal, usable)
@@ -358,8 +407,10 @@ def build():
                 bright = (rgb.max(2) > 200) & (rgb[..., 0] > rgb[..., 2] + 40)
                 idx = np.where(bright, match(rgb, pal, allc), idx)
             out = np.where(on, idx, 255).astype(np.uint8)
-            tiles.append((out, pa))
-            score = iou(on, rgba[..., 3] > 0)
+            h, w = px.shape
+            tiles.append((out, offsets(pa, w, h, pad, SHIFT.get(n, 0))))
+            L, T = pad[0], pad[1]
+            score = iou(on[T:T + h, L:L + w], rgba[..., 3] > 0)
             report.append((n, score))
             sheet.append((n, out, px))
         mkfont.write_art(os.path.join(OUT, 'weapons_%d.art' % first), first, tiles)
@@ -370,7 +421,9 @@ def build():
     for n, ours, theirs in sheet:
         a = np.where(theirs[..., None] != 255, pal[theirs], (255, 0, 255))
         b = np.where(ours[..., None] != 255, pal[ours], (255, 0, 255))
-        rows.append(np.concatenate([a, np.full((a.shape[0], 4, 3), 0), b], 1).astype(np.uint8))
+        hh = max(a.shape[0], b.shape[0])
+        a, b = (np.pad(x, ((0, hh - x.shape[0]), (0, 0), (0, 0))) for x in (a, b))
+        rows.append(np.concatenate([a, np.full((hh, 4, 3), 0), b], 1).astype(np.uint8))
     wmax = max(r.shape[1] for r in rows)
     img = np.concatenate([np.pad(r, ((0, 4), (0, wmax - r.shape[1]), (0, 0))) for r in rows], 0)
     Image.fromarray(img).save(os.path.join(ART, 'check.png'))

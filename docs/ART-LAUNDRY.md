@@ -110,7 +110,7 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 
 | ✓ | Item | Disp. | Notes |
 |---|---|---|---|
-| [ ] | Ammo ×6: clip (AMMO), shells, chaingun ammo, pipe bomb, freezer, rockets | R | These are the ore drops, so they're seen all the time. |
+| [x] | Ammo ×6: clip (AMMO), shells, chaingun ammo, pipe bomb, freezer, rockets | R | Done (`tools/mkweapons.py`, same sizes as Duke's): magazine, shell box, ammo can, pipe bomb crate, rocket crate, and a coolant canister for the freezer (the shareware had none, so lapis used to drop an invisible pickup). They're the HUD's ammo icons too. |
 | [ ] | Weapon pickups (floor sprites) | C? | Duke spawns with every weapon, so these only matter if we place them. |
 | [ ] | Health: first aid, cola, sixpak, atomic health | R/C | Probably becomes meat (step 3). Atomic health can stay if we keep the pun. |
 | [ ] | Inventory: armour, steroids, jetpack, night vision, holoduke, boots, scuba, keycards | C | Cut by default. Keep any that suit gameplay later. |
