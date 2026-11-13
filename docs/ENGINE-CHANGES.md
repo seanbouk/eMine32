@@ -192,17 +192,12 @@ of a block. `A_MoveSpriteClipdist` now traces a projectile's real diagonal step 
   regrowth, mushroom spawning in the dark, and zombie meat (raw, or cooked when an explosion kills it; such deaths
   now burn instead of gibbing). Dev command `emine_food`.
 
-## Adaptive render resolution on the web (2026-11-13)
-- Jumpy turning was the frame rate halving: the page presents on each display refresh, so a frame that takes a little
-  longer than one refresh waits for the next one (60 to 30 fps). Turning toward open landscape and trees costs more
-  per frame than looking at a wall, which tipped heavy views over the line. The renderer's cost goes with the width
-  (one ray per column), so fewer pixels helps in proportion.
-- `sdlayer.cpp` exports `emine_frame_work_ms()` (the engine's work per presented frame since the last call).
-  `web/shell.html` measures the display's refresh with its own requestAnimationFrame loop and checks once a second:
-  work above 85% of the refresh for 2 s renders 1.2x fewer pixels per side (down to a third), below 50% for 6 s
-  steps back up, but not for a minute after a step down. Load spikes are ignored. `?res=` or `?scale=` turn it off;
-  the steps are logged to the JS console ("eMine32 render scale").
-- Dev: `emine_viewtrace [frames]` prints, per drawn frame, the game clock, the tic fraction and the view angle.
+## Render resolution on the web (2026-11-13)
+- The page renders at the window's real pixels, capped at about a megapixel (web/pre.js; an ultrawide at full size
+  is 4.5 MP and would cost ~35 ms a frame), picked once at start and again when the window is resized. `?res=` or
+  `?scale=` override it. An adaptive scaler (stepping the resolution with the frame time) was tried and removed: its
+  mode switches mid-game caused palette glitches on the menus and came just before a heap crash.
+- A runtime resize re-applies the palette (sdlayer.cpp; the new surface starts without it).
 
 ## Rendering regression from see-through leaves, fixed (2026-11-13)
 Bisected with a fixed view at 1720x720 (headless Chrome, `voxworld: columns` timing; spawn view / after a fixed turn):
@@ -218,10 +213,14 @@ turning jumpy (frames over the display's refresh). Fix, in `voxworld.cpp`:
 - Play-testing: `emine_perf` (emine_perf.cpp) summarises the last ~1000 frames (gaps, late frames, time per part).
 
 ## Mouse input backing up in Chrome (2026-11-13)
-Play-test with `emine_perf mouse` (1000 Hz mouse, Chrome): the page was handed one mousemove per frame, each ~12 ms
-later than the last, so movement queued up by hundreds of ms to seconds (turning lagged, then jumped), while clicks
-and frames stayed regular, at any window size. Running the frame as its own task after the rAF callback didn't help
-(reverted). Now the mouse is read another way: web/shell.html adds up `pointerrawupdate` movement (sent as the mouse
-moves, not lined up with frames) while the pointer is locked, and `mouseReadPos` (baselayer.cpp) takes that total
-once a frame instead of SDL's mousemove deltas. `emine_rawmouse 0` goes back to SDL's events; `emine_perf mouse`
-shows both paths' lateness. Also: a runtime resize now re-applies the palette (menus could show wrong colours).
+Play-testing showed mouse movement arriving one event per frame, each ~12 ms later than the last, so turning lagged
+by up to a second and then jumped, at any window size, while clicks and frames stayed regular. Both mousemove and
+pointerrawupdate were affected; it went away after restarting Chrome, so the browser process itself was the cause.
+What stayed in:
+- The mouse is read from `pointerrawupdate`: web/shell.html adds up the movement while the pointer is locked
+  (dropping Chrome's occasional thousands-of-pixels spikes) and `mouseReadPos` (baselayer.cpp) takes the total once
+  a frame instead of SDL's mousemove deltas. Browsers without pointerrawupdate fall back to SDL's events;
+  `emine_rawmouse 0` does too.
+- `emine_perf mouse` prints one line a second: frames and gaps, game work per frame (world, HUD, present, sound,
+  input), time waiting for the display, audio mixing time (it runs on the game's thread in the browser) and how late
+  each mouse path's events arrived. `emine_perf` summarises the last ~1000 frames; `emine_perf log` prints late frames.

@@ -2,7 +2,6 @@
 // Use SDL 1.2 or 2.0 from http://www.libsdl.org
 
 #include <signal.h>
-#include <algorithm>
 
 #include "a.h"
 #include "build.h"
@@ -31,30 +30,9 @@ static double em_lastYield;
 double emine_yieldMs;  // time spent yielded to the browser so far (emine_perf subtracts it from a frame's drawing)
 static double em_statStart, em_busy, em_maxSlice;
 static int    em_frames, em_statsOn = -1;
-// Work per drawn frame for web/shell.html's adaptive resolution: the time the engine ran between yields, per frame
-// presented. It returns the 90th percentile since the last call (0 if no frames): a frame only has to run a little
-// over one display refresh to miss it and double the gap, so the slow frames matter, not the average.
-static double em_workSum;
-static float  em_works[512];
-static int    em_workFrames;
-extern "C" EMSCRIPTEN_KEEPALIVE double emine_frame_work_ms(void)
-{
-    int const n = min(em_workFrames, (int)ARRAY_SIZE(em_works));
-    em_workFrames = 0;
-    if (!n) return 0.0;
-    std::sort(em_works, em_works + n);
-    return em_works[n * 9 / 10];
-}
 void emine_sleep(double ms, bool frame)
 {
     double const now = emscripten_get_now();
-    em_workSum += now - em_lastYield;
-    if (frame)
-    {
-        if (em_workFrames < (int)ARRAY_SIZE(em_works)) em_works[em_workFrames] = (float)em_workSum;
-        em_workFrames++;
-        em_workSum = 0.0;
-    }
     if (em_statsOn < 0)
         em_statsOn = EM_ASM_INT({ return /[?&]stats/.test(location.search) ? 1 : 0; });
     if (em_statsOn)

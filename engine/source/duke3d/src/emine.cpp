@@ -603,13 +603,6 @@ static int osdcmd_emine_find(osdcmdptr_t parm)
 
 // Dev console: `emine_look <horiz>` sets where the player looks up/down (Build's horiz: 100 is level, lower looks
 // down: the horizon sits at about horiz/200 of the way down the screen). For screenshots.
-int emine_viewtrace;  // frames left to trace (game.cpp G_DrawRooms prints them)
-static int osdcmd_emine_viewtrace(osdcmdptr_t parm)
-{
-    emine_viewtrace = parm->numparms >= 1 ? Batol(parm->parms[0]) : 120;
-    return OSDCMD_OK;
-}
-
 static int osdcmd_emine_look(osdcmdptr_t parm)
 {
     auto const p = g_player[myconnectindex].ps;
@@ -630,7 +623,6 @@ static int osdcmd_emine_where(osdcmdptr_t UNUSED(parm))
 
 void Emine_RegisterOSD(void)
 {
-    OSD_RegisterFunction("emine_viewtrace", "emine_viewtrace [frames]: dev - print the clock, tic fraction and view angle of each frame drawn", osdcmd_emine_viewtrace);
     OSD_RegisterFunction("emine_look", "emine_look <horiz>: dev - set the view pitch (100 level, lower looks down)", osdcmd_emine_look);
     OSD_RegisterFunction("emine_find", "emine_find <blocktype>: dev - stand on the nearest column topped with that block (31 = snow)", osdcmd_emine_find);
     OSD_RegisterFunction("emine_ore", "emine_ore <blocktype>: dev - drop what breaking that ore gives (11 coal, 12 iron, 13 gold, 14 redstone, 33 lapis, 34 diamond)", osdcmd_emine_ore);

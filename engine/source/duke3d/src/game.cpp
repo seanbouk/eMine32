@@ -1015,13 +1015,6 @@ void G_DrawRooms(int32_t playerNum, int32_t smoothRatio)
                 CAMERA(q16ang)   = pPlayer->q16ang;
                 CAMERA(q16horiz) = pPlayer->q16horiz + pPlayer->q16horizoff;
             }
-            extern int emine_viewtrace;
-            if (emine_viewtrace > 0)
-            {
-                emine_viewtrace--;
-                OSD_Printf("emine_vt clock=%d smooth=%d ang=%d oang=%d pang=%d sc=%d\n", (int)totalclock, smoothRatio,
-                           CAMERA(q16ang) >> 8, pPlayer->oq16ang >> 8, pPlayer->q16ang >> 8, (int)thisPlayer.smoothcamera);
-            }
 
             CAMERA(q16ang) += fix16_from_int(pPlayer->olook_ang)
                             + mulscale16(fix16_from_int(((pPlayer->look_ang + 1024 - pPlayer->olook_ang) & 2047) - 1024), smoothRatio);
