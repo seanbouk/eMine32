@@ -21,9 +21,20 @@
 // to the browser so it can present frames and deliver input.
 // Load the page with ?stats to get once-a-second timing in the JS console.
 # include <emscripten.h>
-// Present on the display's refresh (whatever rate the monitor runs at).
+// Present on the display's refresh (whatever rate the monitor runs at). The engine's frame must not run inside the
+// requestAnimationFrame callback: there it holds up the browser's own frame, and when it takes most of a refresh
+// the browser hands the page only one queued mouse event per frame (a 1000 Hz mouse then backs up by seconds:
+// turning lags and jumps). So the callback only posts a message, and the frame runs as its own task after it, with
+// the browser free to deliver input in between.
 EM_ASYNC_JS(void, em_wait_animation_frame, (), {
-    await new Promise(function (resolve) { requestAnimationFrame(function () { resolve(); }); });
+    if (!Module.emineFrameChannel) {
+        Module.emineFrameChannel = new MessageChannel();
+        Module.emineFrameChannel.port1.onmessage = function () { var r = Module.emineFrameResolve; Module.emineFrameResolve = null; if (r) r(); };
+    }
+    await new Promise(function (resolve) {
+        Module.emineFrameResolve = resolve;
+        requestAnimationFrame(function () { Module.emineFrameChannel.port2.postMessage(0); });
+    });
 });
 static double em_lastYield;
 double emine_yieldMs;  // time spent yielded to the browser so far (emine_perf subtracts it from a frame's drawing)
