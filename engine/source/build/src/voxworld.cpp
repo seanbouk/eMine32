@@ -1160,9 +1160,10 @@ static void vw_genscratch(int x0, int y0)
         }
 
     // Ores and gravel (only replace stone, so they line cave walls rather than floating in them), seeded per cell
-    // and laid in the same order everywhere. Minecraft's classic depth bands, which suit our layers (sea at 64,
-    // lava at ~10): coal anywhere in the rock, iron below ~42, gold below 32, redstone and diamond below 16,
-    // lapis around 14-30. Relative amounts as Minecraft's too: diamond and lapis rare, redstone fairly common.
+    // and laid in the same order everywhere. Bands start higher than Minecraft's (sea at 64, lava at ~10), so
+    // digging down from the surface finds something new soon after coal, every ore being ammo: coal anywhere in the
+    // rock, iron below ~58, gold below 48, redstone below 32, lapis around 16-40, diamond below 21. Counts are
+    // scaled with each band's height, so the deep layers are as rich as before. Diamond and lapis stay rare.
     for (int cx = max(0, (vw_gx0 - VW_VEINREACH) / VW_VEINCELL); cx <= (x1 + VW_VEINREACH) / VW_VEINCELL; cx++)
         for (int cy = max(0, (vw_gy0 - VW_VEINREACH) / VW_VEINCELL); cy <= (y1 + VW_VEINREACH) / VW_VEINCELL; cy++)
         {
@@ -1173,16 +1174,16 @@ static void vw_genscratch(int x0, int y0)
             int const bx = cx * VW_VEINCELL, by = cy * VW_VEINCELL, c = VW_VEINCELL - 1;
             for (int i = 0, n = count(area / 35); i < n; i++)
                 vw_vein(rng, VW_COAL, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea + vw_amp/2), rng.range(5, 10), false);
-            for (int i = 0, n = count(area / 70); i < n; i++)
-                vw_vein(rng, VW_IRON, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea*2/3), rng.range(4, 8), false);
-            for (int i = 0, n = count(area / 500); i < n; i++)
-                vw_vein(rng, VW_GOLD, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea/2), rng.range(3, 6), false);
-            for (int i = 0, n = count(area / 125); i < n; i++)
-                vw_vein(rng, VW_REDSTONE, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea/4), rng.range(4, 8), false);
-            for (int i = 0, n = count(area / 1000); i < n; i++)
-                vw_vein(rng, VW_LAPIS, bx + rng.range(0, c), by + rng.range(0, c), rng.range(sea*7/32, sea/2 - 2), rng.range(3, 6), false);
-            for (int i = 0, n = count(area / 1000); i < n; i++)
-                vw_vein(rng, VW_DIAMOND, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea/4), rng.range(2, 5), false);
+            for (int i = 0, n = count(area / 49); i < n; i++)
+                vw_vein(rng, VW_IRON, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea - 6), rng.range(4, 8), false);
+            for (int i = 0, n = count(area / 314); i < n; i++)
+                vw_vein(rng, VW_GOLD, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea*3/4), rng.range(3, 6), false);
+            for (int i = 0, n = count(area / 51); i < n; i++)
+                vw_vein(rng, VW_REDSTONE, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea/2), rng.range(4, 8), false);
+            for (int i = 0, n = count(area / 667); i < n; i++)
+                vw_vein(rng, VW_LAPIS, bx + rng.range(0, c), by + rng.range(0, c), rng.range(sea/4, sea*5/8), rng.range(3, 6), false);
+            for (int i = 0, n = count(area / 690); i < n; i++)
+                vw_vein(rng, VW_DIAMOND, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea/3), rng.range(2, 5), false);
             for (int i = 0, n = count(area / 250); i < n; i++)
                 vw_vein(rng, VW_GRAVEL, bx + rng.range(0, c), by + rng.range(0, c), rng.range(5, sea + 8), rng.range(15, 30), true);
         }

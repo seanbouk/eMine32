@@ -21,25 +21,25 @@ Disposition key:
 |---|---|---|---|---|
 | [~] | Block faces (27) | 7000–7026 | O | Ours, generated at 16×16. Swap for the user's art at **32×32** (build-time downscale). Faces: grass top/side, dirt, stone, bedrock, sand, log side/top, leaves, planks, cobble, gravel, coal/iron/gold/redstone/lapis/diamond ore, lava, water, obsidian, tall grass, red/yellow flower, glass, snow top/side. |
 | [~] | Block damage stages (3 crack masks) | 7027–7029 | O→R | Placeholder in (`crack_1..3.png`, generated). **Art spec:** one mask per stage, same size as block faces, shared by every block, each stage adding to the last. Transparent = untouched; opaque pixels darken the block under them by their darkness (black = darkest, mid-grey = a lighter chip). |
-| [ ] | Sky | 89 (Duke city skyline) | R | Parallax panorama. Probably plain sky + clouds, and maybe a sun. |
+| [x] | Sky | 89 (Duke city skyline) | R | Done: our night sky panorama (tile 7200, `tools/mkworld.py`). |
 | [ ] | Bullet holes / blood splats (wall decals) | BULLETHOLE 952, BLOODSPLAT1–4 | C? | Duke only puts these on Build walls, and the block world has none. |
 
 ## 2a. Duke enemies to remove or replace
 
-Each one is either cut or becomes one of the mobs in 2b. The mapping doesn't have to be one to one.
+All done: each one is cut or became one of our mobs in 2b; our block world never spawns the rest.
 
 | ✓ | Duke enemy | Behaviour | Fate (suggestion) |
 |---|---|---|---|
-| [~] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton: single-image art in (Duke's pal-22 recolour removed); Minecraft behaviour in C++ |
-| [~] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: walk, stand and fall animated; Minecraft zombie behaviour in C++ (`emine_mobs.cpp`), no gun |
-| [~] | DRONE (1880) | Flies at you and explodes | Becomes the creeper: single-image art in; walks, swells and explodes (C++) |
-| [~] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider: single-image art in; dies on its back; climbs and leaps (C++) |
-| [~] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman: single-image art in |
-| [ ] | COMMANDER (1920) | Floats, fires rockets | Cut, or a ghast-like (it's a Nether mob) |
-| [ ] | ROTATEGUN (2360) | Fixed turret | Cut |
-| [ ] | RECON (1960) | Flying car with spotlight | Cut |
-| [~] | EGG / GREENSLIME (675/2370) | Slime that latches on | Becomes the slime: single-image art in (still latches onto your face) |
-| [ ] | BOSS1 Battlelord (2630) | Boss | Cut for now |
+| [x] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton: single-image art in (Duke's pal-22 recolour removed); Minecraft behaviour in C++ |
+| [x] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: walk, stand and fall animated; Minecraft zombie behaviour in C++ (`emine_mobs.cpp`), no gun |
+| [x] | DRONE (1880) | Flies at you and explodes | Becomes the creeper: single-image art in; walks, swells and explodes (C++) |
+| [x] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider: single-image art in; dies on its back; climbs and leaps (C++) |
+| [x] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman: single-image art in |
+| [x] | COMMANDER (1920) | Floats, fires rockets | Cut, or a ghast-like (it's a Nether mob) |
+| [x] | ROTATEGUN (2360) | Fixed turret | Cut |
+| [x] | RECON (1960) | Flying car with spotlight | Cut |
+| [x] | EGG / GREENSLIME (675/2370) | Slime that latches on | Becomes the slime: single-image art in (still latches onto your face) |
+| [x] | BOSS1 Battlelord (2630) | Boss | Cut for now |
 | [ ] | Shared gore: blood, jibs, per-enemy gib chunks, burn/freeze/shrink states | | Simplify: a generic gib set + palette swaps |
 
 ## 2b. Minecraft mobs to add (in Duke style)
@@ -87,17 +87,22 @@ Each mob also needs spawn rules and Minecraft-style navigation.
 
 ## 4. Player weapons (first-person HUD)
 
+Ours are painted by fal from flat-colour layout guides of Duke's tiles (shape and position only), each frame
+referencing its weapon's first frame; tiles keep Duke's sizes and offsets so they sit exactly where his did, and
+`tools/mkweapons.py build` reports each silhouette's match. The knuckle-crack hands (CRACKKNUCKLES 2324-2327) are ours too.
+The shareware has no freezer art at all (its tiles are empty), so the freezer is invisible until we design one.
+
 | ✓ | Weapon | Tile | Ore ammo | Disp. | Frames needed (roughly) |
 |---|---|---|---|---|---|
-| [ ] | Kick / foot | KNEE 2521 | — | R | 2–3 |
-| [ ] | Pistol | FIRSTGUN 2524 | coal | R | idle, fire 2, reload hand ~4 |
-| [ ] | Shotgun | SHOTGUN 2613 | iron | R | idle, fire 2, pump ~4 |
-| [ ] | Chaingun | CHAINGUN 2536 | gold | R | idle, barrel spin 3, muzzle flash |
-| [ ] | Pipe bomb + detonator | HANDTHROW 2573 / HANDREMOTE 2570 | redstone | R | throw ~4, remote 2 |
+| [x] | Kick / foot | KNEE 2521 | — | R | Done: jeans and work boot (`tools/mkweapons.py`). |
+| [x] | Pistol | FIRSTGUN 2524 | coal | R | Done, with its reload hands, magazine and casings (`tools/mkweapons.py`). |
+| [x] | Shotgun | SHOTGUN 2613 | iron | R | Done, with the pump and loading frames, red shells and flashes (`tools/mkweapons.py`). |
+| [x] | Chaingun | CHAINGUN 2536 | gold | R | Done: receiver, barrels (heating up locally drawn) and flashes (`tools/mkweapons.py`). |
+| [x] | Pipe bomb + detonator | HANDTHROW 2573 / HANDREMOTE 2570 | redstone | R | Done: canister with hazard caps, throw and detonator hand (`tools/mkweapons.py`). |
 | [ ] | Freezer | FREEZE 2548 | lapis | R | idle, fire 2 (missing from shareware anyway) |
-| [ ] | RPG | RPGGUN 2544 | diamond | R | idle, fire 2 |
+| [x] | RPG | RPGGUN 2544 | diamond | R | Done, with its two blast frames (`tools/mkweapons.py`). |
 | [ ] | Shrinker, Devastator, Trip mine | | — | C | No ore gives their ammo |
-| [ ] | Crosshair | CROSSHAIR 2523 | | R | 1 |
+| [x] | Crosshair | CROSSHAIR 2523 | | R | Done: a small gapped plus (`tools/mkweapons.py`). |
 | [ ] | Projectiles in the world: rocket, pipe bomb, freeze bolt, shotspark, shell casings, muzzle flashes | | | R | |
 | [ ] | Explosion, smoke, glass shards, water splash, fire | EXPLOSION2 1890, SMALLSMOKE, GLASSPIECES 1031… | | R | Explosion is the big one. |
 
