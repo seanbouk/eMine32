@@ -217,10 +217,11 @@ turning jumpy (frames over the display's refresh). Fix, in `voxworld.cpp`:
 - Now 9.2 / 13.0 ms (all-solid leaves would be 8.0 / 11.0).
 - Play-testing: `emine_perf` (emine_perf.cpp) summarises the last ~1000 frames (gaps, late frames, time per part).
 
-## Mouse input backing up in Chrome, fixed (2026-11-13)
+## Mouse input backing up in Chrome (2026-11-13)
 Play-test with `emine_perf mouse` (1000 Hz mouse, Chrome): the page was handed one mousemove per frame, each ~12 ms
 later than the last, so movement queued up by hundreds of ms to seconds (turning lagged, then jumped), while clicks
-and frames stayed regular. The engine's whole frame ran inside the requestAnimationFrame callback and took most of
-a refresh, leaving the browser no room to deliver queued input. `em_wait_animation_frame` (sdlayer.cpp) now only
-posts a MessageChannel message from the rAF callback; the frame runs as its own task after it. Cost: a few more
-frames miss their refresh when the work is close to the budget (headless 1300x700: 3%).
+and frames stayed regular, at any window size. Running the frame as its own task after the rAF callback didn't help
+(reverted). Now the mouse is read another way: web/shell.html adds up `pointerrawupdate` movement (sent as the mouse
+moves, not lined up with frames) while the pointer is locked, and `mouseReadPos` (baselayer.cpp) takes that total
+once a frame instead of SDL's mousemove deltas. `emine_rawmouse 0` goes back to SDL's events; `emine_perf mouse`
+shows both paths' lateness. Also: a runtime resize now re-applies the palette (menus could show wrong colours).

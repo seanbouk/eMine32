@@ -340,13 +340,34 @@ int32_t mouseAdvanceClickState(void)
     return 0;
 }
 
+#ifdef __EMSCRIPTEN__
+# include <emscripten.h>
+// eMine32: read the mouse from the page's pointerrawupdate total (web/shell.html) instead of SDL's mousemove
+// events. Chrome hands the page one mousemove per frame, so a 1000 Hz mouse backed up by seconds; raw updates
+// come as they happen and the page just adds them up. `emine_rawmouse 0` goes back to SDL's events.
+int emine_rawmouse = 1;
+#endif
+
 void mouseReadPos(int32_t *x, int32_t *y)
 {
     if (!g_mouseEnabled || !g_mouseGrabbed || !appactive)
     {
         *x = *y = 0;
+#ifdef __EMSCRIPTEN__
+        EM_ASM({ if (Module.emineRawTake) Module.emineRawTake(); });  // drop movement made while not ours
+#endif
         return;
     }
+
+#ifdef __EMSCRIPTEN__
+    if (emine_rawmouse && EM_ASM_INT({ return Module.emineRawOK ? 1 : 0; }))
+    {
+        *x = EM_ASM_INT({ return Module.emineRawTake(); });
+        *y = EM_ASM_INT({ return Module.emineRawTakeY; });
+        g_mousePos.x = g_mousePos.y = 0;
+        return;
+    }
+#endif
 
     *x = g_mousePos.x;
     *y = g_mousePos.y;

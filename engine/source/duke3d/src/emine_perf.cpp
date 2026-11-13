@@ -24,6 +24,7 @@ struct Frame
     int    mousex;       // mouse movement read for this frame (engine units, after sensitivity)
     int    jsx, jsn;     // mouse movement the browser delivered to the page since the last frame (pixels, events)
     int    jslag;        // ms: the latest of those events (from the browser's timestamp to the page getting it)
+    int    rawn, rawlag;     // the same for pointerrawupdate events (what the game reads, emine_rawmouse 1)
     uint8_t tics;
 };
 int constexpr N = 1024;
@@ -49,6 +50,8 @@ void Emine_PerfFrame(double drawms, double waitms, int q16ang)
     cur.jsx = EM_ASM_INT({ var v = Module.emineMouseJS | 0; Module.emineMouseJS = 0; return v; });
     cur.jsn = EM_ASM_INT({ var v = Module.emineMouseEvents | 0; Module.emineMouseEvents = 0; return v; });
     cur.jslag = EM_ASM_INT({ var v = Module.emineMouseLag | 0; Module.emineMouseLag = 0; return v; });
+    cur.rawn = EM_ASM_INT({ var v = Module.emineRawN | 0; Module.emineRawN = 0; return v; });
+    cur.rawlag = EM_ASM_INT({ var v = Module.emineRawLag | 0; Module.emineRawLag = 0; return v; });
 #endif
     cur.draw = (float)(drawms - waitms);
     cur.wait = (float)waitms;
@@ -64,9 +67,11 @@ void Emine_PerfFrame(double drawms, double waitms, int q16ang)
     // `emine_perf mouse`: movement that stopped coming for a while and then came in a lump
     if (logMouse)
     {
-        if ((cur.jsx && pageStill >= 4) || (cur.mousex && gameStill >= 4) || cur.jslag > 50)
-            OSD_Printf("emine_perf: mouse after %d still frames (page) / %d (game): page %d px in %d events, latest %d ms late; game %d; frame gap %.1f ms\n",
-                       pageStill, gameStill, cur.jsx, cur.jsn, cur.jslag, cur.mousex, prev ? cur.end - prev->end : 0.0);
+        extern int emine_rawmouse;
+        if ((cur.jsx && pageStill >= 4) || (cur.mousex && gameStill >= 4) || cur.jslag > 50 || cur.rawlag > 50)
+            OSD_Printf("emine_perf: mouse after %d still frames (page) / %d (game): mousemove %d px in %d events, latest %d ms late; raw %d events, latest %d ms late; game %d (%s); frame gap %.1f ms\n",
+                       pageStill, gameStill, cur.jsx, cur.jsn, cur.jslag, cur.rawn, cur.rawlag, cur.mousex,
+                       emine_rawmouse ? "reads raw" : "reads mousemove", prev ? cur.end - prev->end : 0.0);
         pageStill = cur.jsx ? 0 : pageStill + 1;
         gameStill = cur.mousex ? 0 : gameStill + 1;
     }
@@ -175,7 +180,17 @@ static int osdcmd_emine_perf(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+static int osdcmd_emine_rawmouse(osdcmdptr_t parm)
+{
+    extern int emine_rawmouse;
+    if (parm->numparms >= 1) emine_rawmouse = !!Batol(parm->parms[0]);
+    OSD_Printf("emine_rawmouse %d (%s)\n", emine_rawmouse,
+               emine_rawmouse ? "mouse read from the page's pointerrawupdate total" : "mouse read from SDL's mousemove events");
+    return OSDCMD_OK;
+}
+
 void Emine_RegisterPerfOSD(void)
 {
+    OSD_RegisterFunction("emine_rawmouse", "emine_rawmouse [0|1]: read the mouse from pointerrawupdate (1, default) or SDL's mousemove events (0)", osdcmd_emine_rawmouse);
     OSD_RegisterFunction("emine_perf", "emine_perf [log|mouse|clear]: frame timing over the last ~1000 frames (log: print each late frame; mouse: print each mouse stall and burst)", osdcmd_emine_perf);
 }

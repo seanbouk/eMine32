@@ -96,6 +96,25 @@
     var lag = performance.now() - e.timeStamp;
     if (lag > Module.emineMouseLag) Module.emineMouseLag = lag;
   }, true);
+  // Raw mouse: Chrome hands the page one mousemove per frame (rAF-aligned), so a fast mouse backs up by seconds.
+  // pointerrawupdate events come as the mouse moves; add them up here, and the engine takes the total once a frame
+  // (baselayer.cpp mouseReadPos). Whole pixels go out, fractions carry over.
+  Module.emineRawOK = 'onpointerrawupdate' in window;
+  Module.emineRawX = 0; Module.emineRawY = 0; Module.emineRawTakeY = 0;
+  Module.emineRawN = 0; Module.emineRawLag = 0;  // for emine_perf
+  Module.emineRawTake = function () {
+    var x = Math.trunc(Module.emineRawX), y = Math.trunc(Module.emineRawY);
+    Module.emineRawX -= x; Module.emineRawY -= y; Module.emineRawTakeY = y;
+    return x;
+  };
+  if (Module.emineRawOK)
+    document.addEventListener('pointerrawupdate', function (e) {
+      if (document.pointerLockElement !== canvas) return;
+      Module.emineRawX += e.movementX || 0; Module.emineRawY += e.movementY || 0;
+      Module.emineRawN++;
+      var lag = performance.now() - e.timeStamp;
+      if (lag > Module.emineRawLag) Module.emineRawLag = lag;
+    }, true);
   // Adaptive resolution. The browser shows a frame on each display refresh, so a frame that takes even a little
   // longer than one refresh waits for the next: the frame rate halves and turning looks jumpy. Watch the engine's
   // work per frame (its slow frames: the 90th percentile) against the refresh interval; when they run close to the
