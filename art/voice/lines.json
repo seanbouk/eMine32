@@ -562,7 +562,7 @@
   "group": "new-places",
   "trigger": "Play starts in The Mines",
   "decision": "new",
-  "final": "This looks like some sort of craft mine!",
+  "final": "This looks like some sort of crafty mine!",
   "original": "",
   "sound": ""
  },
