@@ -87,6 +87,15 @@
       Module._emine_request_resize(r[0], r[1]);
     }, 250);
   });
+  // emine_perf: mouse movement as the browser delivers it to the page (summed; the engine reads and resets it each
+  // frame), to tell input the browser holds back from input the engine is slow to take.
+  // emineMouseLag: the most any event was late (ms from when the browser stamped it to when the page got it).
+  Module.emineMouseJS = 0; Module.emineMouseEvents = 0; Module.emineMouseLag = 0;
+  document.addEventListener('mousemove', function (e) {
+    Module.emineMouseJS += e.movementX || 0; Module.emineMouseEvents++;
+    var lag = performance.now() - e.timeStamp;
+    if (lag > Module.emineMouseLag) Module.emineMouseLag = lag;
+  }, true);
   // Adaptive resolution. The browser shows a frame on each display refresh, so a frame that takes even a little
   // longer than one refresh waits for the next: the frame rate halves and turning looks jumpy. Watch the engine's
   // work per frame (its slow frames: the 90th percentile) against the refresh interval; when they run close to the
