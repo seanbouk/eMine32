@@ -448,6 +448,9 @@ void Emine_Tick(void)
         auto at = [&](int32_t dz) { return voxworld_blockat(p->pos.x, p->pos.y, p->pos.z + dz); };
         OSD_Printf("emine_where: x %d y %d z %d vel %d  eye %d body %d feet %d  pal %d air %d\n", p->pos.x, p->pos.y, p->pos.z,
                    p->vel.z, at(0), at(EMINE_SWIMPOINT), at(PHEIGHT - 256), p->palette, p->airleft);
+        OSD_Printf("emine_where: ground %d jetpack %d scuba %d lotag %d floorz %d truefz %d gravity %d spritez %d\n", p->on_ground,
+                   p->jetpack_on, p->scuba_on, p->cursectnum >= 0 ? sector[p->cursectnum].lotag : -1, actor[p->i].floorz, p->truefz,
+                   g_spriteGravity, sprite[p->i].z);
     }
 }
 

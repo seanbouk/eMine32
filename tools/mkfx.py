@@ -30,6 +30,8 @@ EFFECTS = [
     (1226, 1, 'pool'),        # BLOODPOOL: where a mob died
     (2286, 8, 'gibs'),        # JIBS6: a chunk flies (0), lands and splats wider (1-7); the engine steps the frames
     (1031, 3, 'glass'),       # GLASSPIECES: shards of a broken glass block
+    (1405, 1, 'blank'),       # APLAYER: the player's own sprite. Never seen, but the engine takes the player's height
+                              # from it: with no tile it's zero high, the player stands on top of it and rises forever
 ]
 
 
@@ -249,8 +251,13 @@ def glass(w, h, k, n, seed=81):
     return rgb, (a | edge).astype(float), np.zeros((h, w), bool)
 
 
+def blank(w, h, k, n):
+    """Fully transparent, at the original's size and offsets."""
+    return np.zeros((h, w, 3)), np.zeros((h, w)), np.zeros((h, w), bool)
+
+
 KINDS = {'explosion': explosion, 'flame': flame, 'flame2': lambda w, h, k, n: flame(w, h, k, n, seed=13, width=0.46),
-         'smoke': smoke, 'spark': spark, 'splash': splash, 'blood': blood, 'pool': pool, 'gibs': gibs, 'glass': glass}
+         'smoke': smoke, 'spark': spark, 'splash': splash, 'blood': blood, 'pool': pool, 'gibs': gibs, 'glass': glass, 'blank': blank}
 
 
 def main():
