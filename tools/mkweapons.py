@@ -28,6 +28,10 @@ OUT = os.path.join(ROOT, 'game', 'textures')
 MAGENTA = np.array([255, 0, 255])
 
 HAND = 'a tanned muscular man\'s bare hand'
+GAUNTLET = ("the shooter's own right forearm and fist, seen from behind and above, wearing a chunky armoured gauntlet: "
+            "a wrist-mounted twin mini-rocket launcher along the back of the hand and forearm (two short tubes, blue-tipped "
+            "rockets showing in their mouths), gunmetal with lapis-blue armour plates; the fist points forward and a little "
+            "left, the forearm comes straight up from the bottom edge of the picture, no other hand, no gun held")
 BEHIND = ('seen from directly behind and a little above, the way the shooter sees it: the flat back of the squared-off slide faces the viewer and the barrel points straight ahead into the distance, so the gun is foreshortened to a chunky block')
 STYLE = ('Original artwork for a 1990s first-person shooter: a pre-rendered 3D look, chunky readable shapes, '
          'strong light from the upper left, crisp edges. The first image is a flat-colour layout guide: paint exactly '
@@ -89,18 +93,27 @@ TILES = {
     2611: ('a rocket in flight seen straight from behind: four small dark fins in an X around a bright yellow-orange exhaust flame', 'rocket', 2608, True),
     # the devastator (lapis): the shareware has no art for it, so our own layout guide; the game draws it in the right
     # hand and mirrored in the left
-    2510: (HAND + ' gripping ' + "a chunky futuristic twin-tube mini-rocket launcher (gunmetal body with lapis-blue armour panels, two short rocket tubes side by side on top), held low at the bottom right of the view and pointing forward and a little left, seen from behind the shooter", 'rocket launcher', None, False),
-    2511: (HAND + ' gripping ' + "a chunky futuristic twin-tube mini-rocket launcher (gunmetal body with lapis-blue armour panels, two short rocket tubes side by side on top), held low at the bottom right of the view and pointing forward and a little left, seen from behind the shooter" + '; it is firing, bright yellow-orange flashes at the mouths of both tubes', 'rocket launcher', 2510, True),
-    42: ('an ammo pickup for the game: a small lapis-blue steel box with its lid open, packed with a row of small brass mini rockets with blue-grey tips', 'ammo box', None, False),
+    42: ('an ammo pickup for the game: a low open wooden-and-steel crate painted lapis blue, packed with small grey missiles with bright blue tips poking up out of it, a few leaning', 'missile crate', None, False),
     51: ('a game HUD icon: a chunky glossy red heart with a bright highlight, filling the guide', 'heart icon', None, False),
     54: ('a game HUD icon: a riveted iron chest plate (body armour), front view, filling the guide', 'armour icon', None, False),
 }
-# world sprites and icons: not padded (a world sprite's bottom edge sits on the floor; icons keep their size)
+# world sprites (pickups, the thrown pipe bomb, the rocket) and icons: see fit() for how they're grown
+ICONS = (51, 54)  # HUD icons keep their exact size (the HUD draws them from the top-left corner)
 PICKUPS = (37, 40, 41, 42, 44, 47, 49, 26, 51, 54, 2605, 2606, 2607, 2608, 2609, 2610, 2611)
 LOCAL = [2523, 2533, 2534, 2535, 2538, 2539, 2540, 2541, 2542, 2543, 2614, 2615]
 GROUPS = [(2324, 2327), (2521, 2526), (2528, 2546), (2570, 2575), (2613, 2619), (37, 38), (40, 41), (44, 44), (47, 47), (49, 49),
           (26, 26), (51, 51), (54, 54), (2605, 2611), (42, 42), (2510, 2511)]
 COPIES = {38: 37}
+# Painted freely (no layout guide), then fitted here. The devastator: an armoured gauntlet with a wrist-mounted twin
+# rocket launcher, the forearm rising from the bottom edge (only the bottom: on wide screens the sides show). The game
+# draws it in the right hand and mirrored in the left; offsets (in duke()) put it low in each corner.
+#   FREE[n] = (file in art/weapons/free, the idle tile it is drawn over or None, box of the painting to take from it)
+# The firing frame is the idle painting with only the muzzle flashes taken from the firing one (fal also painted a stray
+# flame behind, and lit the arm orange), recoloured blue, fitted at the idle frame's scale so the arm doesn't move.
+FREE = {2510: ('gauntlet.png', None, None), 2511: ('gauntlet_fire.png', 2510, (380, 0, 720, 430))}
+FREE_H, FREE_TILT = 110, 15  # idle tile height; degrees the fist leans in towards the crosshair
+FREEFLASH = {2511}
+BLUE_RAMP = np.array([[0, 0, 252], [60, 90, 230], [110, 140, 200], [150, 185, 225], [215, 235, 255]], float)  # the palette has no bright, saturated blue but its fullbright pure blue: that for the edges, steel blues inside
 FLIP = {2608}  # painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
 ASPECTS = [(21, 9), (16, 9), (3, 2), (4, 3), (1, 1), (3, 4), (2, 3), (9, 16)]
 LONG = 1024  # guide canvas, long side
@@ -124,27 +137,32 @@ def duke(n):
         pa = 0
     if n == 38 and px is None:
         return duke(37)
-    if n == 42 and px is None:  # devastator ammo: a box on the floor, like the others
-        px = np.full((32, 44), 255, np.uint8)
-        px[6:32, 2:42] = 15
+    if n == 42 and px is None:  # devastator ammo: a low crate with missiles poking up, like the rocket crate
+        w, h = 64, 40
+        yy, xx = np.mgrid[0:h, 0:w]
+        px = np.full((h, w), 255, np.uint8)
+        px[(yy >= 18) & (xx >= 3) & (xx < 61)] = 15
+        for c in (14, 24, 34, 44, 52):
+            px[(yy >= 3 + (c % 7)) & (yy < 20) & (np.abs(xx - c) <= 3)] = 15
         pa = 0
     if n in (2510, 2511) and px is None:
         # Devastator: our own layout. A gun body slanting up and left from the bottom right, a hand and forearm on it.
         # Offsets put it low in the right of the screen (the game draws it at x 268, y 238 of 320x200, and a mirrored
         # copy at x 30 for the left hand).
-        w, h = 110, 96
+        # A gauntlet: forearm rising from the bottom edge (only the bottom: on wide screens the sides show), leaning a
+        # little left, the fist at the top, twin launcher tubes along its top.
+        w, h = 90, 110
         yy, xx = np.mgrid[0:h, 0:w].astype(float)
-        a = np.radians(-28)
-        u = (xx - 62) * np.cos(a) - (yy - 52) * np.sin(a)
-        v = (xx - 62) * np.sin(a) + (yy - 52) * np.cos(a)
-        gun = (np.abs(u) < 46) & (np.abs(v) < 17)
-        tubes = (np.abs(u + 30) < 22) & (np.abs(v + 21) < 9)
-        hand = ((xx - 84) ** 2 / 20 ** 2 + (yy - 74) ** 2 / 16 ** 2) < 1
-        arm = (xx > 82) & (yy > 70) & (yy - 70 > (xx - 82) * -0.2)
-        grey, blue, skin = (int(np.argmin(((_pal - c) ** 2).sum(1)[:255])) for c in ((95, 95, 100), (60, 90, 170), (200, 150, 110)))
+        a = np.radians(14)  # lean: the top is further left than the bottom
+        u = (xx - 50) * np.cos(a) + (yy - 60) * np.sin(a)   # across the arm
+        v = -(xx - 50) * np.sin(a) + (yy - 60) * np.cos(a)  # along it (down = +)
+        arm = (np.abs(u) < 20 + v * 0.06) & (v > -22)
+        fist = ((u / 22) ** 2 + ((v + 30) / 17) ** 2) < 1
+        tubes = (np.abs(u + 4) < 13) & (v > -58) & (v < 8)
+        grey, blue = (int(np.argmin(((_pal - c) ** 2).sum(1)[:255])) for c in ((95, 95, 100), (60, 90, 170)))
         px = np.full((h, w), 255, np.uint8)
-        px[gun] = grey; px[tubes] = blue; px[hand | arm] = skin
-        pa = ((-20 & 255) << 8) | ((28 & 255) << 16)  # low in the corner, the cut-off forearm off the bottom and side
+        px[arm | fist] = grey; px[tubes] = blue
+        pa = ((0 & 255) << 8) | ((-1 & 255) << 16)  # FREE tiles are 110 high. The game draws the devastator ~61 px above its nominal anchors (268,238), so this puts the top at y 123 and the cut forearm below 200 (measured in game)
     if n in (51, 54):  # HUD icons: our own outlines (a heart, a chest plate) at Duke's icon sizes
         w, h = (23, 16) if n == 51 else (27, 26)
         yy, xx = np.mgrid[0:h, 0:w].astype(float)
@@ -336,13 +354,16 @@ def fit(n, meta):
     rgb = np.clip(rgb, 0, 255)
     s, (ox, oy), w, h = m['scale'], m['origin'], m['w'], m['h']
     L = T = R = B = 0
-    if n not in PICKUPS:
+    if n not in ICONS:
         ys, xs = np.nonzero(alpha > 0.5)
         L = max(0, int(np.ceil((ox - xs.min()) / s)))
         R = max(0, int(np.ceil((xs.max() + 1 - ox) / s)) - w)
         T = max(0, int(np.ceil((oy - ys.min()) / s)))
         B = max(0, int(np.ceil((ys.max() + 1 - oy) / s)) - h)
-        T = B = max(T, B)
+        if n not in PICKUPS:
+            T = B = max(T, B)  # weapons: alike top and bottom (some are drawn flipped)
+        # pickups: grown on every side as far as the painting goes; their bottom edge (the floor) is wherever the
+        # painted base ends, so the vertical offset stays as it is
     # room round the canvas, so a box past its edge reads as empty
     M = int((max(L, R, T, B) + 2) * s)
     rgb = np.pad(rgb, ((M, M), (M, M), (0, 0)))
@@ -411,7 +432,7 @@ def local(n, built):
     raise KeyError(n)
 
 
-def offsets(pa, w, h, pad, dx=0):
+def offsets(pa, w, h, pad, dx=0, keepy=False):
     """Duke's picanm with the offsets moved so a tile padded by pad = (left, top, right, bottom) draws its original
     pixels where his were (the game draws from the tile's centre plus its offsets), then dx screen pixels right."""
     L, T, R, B = pad
@@ -419,7 +440,8 @@ def offsets(pa, w, h, pad, dx=0):
     xo, yo = (pa >> 8) & 255, (pa >> 16) & 255
     xo, yo = (xo - 256 if xo > 127 else xo), (yo - 256 if yo > 127 else yo)
     xo += L + (w >> 1) - (W >> 1) - dx
-    yo += T + (h >> 1) - (H >> 1)
+    if not keepy:
+        yo += T + (h >> 1) - (H >> 1)
     assert -128 <= xo <= 127 and -128 <= yo <= 127, (xo, yo)
     return (pa & ~0xFFFF00) | ((xo & 255) << 8) | ((yo & 255) << 16)
 
@@ -447,6 +469,48 @@ def build():
         if n in built:
             rgb, al, pad = built[n]
             built[n] = (rgb[:, ::-1], al[:, ::-1], (pad[2], pad[1], pad[0], pad[3]))
+    freebox, freesize = {}, {}
+    for n, (fname, base, take) in FREE.items():
+        im = np.asarray(Image.open(os.path.join(ART, 'free', fname)).convert('RGB')).astype(float).copy()
+        if base is not None:  # the base frame's painting, with the changed pixels inside `take` from this one
+            bim = np.asarray(Image.open(os.path.join(ART, 'free', FREE[base][0])).convert('RGB')).astype(float)
+            x0, y0, x1, y1 = take
+            m = np.zeros(im.shape[:2], bool)
+            m[y0:y1, x0:x1] = np.sqrt(((im - bim) ** 2).sum(2))[y0:y1, x0:x1] > 50
+            m = np.asarray(Image.fromarray(m).filter(ImageFilter.MaxFilter(5)))
+            warm = m & (im[..., 0] > im[..., 2] + 30)
+            lum = (im[..., 0] * 0.3 + im[..., 1] * 0.55 + im[..., 2] * 0.15) / 255
+            t = (im[..., 1] / 255) ** 3 * (len(BLUE_RAMP) - 1)  # by its green: orange and yellow a strong blue, white only at the core
+            i = np.minimum(t.astype(int), len(BLUE_RAMP) - 2)
+            f = (t - i)[..., None]
+            blue = BLUE_RAMP[i] * (1 - f) + BLUE_RAMP[i + 1] * f
+            fire = np.where(warm[..., None], blue, im)
+            im = np.where(m[..., None], fire, bim)
+        im = np.asarray(Image.fromarray(im.astype(np.uint8)).rotate(FREE_TILT, Image.BICUBIC, expand=True,
+                                                                     fillcolor=tuple(int(c) for c in MAGENTA))).astype(float)
+        d = np.sqrt(((im - MAGENTA) ** 2).sum(2))
+        alpha = np.clip((d - 90) / 90, 0, 1)
+        rgb = np.clip(np.where(alpha[..., None] > 0, (im - (1 - alpha[..., None]) * MAGENTA) / np.maximum(alpha[..., None], 1e-3), 0), 0, 255)
+        ys, xs = np.nonzero(alpha > 0.5)
+        box = (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)  # down to where the arm is cut
+        pad = (0, 0, 0, 0)
+        if base is None:
+            sc = FREE_H / (box[3] - box[1])
+        else:  # the base frame's scale and box, grown to fit the flashes; pad says by how much (in tile pixels)
+            bbox, sc = freebox[base]
+            box = (min(box[0], bbox[0]), min(box[1], bbox[1]), max(box[2], bbox[2]), bbox[3])
+            pad = tuple(int(round(v * sc)) for v in (bbox[0] - box[0], bbox[1] - box[1], box[2] - bbox[2], 0))
+        freebox[n] = (box, sc)
+        if base is None:
+            W, H = max(1, round((box[2] - box[0]) * sc)), FREE_H
+        else:
+            bw, bh = freesize[base]
+            W, H = bw + pad[0] + pad[2], bh + pad[1]
+        freesize[n] = (W, H)
+        chans = [Image.fromarray((rgb[..., c] * alpha).astype(np.float32), 'F') for c in range(3)] + [Image.fromarray((alpha * 255).astype(np.float32), 'F')]
+        small = [np.asarray(c.resize((W, H), Image.BOX, box=box)) for c in chans]
+        al = small[3] / 255
+        built[n] = (np.clip(np.stack(small[:3], -1) / np.maximum(al[..., None], 1e-3), 0, 255), al, pad)
     for n, src in COPIES.items():
         if src in built:
             built[n] = built[src]
@@ -468,15 +532,23 @@ def build():
             on = al >= 0.5
             for x0, y0, x1, y1 in ERASE.get(n, []):
                 on[y0:y1, x0:x1] = False
-            flash = n in (2541, 2542, 2543, 2614, 2615) or (n in TILES and TILES[n][3])
+            flash = n in (2541, 2542, 2543, 2614, 2615) or n in FREEFLASH or (n in TILES and TILES[n][3])
             idx = dither(rgb, on, pal, usable)
-            if flash:  # flashes may glow: bright, warm pixels get the full palette (fullbright included)
-                bright = (rgb.max(2) > 200) & (rgb[..., 0] > rgb[..., 2] + 40)
+            if flash:  # flashes may glow: bright, warm (blue, for ours) pixels get the full palette (fullbright included)
+                if n in FREEFLASH:
+                    bright = (rgb.max(2) > 200) & (rgb[..., 2] > rgb[..., 0] + 40)
+                else:
+                    bright = (rgb.max(2) > 200) & (rgb[..., 0] > rgb[..., 2] + 40)
                 idx = np.where(bright, match(rgb, pal, allc), idx)
             out = np.where(on, idx, 255).astype(np.uint8)
             h, w = px.shape
-            tiles.append((out, offsets(pa, w, h, pad, SHIFT.get(n, 0))))
+            if n in FREE:  # offsets are for the idle frame's size; pad says how the firing frame grew from it
+                w, h = freesize[FREE[n][1] or n]
+            tiles.append((out, offsets(pa, w, h, pad, SHIFT.get(n, 0), keepy=n in PICKUPS)))
             L, T = pad[0], pad[1]
+            if n in FREE:  # no outline of Duke's to match: ours from scratch
+                sheet.append((n, out, out))
+                continue
             score = iou(on[T:T + h, L:L + w], rgba[..., 3] > 0)
             report.append((n, score))
             sheet.append((n, out, px))
