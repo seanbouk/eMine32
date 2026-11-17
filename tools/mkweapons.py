@@ -67,8 +67,8 @@ TILES = {
     2570: (HAND + ' clenched around a small black detonator with a red push button on top, arm reaching in from the bottom left', 'detonator', None, False),
     2571: (HAND + ' clenched around a small black detonator, thumb pressing its red button, arm from the bottom left', 'detonator', 2570, False),
     2572: (HAND + ' clenched around a small black detonator, thumb lifting off its red button, arm from the bottom left', 'detonator', 2570, False),
-    2573: (HAND + ' from below holding up a squat steel pipe bomb: a grey metal canister with yellow and black hazard stripes on its end caps and a small rubber-banded fuse box on the side', 'pipe bomb', None, False),
-    2574: (HAND + ' throwing a steel pipe bomb, seen close up on its side: a grey metal canister with yellow and black hazard stripes on its end caps and a small label', 'pipe bomb', 2573, False),
+    2573: (HAND + ' from below holding up a squat steel pipe bomb: a grey metal canister with yellow and black hazard stripes on its end caps and a small rubber-banded fuse box on the side; ONE right hand only, bare forearm, no sleeve: palm toward the viewer, four fingers curled round the front of the canister from the right, the thumb on its left side, anatomically correct', 'pipe bomb', None, False),
+    2574: (HAND + ' throwing a steel pipe bomb, seen close up on its side: a grey metal canister with yellow and black hazard stripes on its end caps and a small label; a natural hand, four fingers and a thumb gripping it, anatomically correct', 'pipe bomb', 2573, False),
     2575: (HAND + ' clenched in a fist just after throwing, knuckles toward the viewer', 'hand', 2573, False),
     2613: (HAND + ' gripping an all-black pump-action shotgun at its pistol grip, the barrel and pump pointing forward and up', 'shotgun', None, False),
     2616: (HAND + 's racking an all-black pump-action shotgun: one hand pulling the pump back, the gun angled up', 'shotgun', 2613, False),
@@ -114,7 +114,7 @@ FREE = {2510: ('gauntlet.png', None, None), 2511: ('gauntlet_fire.png', 2510, (3
 FREE_H, FREE_TILT = 110, 15  # idle tile height; degrees the fist leans in towards the crosshair
 FREEFLASH = {2511}
 BLUE_RAMP = np.array([[0, 0, 252], [60, 90, 230], [110, 140, 200], [150, 185, 225], [215, 235, 255]], float)  # the palette has no bright, saturated blue but its fullbright pure blue: that for the edges, steel blues inside
-FLIP = {2608}  # painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
+FLIP = {2608, 2570, 2571, 2572}  # 2570-2572: the detonator was painted as a right hand; it's held in the left. 2608: painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
 ASPECTS = [(21, 9), (16, 9), (3, 2), (4, 3), (1, 1), (3, 4), (2, 3), (9, 16)]
 LONG = 1024  # guide canvas, long side
 
