@@ -13,6 +13,12 @@ Run through this before publishing to itch.io / Game Off.
 - [ ] EDuke32 GPLv2 obligations: source public (this repo), licence + credits included in the build.
 - [ ] Repo is public and matches the submitted build (Game Off rule).
 
+## Sound licences
+- [ ] Freedoom sounds (BSD 3-clause): ship its copyright notice and credits with every build (they are packaged as
+      `sounds/sfx/FREEDOOM-COPYING.txt` and `FREEDOOM-CREDITS.txt`; also show/link them from the game's credits).
+      Don't use the Freedoom name to endorse the game.
+- [ ] The Free Firearm Sound Library (CC0): no obligation; credited anyway in `sounds/sfx/FIREARM-LICENSE.txt`.
+
 ## Font licences (SIL Open Font Licence 1.1)
 - [ ] Ship each font's `OFL.txt` with the build (`art/fonts/anton`, `pressstart2p`, `silkscreen`) and credit them:
       Anton (The Anton Project Authors), Press Start 2P (CodeMan38), Silkscreen (The Silkscreen Project Authors).

@@ -1,14 +1,19 @@
-"""Our sound effects: art/sfx/sounds.json (the sound sheet) -> fal -> game/sounds/sfx/*.wav and sfx.txt
-Run: python tools/mksfx.py          (only makes what's missing; delete art/sfx/raw/<name>.* to redo one)
-     python tools/mksfx.py process  (no fal: just re-trim/convert the raw files and rewrite sfx.txt)
+"""Our sound effects: art/sfx/sounds.json (the sound sheet) -> game/sounds/sfx/*.wav and sfx.txt
+Run: python tools/mksfx.py          (makes any missing fal sounds; delete art/sfx/raw/<name>.* to redo one)
+     python tools/mksfx.py process  (no fal: just re-convert everything and rewrite sfx.txt)
 
 Each row of the sheet is one of the engine's sound slots (Duke's numbering, since his C code plays them by number)
-that our game actually plays, with what plays it, our prompt, and the slot's playback settings (pitch range,
-priority, flags, distance), kept from the slot it fills so it behaves as the engine expects.
+that our game actually plays, with what plays it, where its sound comes from, and the slot's playback settings
+(pitch range, priority, flags, distance), kept from the slot it fills so it behaves as the engine expects.
 
-Sound: fal ElevenLabs sound effects v2, $0.002 per second (the whole sheet is well under $0.20). Each result's URL
-is written to art/sfx/raw/<name>.url before it's downloaded, so a failed download never means paying twice.
-Then, locally: trim the silence, even out the loudness, 22 kHz mono 8-bit WAV (no Ogg decoder in the web build).
+Sources, one coherent set first:
+  - freedoom/<file>: Freedoom's sounds (art/sfx/freedoom, BSD licence: COPYING.adoc and CREDITS ship with the game),
+    a complete classic-shooter set made from scratch as a free replacement for Doom's.
+  - firearm/<file>: The Free Firearm Sound Library (art/sfx/firearm, CC0), where Freedoom has no such sound.
+  - fal: the gaps neither has (glass, water, the lurker's hiss, the bow...): fal ElevenLabs sound effects v2,
+    $0.002 per second. Each result's URL is written to art/sfx/raw/<name>.url before it's downloaded.
+Then, locally: trim the silence, bring the peak to just under full scale (Freedoom's own level), 22 kHz mono 8-bit
+WAV (no Ogg decoder in the web build).
 The game (emine_voice.cpp, Emine_SfxInit) reads sfx.txt and points each slot at our file.
 """
 import json, os, subprocess, sys, concurrent.futures as cf
@@ -40,14 +45,27 @@ def fal_call(row):
     return 'made'
 
 
+def source(row):
+    return os.path.join(RAW, row['name'] + '.mp3') if row['source'] == 'fal' else os.path.join(ROOT, 'art', 'sfx', row['source'])
+
+
+def peak_db(path, af):
+    r = subprocess.run(['ffmpeg', '-hide_banner', '-i', path, '-af', af + 'volumedetect', '-f', 'null', '-'],
+                       capture_output=True, text=True)
+    return float(r.stderr.split('max_volume:')[1].split('dB')[0])
+
+
 def process(row):
-    """mp3 -> trimmed, levelled, 22 kHz mono 8-bit WAV. Loops keep their length (no trimming)."""
-    name = row['name']
+    """source -> trimmed, peak at -0.5 dB, 22 kHz mono 8-bit WAV. Loops keep their length (no trimming).
+    A row's "boost" (dB) pushes a thin sound up further, through a limiter (the minigun's single crack)."""
+    name, src = row['name'], source(row)
     loop = row['flags'] & 1 or name == 'underwater'
     trim = '' if loop else ('silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.01,areverse,'
                             'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.04,areverse,')
-    subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', os.path.join(RAW, name + '.mp3'),
-                    '-af', trim + 'loudnorm=I=-14:TP=-1.0:LRA=11', '-ac', '1', '-ar', '22050', '-c:a', 'pcm_u8', *PLAIN,
+    gain = -0.5 - peak_db(src, trim + 'aformat=channel_layouts=mono,')
+    subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', src,
+                    '-af', trim + 'volume=%.2fdB' % (gain + row.get('boost', 0))
+                    + (',alimiter=limit=0.94:attack=1:release=40' if row.get('boost') else ''), '-ac', '1', '-ar', '22050', '-c:a', 'pcm_u8', *PLAIN,
                     os.path.join(OUT, name + '.wav')], check=True)
 
 
@@ -56,7 +74,7 @@ def main():
     os.makedirs(RAW, exist_ok=True)
     os.makedirs(OUT, exist_ok=True)
     if not (len(sys.argv) > 1 and sys.argv[1] == 'process'):
-        todo = [r for r in rows if not os.path.exists(os.path.join(RAW, r['name'] + '.mp3'))]
+        todo = [r for r in rows if r['source'] == 'fal' and not os.path.exists(os.path.join(RAW, r['name'] + '.mp3'))]
         secs = sum(max(0.5, r['seconds']) for r in todo if not os.path.exists(os.path.join(RAW, r['name'] + '.url')))
         print('%d sounds to make, %.1f s (about $%.2f)' % (len(todo), secs, secs * 0.002))
         with cf.ThreadPoolExecutor(6) as ex:
@@ -68,7 +86,7 @@ def main():
                     print('FAILED', futs[f], e)
     made = []
     for r in rows:
-        if os.path.exists(os.path.join(RAW, r['name'] + '.mp3')):
+        if os.path.exists(source(r)):
             process(r)
             made.append(r)
     # what the game loads: "<slot> <file> <pitch lo> <pitch hi> <priority> <flags> <distance>" per row

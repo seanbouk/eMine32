@@ -145,7 +145,7 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 
 | ✓ | Asset | Count | Notes |
 |---|---|---|---|
-| [~] | Sound effects + Duke voice lines | 181 VOC | Voice done (see 6). **Sound effects: ours for the 39 slots the game plays** (weapons, explosions, blocks, glass, water, landing, pickups, menus, and each mob's call/hurt/death), generated with fal from `art/sfx/sounds.json` by `tools/mksfx.py` (about $0.08) and loaded over the slots at start-up (`Emine_SfxInit`). The lurker's blast had borrowed Duke's reactor sound; it now has its own. `emine_assets` lists any Duke sound still played; long scripted sessions show none. Remaining: anything a real play-through turns up. |
+| [~] | Sound effects + Duke voice lines | 181 VOC | Voice done (see 6). **Sound effects: ours for the 39 slots the game plays**, from `art/sfx/sounds.json` by `tools/mksfx.py`: 28 from **Freedoom** (BSD; one coherent classic-shooter set: guns, explosions, punches, pickups, switches, and zombie/skeleton/spider voices), the minigun from **The Free Firearm Sound Library** (CC0), and 11 gaps Freedoom doesn't cover (glass, water, block breaking, the lurker's hiss, the bow, a ricochet, a bullet hit, a thud) from fal. All levelled to the same peak. Loaded over the slots at start-up (`Emine_SfxInit`). `emine_assets` lists any Duke sound still played; long scripted sessions show none. |
 | [ ] | Music | 7 MIDI + `D3DTIMBR.TMB` | **Music:** currently MIDI played through EDuke32's built-in OPL3 (AdLib FM) emulator, voiced by Duke's timbre bank. **Replacement:** OGG Vorbis (MP3 isn't supported; OGG is the same idea, about the same size). FLAC, or tracker modules (.mod/.xm/.it), also work. |
 
 ## 9. Before going public (deferred)

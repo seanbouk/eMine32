@@ -3,8 +3,8 @@
 2 bullet-hit 0 0 0 0 0
 3 pistol -64 0 254 0 0
 4 clip-out 0 0 3 0 0
-5 clip-in 512 512 3 0 0
-6 minigun -204 -204 254 0 512
+5 clip-in 0 0 3 0 0
+6 minigun 0 0 254 0 512
 7 rocket-fire -32 0 4 0 0
 9 explosion -1024 1024 254 0 0
 13 bomb-bounce 0 0 2 0 6144
@@ -24,7 +24,7 @@
 93 hiss 0 0 0 0 8192
 109 shotgun 0 512 254 0 0
 110 skeleton-call 0 0 3 0 0
-112 bow 256 256 3 0 7680
+112 bow 0 0 3 0 7680
 113 skeleton-hurt 200 500 3 0 0
 114 skeleton-die 0 400 3 0 0
 120 zombie-call -200 400 3 0 0
@@ -35,5 +35,5 @@
 205 zombie-call-2 -200 400 3 0 0
 210 pickup -64 64 255 0 0
 213 switch 0 0 0 0 0
-219 weapon-select 128 128 3 0 0
+219 weapon-select 0 0 3 0 0
 243 menu-exit 0 0 0 0 0
