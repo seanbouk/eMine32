@@ -17,7 +17,6 @@ Run through this before publishing to itch.io / Game Off.
 - [ ] Freedoom sounds (BSD 3-clause): ship its copyright notice and credits with every build (they are packaged as
       `sounds/sfx/FREEDOOM-COPYING.txt` and `FREEDOOM-CREDITS.txt`; also show/link them from the game's credits).
       Don't use the Freedoom name to endorse the game.
-- [ ] The Free Firearm Sound Library (CC0): no obligation; credited anyway in `sounds/sfx/FIREARM-LICENSE.txt`.
 
 ## Font licences (SIL Open Font Licence 1.1)
 - [ ] Ship each font's `OFL.txt` with the build (`art/fonts/anton`, `pressstart2p`, `silkscreen`) and credit them:

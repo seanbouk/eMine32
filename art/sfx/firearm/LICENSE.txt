@@ -1,3 +1,0 @@
-The Free Firearm Sound Library (Prepared SFX Library), by Ben Jaszczak, Brian Nelson, Kevin Heras and Matthew Nanney.
-CC0 1.0 (no rights reserved): https://opengameart.org/content/the-free-firearm-sound-library
-ak47-shot.wav: the first shot of AK-47/C_28P.wav ("gunshot, near distance"), cut to 0.4 s with a short fade.
