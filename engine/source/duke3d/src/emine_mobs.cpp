@@ -89,7 +89,7 @@ enum { MS_LIVE, MS_DYING, MS_DEAD };
 struct MobDef
 {
     char const *name;
-    char const *aWalk, *aStand, *aHit, *aAttack, *aDying, *aDead;  // CON action labels
+    char const *aWalk, *aStand, *aHit, *aAttack, *aDying, *aDead;  // action labels in game/EMINE.CON
     int dyingFrames;
     int health, speed, sight;
     int reach, cooldown, dmg[4];  // melee (reach 0: none); dmg per Duke skill
@@ -100,18 +100,18 @@ struct MobDef
 };
 
 MobDef const mobDefs[MT_COUNT] = {
-    { "zombie", "APIGWALK", "APIGSTAND", "APIGHIT", "APIGSTAND", "APIGDYING", "APIGDEAD", 5,
+    { "zombie", "ZOMBIE_WALK", "ZOMBIE_STAND", "ZOMBIE_HIT", "ZOMBIE_STAND", "ZOMBIE_DYING", "ZOMBIE_DEAD", 5,
       40, 40, 35 * BXY, 717, 30, { 12, 15, 18, 22 }, 2, 1, 40, true, true, false, false, false,
       SND_PIG_ROAM, SND_PIG_ROAM2, SND_PIG_PAIN, SND_PIG_DYING },
-    { "skeleton", "ATROOPWALKING", "ATROOPSTAND", "ATROOPFLINTCH", "ATROOPSHOOT", "ATROOPDYING", "ATROOPDEAD", 5,
+    { "skeleton", "SKELETON_WALK", "SKELETON_STAND", "SKELETON_HIT", "SKELETON_SHOOT", "SKELETON_DYING", "SKELETON_DEAD", 5,
       40, 43, 16 * BXY, 0, 60, { 10, 14, 17, 20 }, 2, 1, 40, false, false, true, false, false,
       SND_PRED_ROAM, 0, SND_PRED_PAIN, SND_PRED_DYING },
-    { "spider", "ALIZWALKING", "ALIZTHINK", "ALIZTHINK", "ALIZSCREAM", "ALIZDYING", "ALIZLYINGDEAD", 6,
+    { "spider", "SPIDER_WALK", "SPIDER_IDLE", "SPIDER_IDLE", "SPIDER_LUNGE", "SPIDER_DYING", "SPIDER_DEAD", 6,
       32, 52, 16 * BXY, 820, 30, { 8, 10, 12, 15 }, 1, 10, 40, false, true, false, true, false,
       SND_LIZ_BEG, 0, SND_LIZ_PAIN, SND_LIZ_DEATH },
-    // the lurker borrows the trooper's 5-view walk and the lizman's 5-view idle; Emine_MobTile moves its tiles
+    // the lurker borrows the skeleton's 5-view walk and the spider's 5-view idle; Emine_MobTile moves its tiles
     // from DRONE (whose neighbours are taken) to LURKER_TILE
-    { "lurker", "ATROOPWALKING", "ALIZTHINK", "ALIZTHINK", "ALIZTHINK", nullptr, nullptr, 0,
+    { "lurker", "SKELETON_WALK", "SPIDER_IDLE", "SPIDER_IDLE", "SPIDER_IDLE", nullptr, nullptr, 0,
       40, 43, 16 * BXY, 0, 0, { 0, 0, 0, 0 }, 2, 1, 48, false, false, false, false, true,
       0, 0, 0, 0 },
 };

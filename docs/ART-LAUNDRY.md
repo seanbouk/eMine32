@@ -40,7 +40,7 @@ All done: each one is cut or became one of our mobs in 2b; our block world never
 | [x] | RECON (1960) | Flying car with spotlight | Cut |
 | [x] | EGG / GREENSLIME (675/2370) | Slime that latches on | Becomes the slime: single-image art in (still latches onto your face) |
 | [x] | BOSS1 Battlelord (2630) | Boss | Cut for now |
-| [ ] | Shared gore: blood, jibs, per-enemy gib chunks, burn/freeze/shrink states | | Simplify: a generic gib set + palette swaps |
+| [x] | Shared gore: blood, jibs, per-enemy gib chunks, burn/freeze/shrink states | | Done: one generic set, drawn procedurally (`tools/mkfx.py`): a blood spurt, a blood pool, a blocky gib chunk that splats, plus our flames for burning. Freeze and shrink are cut with their weapons. |
 
 ## 2b. Minecraft mobs to add (in Duke style)
 
@@ -139,7 +139,7 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 | [x] | Options slider, save picture frame, save name box | SLIDEBAR 2489-2490, WINDOWBORDER1 2494, TEXTBOX 2495, WINDOWBORDER2 2496 | R | Done: stone bar with a grass-block knob, stone lines (`tools/mkui.py`). |
 | [x] | Loading screen | LOADSCREEN 3281 | R | Done: an aerial shot of the world blurred to shapes and light, SHIFT HAPPENS low in the middle (`tools/mktitle.py`, `art/loading/loading.png`). The progress bar the game draws over it (tile 929) is still Duke's. |
 | [ ] | Help / ordering / story screens | F1HELP 2445, ORDERING 3270–3273, TEXTSTORY 3280 | C | Or one help screen of our own. |
-| [ ] | Player third-person sprite | APLAYER 1405 | C? | Only seen in mirrors, multiplayer and death cam. |
+| [x] | Player third-person sprite | APLAYER 1405 | C | Cut: only seen in mirrors, multiplayer and the death camera, none of which the game has. The tile is empty. |
 
 ## 7. Audio (roadmap step 5, later)
 
@@ -154,9 +154,9 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 |---|---|---|
 | [x] | Palette | **Duke's 256 colours kept (part of the look)**, as colour lists in `art/palette/colours.json` (with the underwater, night-vision, title, studio and ending palettes). `tools/mkpalette.py` computes our own shade table (fade to black, fullbright colours 240-254 never fade), translucency table (1/3 over 2/3) and the whole-sprite tints the engine uses (1 blue, 2 red, 4 black, 6 green, 7 yellow, 8 slime) into `game/PALETTE.DAT` and `game/LOOKUP.DAT`, which override the GRP's. Looks the same in game (daylight and caves checked). Duke's other swaps recoloured his enemies: cut. |
 | [x] | `TABLES.DAT` | Not needed: the engine computes its sine/arctangent tables and has its own fonts. |
-| [ ] | Game scripts (`GAME.CON`, `DEFS.CON`, `USER.CON`) | Duke's script content. Our own CON grows as each mob/item is swapped; whatever's left gets rewritten. |
-| [ ] | Maps | Our `E1L1.MAP` is ours. E1L2–E1L6 and `DUKESW.BIN` go. |
+| [x] | Game scripts (`GAME.CON`, `DEFS.CON`, `USER.CON`) | Replaced by our own `game/EMINE.CON` (start-up settings, the one world, messages, weapon damage, ore pickups, effects, mob declarations and animations, the player taking hits/dying/restarting). Sounds are defined in C++ from our sheets, not in the script. |
+| [x] | Maps | Only our `E1L1.MAP` ships (the GRP's maps aren't packaged). Its three test weapon pickups are gone (everyone has every weapon); its ammo, a heart and three enemies (cleared at start) remain. |
 | [ ] | "Duke Nukem" name, likeness and voice | Trademarked (Gearbox). The in-game character needs his own name and look. |
 | [ ] | "Duke Nukem 3D" / 3D Realms strings | Window title, menus, quit messages, episode/skill names, EDuke32 defaults. |
 | [~] | Minecraft names and designs | The creeper is now the **Lurker** everywhere (code, console, files, docs); zombie, skeleton, spider and slime are ordinary words. Mojang-coined names (enderman, ...) must get our own if those mobs are ever added. Designs are our own art. |
-| [ ] | Final check | `emine_assets` (console) lists every Duke tile, sound, CON actor and quote the session has used: play, then check it. Launch with the GRP removed and fix every blank tile/missing sound. See also `PRELAUNCH-CHECKLIST.md`. |
+| [~] | Final check | **The web build packages no GRP by default** (`scripts/build-web.sh`; `DATA_DIR=devdata/duke3d-sw` for a comparison build). It starts, plays, fights, gibs and dies on our files alone. Our own blood, blood pool, gibs and glass shards drawn for it (`tools/mkfx.py`). The devastator had always been silent (Duke's shareware never defined its sound): it has one now. `emine_assets` (console) still lists anything of Duke's used in a GRP comparison build. Still to do: a full play-through by ear and eye. |

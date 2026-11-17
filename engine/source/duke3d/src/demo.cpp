@@ -941,7 +941,7 @@ nextdemo_nomenu:
             if (ud.last_camsprite != ud.camerasprite)
                 ud.last_camsprite = ud.camerasprite;
 
-            if (VOLUMEONE)
+            if (VOLUMEONE && 0)  // eMine32: no shareware tag
             {
                 if (ud.show_help == 0 && (g_player[myconnectindex].ps->gm&MODE_MENU) == 0)
                     rotatesprite_fs((320-50)<<16, 9<<16, 65536L, 0, BETAVERSION, 0, 0, 2+8+16+128);

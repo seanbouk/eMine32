@@ -1,4 +1,4 @@
-"""Our own fire, explosions, smoke, sparks and water splashes, drawn procedurally: game/textures/fx_*.art
+"""Our own fire, explosions, smoke, sparks, water splashes, blood, gibs and glass, drawn procedurally: game/textures/fx_*.art
 
 Run: python tools/mkfx.py      (writes the ART files and art/fx/check.png, a sheet of every frame)
 
@@ -26,6 +26,10 @@ EFFECTS = [
     (2310, 14, 'flame2'),     # BURNING2 / FIRE2 (bigger)
     (2329, 4, 'smoke'),       # SMALLSMOKE
     (2595, 4, 'spark'),       # SHOTSPARK1 (a bullet hitting something)
+    (1620, 4, 'blood'),       # BLOOD: a spurt where a mob is hit
+    (1226, 1, 'pool'),        # BLOODPOOL: where a mob died
+    (2286, 8, 'gibs'),        # JIBS6: a chunk flies (0), lands and splats wider (1-7); the engine steps the frames
+    (1031, 3, 'glass'),       # GLASSPIECES: shards of a broken glass block
 ]
 
 
@@ -176,8 +180,77 @@ def splash(w, h, k, n, seed=41):
     return rgb, alpha, np.zeros((h, w), bool)
 
 
+RED = np.array([150, 14, 12], float)
+
+
+def blood(w, h, k, n, seed=51):
+    """A spurt: a burst of droplets thrown out from the middle, more and further each frame."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:h, 0:w].astype(float)
+    a = np.zeros((h, w)); shade = np.zeros((h, w))
+    for i in range(10 + 8 * k):
+        ang, d = rng.random() * 2 * np.pi, (0.15 + 0.85 * rng.random()) * min(w, h) * 0.45
+        cx, cy = w / 2 + np.cos(ang) * d, h * 0.55 + np.sin(ang) * d * 0.8
+        r = 0.8 + rng.random() * (1.0 + 0.4 * k)
+        m = np.hypot(xx - cx, yy - cy) < r
+        a[m] = 1; shade[m] = 0.7 + 0.5 * rng.random()
+    rgb = RED[None, None] * shade[..., None]
+    return rgb, a, np.zeros((h, w), bool)
+
+
+def pool(w, h, k, n, seed=61):
+    """A pool on the ground: an uneven blot, darker at the edge, a wet glint."""
+    yy, xx = np.mgrid[0:h, 0:w].astype(float)
+    d = np.hypot((xx - w / 2) / (w / 2), (yy - h / 2) / (h / 2))
+    nz = fbm(xx / 9, yy / 9, np.full_like(xx, 0.5), seed, octaves=3)
+    inside = d + (nz - 0.5) * 0.7 < 0.8
+    shade = 0.55 + 0.45 * np.clip(1 - d, 0, 1) + (nz - 0.5) * 0.3
+    rgb = RED[None, None] * shade[..., None]
+    glint = (np.hypot(xx - w * 0.4, yy - h * 0.38) < 2.2) & inside
+    rgb[glint] = (230, 120, 110)
+    return rgb, inside.astype(float), np.zeros((h, w), bool)
+
+
+def gibs(w, h, k, n, seed=71):
+    """Frames 0-2: a blocky chunk of mob, tumbling. 3-7: where it landed, a splat spreading flat."""
+    rgb = np.zeros((h, w, 3)); a = np.zeros((h, w))
+    if k <= 2:
+        s = max(3, min(w, h) - 2)
+        x0, y0 = (w - s) // 2, (h - s) // 2
+        top = max(1, s // 3)
+        rgb[y0:y0 + s, x0:x0 + s] = (120, 20, 18)                  # side, dark
+        rgb[y0:y0 + top, x0:x0 + s] = (205, 110, 100)              # top face, pink
+        rgb[y0 + top:y0 + s, x0 + s - max(1, s // 4):x0 + s] = (90, 12, 10)  # shaded side
+        a[y0:y0 + s, x0:x0 + s] = 1
+        if k == 1:
+            rgb, a = rgb[:, ::-1], a[:, ::-1]
+        if k == 2:
+            rgb, a = rgb[::-1], a[::-1]
+        return rgb, a, np.zeros((h, w), bool)
+    yy, xx = np.mgrid[0:h, 0:w].astype(float)
+    d = np.hypot((xx - w / 2) / (w / 2), (yy - h / 2) / (h / 2))
+    nz = fbm(xx / 4, yy / 3, np.full_like(xx, k * 0.3), seed, octaves=2)
+    inside = d + (nz - 0.5) * 0.6 < 0.85
+    rgb[:] = RED * (0.7 + 0.5 * nz)[..., None]
+    return rgb, inside.astype(float), np.zeros((h, w), bool)
+
+
+def glass(w, h, k, n, seed=81):
+    """A shard: a pale blue sliver with a bright edge."""
+    from PIL import Image as _I, ImageDraw
+    rng = np.random.default_rng(seed + k)
+    pts = [(rng.random() * w * 0.4, rng.random() * h * 0.3), (w - 1 - rng.random() * w * 0.2, rng.random() * h * 0.5),
+           (rng.random() * w * 0.6 + w * 0.2, h - 1 - rng.random() * h * 0.15)]
+    m = _I.new('L', (w, h), 0); ImageDraw.Draw(m).polygon(pts, fill=255)
+    e = _I.new('L', (w, h), 0); ImageDraw.Draw(e).line(pts[:2], fill=255, width=1)
+    a = np.asarray(m) > 0; edge = np.asarray(e) > 0
+    rgb = np.zeros((h, w, 3)); rgb[:] = (170, 205, 225)
+    rgb[edge] = (245, 250, 255)
+    return rgb, (a | edge).astype(float), np.zeros((h, w), bool)
+
+
 KINDS = {'explosion': explosion, 'flame': flame, 'flame2': lambda w, h, k, n: flame(w, h, k, n, seed=13, width=0.46),
-         'smoke': smoke, 'spark': spark, 'splash': splash}
+         'smoke': smoke, 'spark': spark, 'splash': splash, 'blood': blood, 'pool': pool, 'gibs': gibs, 'glass': glass}
 
 
 def main():

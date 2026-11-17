@@ -219,8 +219,11 @@ void Emine_VoiceInit(void)
     for (auto const &s : dukeSlots)
     {
         char const *take = (s.take[0] && takeId.count(s.take)) ? s.take : "";
-        if ((unsigned)s.id < MAXSOUNDS && g_sounds[s.id] != &nullsound)
+        if ((unsigned)s.id < MAXSOUNDS)
         {
+            // defined here (the game script defines no sounds); a talking line, top priority
+            if (s.id > g_highestSoundIdx || g_sounds[s.id] == &nullsound)
+                S_DefineSound(s.id, voiceFile(take).c_str(), 0, 0, 255, SF_TALK, 0, 1.f);
             S_SetSoundFile(s.id, voiceFile(take).c_str());
             std::string const t = take;
             soundKind[s.id] = kindOf(t.substr(0, t.find('_')));  // "use-nothing_2" -> "use-nothing"

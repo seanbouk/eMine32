@@ -5,7 +5,7 @@
 //   ?scale=2           render at window size / 2 (default: native window pixels, capped at about a megapixel)
 //   ?stats             once-a-second timing in the JS console
 var emineParams = new URLSearchParams(location.search);
-Module['arguments'] = ['-nosetup', '-usecwd', '-j', '/game', '-j', '/emine', '-mh', 'emine32.def', '-gamegrp', 'DUKE3D.GRP'];
+Module['arguments'] = ['-nosetup', '-usecwd', '-j', '/game', '-j', '/emine', '-mh', 'emine32.def', '-x', 'EMINE.CON', '-gamegrp', 'DUKE3D.GRP'];
 (function () {
   var extra = emineParams.get('args');
   if (extra) Module['arguments'] = Module['arguments'].concat(extra.trim().split(/\s+/));
