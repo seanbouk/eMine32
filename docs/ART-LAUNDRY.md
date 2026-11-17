@@ -152,8 +152,8 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 
 | ✓ | Item | Notes |
 |---|---|---|
-| [ ] | Palette | **Keep Duke's 256 colours (part of the look).** Write a tool that rebuilds the shade/translucency tables (`PALETTE.DAT`) and palette swaps (`LOOKUP.DAT`) from them, so we ship our own files rather than Duke's. |
-| [ ] | `TABLES.DAT` | Console/small fonts + sine tables. Generate our own. |
+| [x] | Palette | **Duke's 256 colours kept (part of the look)**, as colour lists in `art/palette/colours.json` (with the underwater, night-vision, title, studio and ending palettes). `tools/mkpalette.py` computes our own shade table (fade to black, fullbright colours 240-254 never fade), translucency table (1/3 over 2/3) and the whole-sprite tints the engine uses (1 blue, 2 red, 4 black, 6 green, 7 yellow, 8 slime) into `game/PALETTE.DAT` and `game/LOOKUP.DAT`, which override the GRP's. Looks the same in game (daylight and caves checked). Duke's other swaps recoloured his enemies: cut. |
+| [x] | `TABLES.DAT` | Not needed: the engine computes its sine/arctangent tables and has its own fonts. |
 | [ ] | Game scripts (`GAME.CON`, `DEFS.CON`, `USER.CON`) | Duke's script content. Our own CON grows as each mob/item is swapped; whatever's left gets rewritten. |
 | [ ] | Maps | Our `E1L1.MAP` is ours. E1L2–E1L6 and `DUKESW.BIN` go. |
 | [ ] | "Duke Nukem" name, likeness and voice | Trademarked (Gearbox). The in-game character needs his own name and look. |
