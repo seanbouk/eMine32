@@ -48,7 +48,7 @@ void Emine_Tick(void);
 int  Emine_ActorThink(int spriteNum, int playerNum);
 void Emine_MobTick(void);
 void Emine_MobsLevelStart(void);  // clears Duke's map-placed enemies and our mob state on the next tic
-int Emine_MobTile(int spriteNum, int tile);  // the tile to draw for a mob (creepers draw from their own range)
+int Emine_MobTile(int spriteNum, int tile);  // the tile to draw for a mob (lurkers draw from their own range)
 void Emine_RegisterMobOSD(void);
 
 // Food (emine_food.cpp): pickups that heal, melons that grow back, mushrooms in the dark.
@@ -73,7 +73,7 @@ bool Emine_Say(const char *line, int oneIn = 1);
 bool Emine_SayChance(const char *prefix, int oneIn);
 void Emine_VoiceFoley(const char *take);          // a non-speech take ("gulp")
 void Emine_VoiceKill(int mobType, bool explosive, bool burnt, bool fused);  // the player killed a mob
-void Emine_VoiceBlast(vec3_t const &at);          // a creeper went off
+void Emine_VoiceBlast(vec3_t const &at);          // a lurker went off
 void Emine_VoiceAte(int kind, int before, int after, int maxHealth);
 void Emine_VoiceOre(int blockType);               // an ore broke
 void Emine_RegisterVoiceOSD(void);

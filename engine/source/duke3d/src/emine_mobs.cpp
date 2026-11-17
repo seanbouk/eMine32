@@ -21,7 +21,7 @@
 //                     blocks; strafes, closes in when far and backs off when you're close.
 // Spider   (LIZMAN)   follow 16 blocks, fast, climbs walls, leaps at you from 2-4 blocks; leaves you alone in bright
 //                     light (light level 10+) unless you hurt it; hostile in the dark.
-// Creeper  (DRONE)    follow 16 blocks, silent; within 3 blocks it stops, hisses and swells for 1.5 seconds, then
+// Lurker  (DRONE)    follow 16 blocks, silent; within 3 blocks it stops, hisses and swells for 1.5 seconds, then
 //                     explodes (blocks too). Walk away (past 7 blocks or out of sight) and the fuse winds back down.
 //                     Shot dead, it just goes up in smoke.
 //
@@ -73,17 +73,17 @@ constexpr int MOB_MAGIC   = 0x2B1E;  // in t_data[9]: this mob has its state set
 constexpr int MOB_CLIMB   = 1100;  // spider climbing speed, z units per tic (Minecraft: 0.2 blocks a tick)
 
 constexpr int ARROW_TILE    = 7100;
-constexpr int CREEPER_TILE  = 7110;  // creeper art: walk 7110-7129 (4 frames x 5 views), idle 7130-7139
+constexpr int LURKER_TILE  = 7110;  // lurker art: walk 7110-7129 (4 frames x 5 views), idle 7130-7139
 constexpr int ARROW_SPEED   = 546;   // units/tic (Minecraft: 1.6 blocks a tick)
 constexpr int ARROW_GRAVITY = 182;   // z units/tic^2 (Minecraft: 0.05 blocks a tick^2)
 
-constexpr int CREEPER_FUSE   = 45;          // 1.5 s
-constexpr int CREEPER_LIGHT  = 3 * BXY;     // starts swelling this close
-constexpr int CREEPER_CANCEL = 7 * BXY;     // winds back down past this
-constexpr int CREEPER_RADIUS = 3 * BXY;
-constexpr int CREEPER_DAMAGE = 90;          // at the centre; Minecraft's creeper nearly kills you point blank
+constexpr int LURKER_FUSE   = 45;          // 1.5 s
+constexpr int LURKER_LIGHT  = 3 * BXY;     // starts swelling this close
+constexpr int LURKER_CANCEL = 7 * BXY;     // winds back down past this
+constexpr int LURKER_RADIUS = 3 * BXY;
+constexpr int LURKER_DAMAGE = 90;          // at the centre; Minecraft's exploding mob nearly kills you point blank
 
-enum MobType { MT_ZOMBIE, MT_SKELETON, MT_SPIDER, MT_CREEPER, MT_COUNT, MT_NONE = -1 };
+enum MobType { MT_ZOMBIE, MT_SKELETON, MT_SPIDER, MT_LURKER, MT_COUNT, MT_NONE = -1 };
 enum { MS_LIVE, MS_DYING, MS_DEAD };
 
 struct MobDef
@@ -109,9 +109,9 @@ MobDef const mobDefs[MT_COUNT] = {
     { "spider", "ALIZWALKING", "ALIZTHINK", "ALIZTHINK", "ALIZSCREAM", "ALIZDYING", "ALIZLYINGDEAD", 6,
       32, 52, 16 * BXY, 820, 30, { 8, 10, 12, 15 }, 1, 10, 40, false, true, false, true, false,
       SND_LIZ_BEG, 0, SND_LIZ_PAIN, SND_LIZ_DEATH },
-    // the creeper borrows the trooper's 5-view walk and the lizman's 5-view idle; Emine_MobTile moves its tiles
-    // from DRONE (whose neighbours are taken) to CREEPER_TILE
-    { "creeper", "ATROOPWALKING", "ALIZTHINK", "ALIZTHINK", "ALIZTHINK", nullptr, nullptr, 0,
+    // the lurker borrows the trooper's 5-view walk and the lizman's 5-view idle; Emine_MobTile moves its tiles
+    // from DRONE (whose neighbours are taken) to LURKER_TILE
+    { "lurker", "ATROOPWALKING", "ALIZTHINK", "ALIZTHINK", "ALIZTHINK", nullptr, nullptr, 0,
       40, 43, 16 * BXY, 0, 0, { 0, 0, 0, 0 }, 2, 1, 48, false, false, false, false, true,
       0, 0, 0, 0 },
 };
@@ -129,7 +129,7 @@ struct Mob
     bool provoked;       // hurt by the player (a spider in daylight fights back)
     bool spawned, cave;  // by the spawner, and where
     bool climbing;
-    int fuse;            // creeper
+    int fuse;            // lurker
     int burn;            // tics left on fire (killed by an explosion)
     int strafe, strafeTics, draw;  // skeleton: strafe direction (+1/-1), when to maybe switch, bow draw
     std::vector<Node> path;
@@ -315,7 +315,7 @@ int typeOf(int pic)
         || pic == LIZTROOPRUNNING || pic == LIZTROOPONTOILET || pic == LIZTROOPJUSTSIT)
         return MT_SKELETON;
     if (pic == LIZMAN || pic == LIZMANSTAYPUT || pic == LIZMANSPITTING || pic == LIZMANFEEDING || pic == LIZMANJUMP) return MT_SPIDER;
-    if (pic == DRONE) return MT_CREEPER;
+    if (pic == DRONE) return MT_LURKER;
     return MT_NONE;
 }
 
@@ -427,7 +427,7 @@ void startDying(int i, Mob &m, DukePlayer_t *ps, bool burnt = false)
     auto &s = sprite[i];
     auto const &d = mobDefs[m.type];
     P_AddKills(ps, 1);
-    Emine_VoiceKill(m.type, burnt, burnt && m.type == MT_ZOMBIE, m.type == MT_CREEPER && m.fuse > 0);
+    Emine_VoiceKill(m.type, burnt, burnt && m.type == MT_ZOMBIE, m.type == MT_LURKER && m.fuse > 0);
     if (m.type == MT_ZOMBIE)
     {
         vec3_t const at = { s.x, s.y, s.z - spriteHeight(s) / 2 };
@@ -444,7 +444,7 @@ void startDying(int i, Mob &m, DukePlayer_t *ps, bool burnt = false)
     if (d.sndDie) A_PlaySound(d.sndDie, i);
     if (!mobActions(m.type).dying)
     {
-        // no death frames (creeper): straight up in smoke
+        // no death frames (lurker): straight up in smoke
         A_Spawn(i, SMALLSMOKE);
         m.state = MS_DEAD;
         m.deadTics = MOB_CORPSE;
@@ -616,8 +616,8 @@ void explode(int i)
     Emine_VoiceBlast(sprite[i].xyz);
     A_Spawn(i, EXPLOSION2);
     A_PlaySound(SND_PIPEBOMB_EXPLODE, i);
-    int const d = CREEPER_DAMAGE;
-    A_RadiusDamage(i, CREEPER_RADIUS, d >> 2, d >> 1, d - (d >> 2), d);
+    int const d = LURKER_DAMAGE;
+    A_RadiusDamage(i, LURKER_RADIUS, d >> 2, d >> 1, d - (d >> 2), d);
 }
 
 int mobThink(int i, int playerNum)
@@ -689,7 +689,7 @@ int mobThink(int i, int playerNum)
             setTarget(m, ps->i);
             sees = true;
             MOBLOG("%s %d: sees you at %d blocks\n", d.name, i, pdist / BXY);
-            static char const *const meet[MT_COUNT] = { "zombie-see", "skeleton-see", "spider-see", "creeper-see" };
+            static char const *const meet[MT_COUNT] = { "zombie-see", "skeleton-see", "spider-see", "lurker-see" };
             Emine_Say(meet[m.type], 0);
         }
     }
@@ -896,17 +896,17 @@ int mobThink(int i, int playerNum)
             m.draw = 0;
     }
 
-    // creeper: swell within 3 blocks, wind back down past 7 or out of sight; blow up when the fuse runs out
+    // lurker: swell within 3 blocks, wind back down past 7 or out of sight; blow up when the fuse runs out
     if (d.explodes)
     {
-        bool const close = m.target >= 0 && sees && hdist < CREEPER_LIGHT && klabs(pfeet - s.z) < 2 * BZ;
-        bool const keep = m.fuse > 0 && m.target >= 0 && sees && hdist < CREEPER_CANCEL;
+        bool const close = m.target >= 0 && sees && hdist < LURKER_LIGHT && klabs(pfeet - s.z) < 2 * BZ;
+        bool const keep = m.fuse > 0 && m.target >= 0 && sees && hdist < LURKER_CANCEL;
         if (close || keep)
         {
-            if (m.fuse == 0) { A_PlaySound(SND_STEAM_HISSING, i); MOBLOG("creeper %d: hisses\n", i); Emine_Say("creeper-hiss", 3); }
-            if (++m.fuse >= CREEPER_FUSE)
+            if (m.fuse == 0) { A_PlaySound(SND_STEAM_HISSING, i); MOBLOG("lurker %d: hisses\n", i); Emine_Say("lurker-hiss", 3); }
+            if (++m.fuse >= LURKER_FUSE)
             {
-                MOBLOG("creeper %d: boom\n", i);
+                MOBLOG("lurker %d: boom\n", i);
                 explode(i);
                 mobs.erase(i);
                 return 2;
@@ -915,7 +915,7 @@ int mobThink(int i, int playerNum)
         else if (m.fuse > 0)
             m.fuse--;
         // swell and flash
-        int const r = d.repeat + m.fuse * 12 / CREEPER_FUSE;
+        int const r = d.repeat + m.fuse * 12 / LURKER_FUSE;
         s.xrepeat = r + ((m.fuse && (m.fuse & 4)) ? 2 : 0);
         s.yrepeat = r;
         s.shade = (m.fuse && ((m.fuse >> 2) & 1)) ? -40 : 0;
@@ -938,7 +938,7 @@ int mobThink(int i, int playerNum)
 
 int pickType(bool cave)
 {
-    // weights: zombie, skeleton, spider, creeper
+    // weights: zombie, skeleton, spider, lurker
     // Surface waves bring 3 packs; skeletons' 20% of 3 keeps them at the rate they had at 30% of 2, while the
     // others come more often. Caves are cap-bound, so skeletons' smaller share there holds their count while the
     // raised cap goes to the rest.
@@ -1187,7 +1187,7 @@ int osdcmd_emine_mobs(osdcmdptr_t parm)
                    (int)s.extra, m.target, (int)m.step, (int)m.path.size(), FindDistance2D(ps->pos.x - s.x, ps->pos.y - s.y) / BXY,
                    m.spawned ? (m.cave ? "cave" : "surface") : "placed", m.climbing ? " climbing" : "");
     }
-    OSD_Printf("emine_mobs: %d zombies, %d skeletons, %d spiders, %d creepers; %d arrows; next wave in %d s\n", n[0], n[1], n[2], n[3],
+    OSD_Printf("emine_mobs: %d zombies, %d skeletons, %d spiders, %d lurkers; %d arrows; next wave in %d s\n", n[0], n[1], n[2], n[3],
                (int)arrows.size(), wave_timer / 30);
     return OSDCMD_OK;
 }
@@ -1252,12 +1252,12 @@ int osdcmd_emine_spawning(osdcmdptr_t parm)
 
 }  // namespace
 
-// The tile to draw for a mob, given the one Duke's action picked (creepers live at CREEPER_TILE, not DRONE).
+// The tile to draw for a mob, given the one Duke's action picked (lurkers live at LURKER_TILE, not DRONE).
 int Emine_MobTile(int spriteNum, int tile)
 {
     if (sprite[spriteNum].picnum != DRONE || tile < DRONE || tile >= DRONE + 40) return tile;
     auto const it = mobs.find(spriteNum);
-    return it != mobs.end() && it->second.type == MT_CREEPER ? tile - DRONE + CREEPER_TILE : tile;
+    return it != mobs.end() && it->second.type == MT_LURKER ? tile - DRONE + LURKER_TILE : tile;
 }
 
 int Emine_ActorThink(int spriteNum, int playerNum)

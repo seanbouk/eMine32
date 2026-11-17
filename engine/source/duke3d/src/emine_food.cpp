@@ -2,7 +2,7 @@
 // hurt (at full health it stays where it is).
 //
 //  - zombies drop meat when they die: raw when shot, cooked when an explosion kills them (pipe bomb, rocket, a
-//    creeper going off) - they burn as they fall (emine_mobs.cpp).
+//    lurker going off) - they burn as they fall (emine_mobs.cpp).
 //  - melons break into slices, and grow back a couple of minutes later (out of sight, not while you're close).
 //  - leaves now and then drop an apple. Trees don't grow back, so apples run out.
 //  - mushrooms grow on cave floors in the dark and give off a little blue light. They're plants: walk into one to

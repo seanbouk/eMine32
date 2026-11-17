@@ -126,8 +126,8 @@ eating zombie. First draft, by trigger:
 | Kill: zombie | "Stay dead this time." / "Rest in pieces." |
 | Kill: skeleton | "Bone dry." / "Nothing personal. You're just in the way." |
 | Kill: spider | "I hate spiders." / "Eight legs. Zero chance." |
-| Creeper hisses near you | "Oh, you've got to be kidding me." |
-| Creeper blows up near you | "...Rude." |
+| Lurker hisses near you | "Oh, you've got to be kidding me." |
+| Lurker blows up near you | "...Rude." |
 | Blowing a mob to bits (old jib quips) | "Messy." / "That'll leave a mark." / "Somebody call a mop." |
 | Cooked a zombie (explosive kill) | "Well done." / "Dinner's served." |
 | Eating raw meat | "Tastes like chicken." / "Don't ask." |
@@ -157,7 +157,7 @@ About 60–80 lines, two takes each, comes to roughly 5,000–7,000 characters: 
 `emine_voice.cpp` with `Emine_Say(trigger)`:
 - Each trigger has a chance to play (Duke's `SWEARFREQUENCY`) and a cooldown, and nothing plays over a line already
   playing. Kills say something maybe 1 in 4, with no repeats back to back.
-- New triggers are called from where things happen: mob kills and creeper fuses (`emine_mobs.cpp`), eating
+- New triggers are called from where things happen: mob kills and lurker fuses (`emine_mobs.cpp`), eating
   (`emine_food.cpp`), ore drops and ammo (`emine.cpp`).
 - Duke's existing slots (death, idle, pain, Use on nothing, "Let's rock") get our files under the same names, so
   nothing else changes.

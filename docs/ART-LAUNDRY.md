@@ -32,7 +32,7 @@ All done: each one is cut or became one of our mobs in 2b; our block world never
 |---|---|---|---|
 | [x] | LIZTROOP (1680) | Shoots, ducks, jetpack variant | Becomes the skeleton: single-image art in (Duke's pal-22 recolour removed); Minecraft behaviour in C++ |
 | [x] | PIGCOP (2000) | Shotgun, tanky | Becomes the zombie: walk, stand and fall animated; Minecraft zombie behaviour in C++ (`emine_mobs.cpp`), no gun |
-| [x] | DRONE (1880) | Flies at you and explodes | Becomes the creeper: single-image art in; walks, swells and explodes (C++) |
+| [x] | DRONE (1880) | Flies at you and explodes | Becomes the lurker: single-image art in; walks, swells and explodes (C++) |
 | [x] | LIZMAN (2120) | Big jumps, spits, charges | Becomes the spider: single-image art in; dies on its back; climbs and leaps (C++) |
 | [x] | OCTABRAIN (1820) | Floats, psychic blast | Becomes the enderman: single-image art in |
 | [x] | COMMANDER (1920) | Floats, fires rockets | Cut, or a ghast-like (it's a Nether mob) |
@@ -50,7 +50,7 @@ These are common Overworld hostiles; all were in Minecraft from early on unless 
 |---|---|---|---|---|
 | [~] | Zombie | Dark/night, surface + caves | Walks at you, melee, can break doors. In: sight 35 blocks, pathfinding, melee, knockback, alert others, wander. Not yet: sun burning (needs night), doors, drops, own sounds, spawning | 1 |
 | [~] | Skeleton | Dark/night | Ranged (arrows), strafes. In: arcing arrows that stick in blocks (placeholder arrow, tile 7100), strafing, keeps range. Needs: walk/shoot frames, bow sound | 1 |
-| [~] | Creeper | Dark/night | Silent approach, hisses, explodes and **breaks blocks**. In: all of that (swells and flashes by scaling the sprite). Needs: walk frames, hiss/boom sounds | 1 (the obvious showpiece in a block world) |
+| [~] | Lurker | Dark/night | Silent approach, hisses, explodes and **breaks blocks**. In: all of that (swells and flashes by scaling the sprite). Needs: walk frames, hiss/boom sounds | 1 (the obvious showpiece in a block world) |
 | [~] | Spider | Dark/night; neutral in daylight | Climbs walls, leaps. In: all of that (light level 10+ = leaves you alone unless hurt). Needs: walk frames, sounds | 2 |
 | [ ] | Cave spider | Caves (mineshaft spawners) | Small, fast, poison | 3 |
 | [ ] | Slime | Deep layers in "slime chunks", swamps | Bounces, splits on death | 2 |
@@ -69,7 +69,7 @@ These are common Overworld hostiles; all were in Minecraft from early on unless 
 - An entry can have several named `sheets` (a turnaround, one 4-frame walk sheet per view, a fall sheet). Groups then pick panels by reference: `frames` is one row of 5 views per frame, `images` is one per tile, and `side:2` means panel 2 of sheet "side", with a trailing `~` to mirror that panel. Figures are found as separate islands, so they can overlap each other's columns.
 - Gemini walk sheets tend to lift the same leg in every front and back frame; fix it in `frames` by mirroring or reusing panels (see the zombie).
 - Dev commands: `emine_spawn <tile> [blocks]` puts an actor in front of you; `emine_list [blocks]` lists nearby enemies.
-- Status: zombie, skeleton, spider, creeper, enderman and slime are all in. The zombie has a 4-frame walk in 5 views, a standing turnaround for shoot/stand, and a 5-frame fall plus dead body (all Gemini); the rest are single front images. Behaviour is still Duke's.
+- Status: zombie, skeleton, spider, lurker, enderman and slime are all in. The zombie has a 4-frame walk in 5 views, a standing turnaround for shoot/stand, and a 5-frame fall plus dead body (all Gemini); the rest are single front images. Behaviour is still Duke's.
 
 **Art spec per mob (Duke convention):**
 - 5 view angles: front, front-¾, side, back-¾, back. The engine mirrors these for the other 3.
@@ -158,5 +158,5 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 | [ ] | Maps | Our `E1L1.MAP` is ours. E1L2–E1L6 and `DUKESW.BIN` go. |
 | [ ] | "Duke Nukem" name, likeness and voice | Trademarked (Gearbox). The in-game character needs his own name and look. |
 | [ ] | "Duke Nukem 3D" / 3D Realms strings | Window title, menus, quit messages, episode/skill names, EDuke32 defaults. |
-| [ ] | Minecraft names and designs | Mob names like Creeper, and Mojang's exact designs, are Mojang IP. Our own designs and names in the same roles are safe. |
+| [~] | Minecraft names and designs | The creeper is now the **Lurker** everywhere (code, console, files, docs); zombie, skeleton, spider and slime are ordinary words. Mojang-coined names (enderman, ...) must get our own if those mobs are ever added. Designs are our own art. |
 | [ ] | Final check | Launch with the GRP removed and fix every blank tile/missing sound. See also `PRELAUNCH-CHECKLIST.md`. |

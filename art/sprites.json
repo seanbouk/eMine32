@@ -97,21 +97,21 @@
         ["leap:0", "leap:1", "leap:2", "leap:3", "leap:4"]] }
     ]
   },
-  "creeper": {
+  "lurker": {
     "replaces": "DRONE (its own tiles at 7110: the drone's neighbours are taken)",
-    "_sheets": "all made with fal nano-banana-2/edit from Sean's creeper.png (raw results in art/monsters/fal)",
+    "_sheets": "all made with fal nano-banana-2/edit from Sean's lurker.png (raw results in art/monsters/fal)",
     "bg_tol": 70,
     "shadow_depth": 110,
     "sheets": {
-      "turn": { "source": "art/monsters/creeper_turn.png", "count": 5 },
-      "wfront": { "source": "art/monsters/creeper_walk_front.png", "count": 4 },
-      "wqfront": { "source": "art/monsters/creeper_walk_qfront.png", "count": 4 },
-      "wside": { "source": "art/monsters/creeper_walk_side.png", "count": 4 },
-      "wqback": { "source": "art/monsters/creeper_walk_qback.png", "count": 4 },
-      "wback": { "source": "art/monsters/creeper_walk_back.png", "count": 4 }
+      "turn": { "source": "art/monsters/lurker_turn.png", "count": 5 },
+      "wfront": { "source": "art/monsters/lurker_walk_front.png", "count": 4 },
+      "wqfront": { "source": "art/monsters/lurker_walk_qfront.png", "count": 4 },
+      "wside": { "source": "art/monsters/lurker_walk_side.png", "count": 4 },
+      "wqback": { "source": "art/monsters/lurker_walk_qback.png", "count": 4 },
+      "wback": { "source": "art/monsters/lurker_walk_back.png", "count": 4 }
     },
     "groups": [
-      { "_": "DRONE's own 7 tiles (only seen if a creeper isn't one of our mobs)", "tiles": [1880, 1886], "height": 56, "image": "turn:0" },
+      { "_": "DRONE's own 7 tiles (only seen if a lurker isn't one of our mobs)", "tiles": [1880, 1886], "height": 56, "image": "turn:0" },
       { "_": "walk (ATROOPWALKING layout, 4 frames x 5 views)", "tiles": [7110, 7129], "height": 56, "frames": [
         ["wfront:0", "wqfront:0", "wside:0", "wqback:0", "wback:0"],
         ["wfront:1", "wqfront:1", "wside:1", "wqback:1", "wback:1"],

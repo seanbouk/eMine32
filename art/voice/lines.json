@@ -146,7 +146,7 @@
  {
   "id": "gib-1",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "How about a mosquite for that grill!?",
   "original": "\"What a mess.\"",
@@ -155,7 +155,7 @@
  {
   "id": "gib-2",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "I'm not cleaning that up!",
   "original": "\"Bitchin'!\"",
@@ -164,7 +164,7 @@
  {
   "id": "gib-3",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "The smell hits you before the wet bits!",
   "original": "\"Holy cow!\"",
@@ -173,7 +173,7 @@
  {
   "id": "gib-4",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "I love my job!",
   "original": "\"Holy sh*t!\"",
@@ -182,7 +182,7 @@
  {
   "id": "gib-5",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "Dodge This!",
   "original": "\"Damn, I'm good.\"",
@@ -191,7 +191,7 @@
  {
   "id": "gib-6",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "Nicely tenderized!",
   "original": "\"Piece of cake.\"",
@@ -200,7 +200,7 @@
  {
   "id": "gib-7",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "Got 'em all!",
   "original": "\"That's gotta hurt.\"",
@@ -209,7 +209,7 @@
  {
   "id": "gib-8",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "Where y'going; the party's just gettin' started!",
   "original": "\"Blow it out your ass.\"",
@@ -218,7 +218,7 @@
  {
   "id": "gib-9",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "Remember when I promised to gib you last!?",
   "original": "\"Eat sh*t and die.\"",
@@ -227,7 +227,7 @@
  {
   "id": "gib-10",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "If you can bleed, I can gib you!",
   "original": "\"In your face!\"",
@@ -236,7 +236,7 @@
  {
   "id": "gib-11",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "You're the disease, and I'm the cure!",
   "original": "\"See you in hell.\"",
@@ -245,7 +245,7 @@
  {
   "id": "gib-12",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "This is my boomstick!",
   "original": "\"Suck it down.\"",
@@ -254,7 +254,7 @@
  {
   "id": "gib-13",
   "group": "duke-silent",
-  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, creeper).",
+  "trigger": "Was: a mob blown to bits. Now: a mob blown apart by an explosion (pipe bomb, rocket, lurker).",
   "decision": "replace",
   "final": "Let the dirt sort 'em out.",
   "original": "\"Let God sort 'em out.\"",
@@ -486,36 +486,36 @@
   "sound": ""
  },
  {
-  "id": "creeper-see",
+  "id": "lurker-see",
   "group": "new-monsters",
-  "trigger": "First creeper you meet",
+  "trigger": "First lurker you meet",
   "decision": "new",
   "final": "...What the hell are you?",
   "original": "",
   "sound": ""
  },
  {
-  "id": "creeper-hiss",
+  "id": "lurker-hiss",
   "group": "new-monsters",
-  "trigger": "A creeper starts hissing next to you",
+  "trigger": "A lurker starts hissing next to you",
   "decision": "new",
   "final": "Oh, you've gotta be kidding me.",
   "original": "",
   "sound": ""
  },
  {
-  "id": "creeper-boom",
+  "id": "lurker-boom",
   "group": "new-monsters",
-  "trigger": "Surviving a creeper blast",
+  "trigger": "Surviving a lurker blast",
   "decision": "new",
   "final": "...Gross! It popped",
   "original": "",
   "sound": ""
  },
  {
-  "id": "creeper-kill",
+  "id": "lurker-kill",
   "group": "new-monsters",
-  "trigger": "Shooting a creeper before it goes off",
+  "trigger": "Shooting a lurker before it goes off",
   "decision": "new",
   "final": "Not today, pal.",
   "original": "",
@@ -810,9 +810,9 @@
   "sound": ""
  },
  {
-  "id": "death-creeper",
+  "id": "death-lurker",
   "group": "new-health",
-  "trigger": "Killed by a creeper",
+  "trigger": "Killed by a lurker",
   "decision": "new",
   "final": "...Should've seen that coming.",
   "original": "",

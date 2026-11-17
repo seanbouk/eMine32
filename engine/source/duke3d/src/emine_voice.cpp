@@ -223,7 +223,7 @@ void Emine_VoiceKill(int type, bool explosive, bool burnt, bool fused)
         for (int t : killTics) recent += t && voice_tic - t < 15;
         if (recent >= 3 && Emine_Say("multi-kill")) { for (int &t : killTics) t = 0; return; }
     }
-    if (fused && Emine_Say("creeper-kill", 3)) return;
+    if (fused && Emine_Say("lurker-kill", 3)) return;
     if (burnt && Emine_Say("cooked", 4)) return;
     if (explosive) { Emine_SayChance("gib-", 5); return; }
     static char const *const kill[] = { "zombie-kill", "skeleton-kill", "spider-kill", nullptr };
@@ -283,15 +283,15 @@ void Emine_VoiceTick(void)
     if (!ready || !voxworld_active() || ps->i < 0) return;
     int const health = sprite[ps->i].extra;
 
-    // dying: by a creeper's blast, its own line (it comes first, so Duke's death line keeps quiet)
+    // dying: by a lurker's blast, its own line (it comes first, so Duke's death line keeps quiet)
     if (health <= 0)
     {
-        if (!died && voice_tic - blastTic < 30) Emine_Say("death-creeper");
+        if (!died && voice_tic - blastTic < 30) Emine_Say("death-lurker");
         died = true;
         return;
     }
     if (voice_tic - blastTic == 25 && FindDistance2D(ps->pos.x - blastAt.x, ps->pos.y - blastAt.y) < 6 * VW_BLOCKXY)
-        Emine_Say("creeper-boom", 3);
+        Emine_Say("lurker-boom", 3);
 
     // low health: once on the way down, at most every 45 s
     if (lastHealth >= 25 && health < 25 && voice_tic - lowHealthTic > 45 * 30 && Emine_Say("low-health")) lowHealthTic = voice_tic;

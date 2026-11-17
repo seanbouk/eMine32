@@ -52,10 +52,10 @@ skeleton-kill skeleton-kill
 spider-see spider-see
 spider-leap spider-leap
 spider-kill spider-kill
-creeper-see creeper-see
-creeper-hiss creeper-hiss
-creeper-boom creeper-boom
-creeper-kill creeper-kill
+lurker-see lurker-see
+lurker-hiss lurker-hiss
+lurker-boom lurker-boom
+lurker-kill lurker-kill
 cooked cooked
 multi-kill multi-kill
 level-start level-start
@@ -86,4 +86,4 @@ eat-apple-first eat-apple-first
 eat-mushroom-first eat-mushroom-first
 low-health low-health
 respawn respawn
-death-creeper death-creeper
+death-lurker death-lurker
