@@ -323,6 +323,7 @@ static FORCE_INLINE void setgotpic(int32_t tilenume)
 {
     if (walock[tilenume] < CACHE1D_LOCKED) walock[tilenume] = CACHE1D_UNLOCKED;
     bitmap_set(gotpic, tilenume);
+    bitmap_set(emine_seenpic, tilenume);
 }
 
 #endif

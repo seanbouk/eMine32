@@ -145,7 +145,7 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 
 | ✓ | Asset | Count | Notes |
 |---|---|---|---|
-| [~] | Sound effects + Duke voice lines | 181 VOC | Voice done (see 6). Sound effects still Duke's: replace the ones we use, cut the rest. Ours must be WAV (the web build has no Ogg decoder). |
+| [~] | Sound effects + Duke voice lines | 181 VOC | Voice done (see 6). **Sound effects: ours for the 39 slots the game plays** (weapons, explosions, blocks, glass, water, landing, pickups, menus, and each mob's call/hurt/death), generated with fal from `art/sfx/sounds.json` by `tools/mksfx.py` (about $0.08) and loaded over the slots at start-up (`Emine_SfxInit`). The lurker's blast had borrowed Duke's reactor sound; it now has its own. `emine_assets` lists any Duke sound still played; long scripted sessions show none. Remaining: anything a real play-through turns up. |
 | [ ] | Music | 7 MIDI + `D3DTIMBR.TMB` | **Music:** currently MIDI played through EDuke32's built-in OPL3 (AdLib FM) emulator, voiced by Duke's timbre bank. **Replacement:** OGG Vorbis (MP3 isn't supported; OGG is the same idea, about the same size). FLAC, or tracker modules (.mod/.xm/.it), also work. |
 
 ## 9. Before going public (deferred)
@@ -159,4 +159,4 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 | [ ] | "Duke Nukem" name, likeness and voice | Trademarked (Gearbox). The in-game character needs his own name and look. |
 | [ ] | "Duke Nukem 3D" / 3D Realms strings | Window title, menus, quit messages, episode/skill names, EDuke32 defaults. |
 | [~] | Minecraft names and designs | The creeper is now the **Lurker** everywhere (code, console, files, docs); zombie, skeleton, spider and slime are ordinary words. Mojang-coined names (enderman, ...) must get our own if those mobs are ever added. Designs are our own art. |
-| [ ] | Final check | Launch with the GRP removed and fix every blank tile/missing sound. See also `PRELAUNCH-CHECKLIST.md`. |
+| [ ] | Final check | `emine_assets` (console) lists every Duke tile, sound, CON actor and quote the session has used: play, then check it. Launch with the GRP removed and fix every blank tile/missing sound. See also `PRELAUNCH-CHECKLIST.md`. |

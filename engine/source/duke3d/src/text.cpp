@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "duke3d.h"
 #include "compat.h"
+#include "emine.h"
 #include "sbar.h"
 #include "menus.h"
 
@@ -553,6 +554,8 @@ void P_DoQuote(int32_t q, DukePlayer_t *p)
         OSD_Printf(OSD_ERROR "%s %d null quote %d\n", "text:", __LINE__, q);
         return;
     }
+
+    Emine_AssetQuote(q);
 
     if (p->fta > 0 && q != QUOTE_RESERVED && q != QUOTE_RESERVED2)
         if (p->ftq == QUOTE_RESERVED || p->ftq == QUOTE_RESERVED2) return;

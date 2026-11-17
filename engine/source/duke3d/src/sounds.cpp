@@ -849,6 +849,7 @@ int S_PlaySound3D(int num, int spriteNum, const vec3_t& pos)
         LOG_F(WARNING, "Invalid sound #%d", sndNum);
         return -1;
     }
+    Emine_AssetSound(sndNum);
 
     auto &snd = g_sounds[sndNum];
     auto const pPlayer = g_player[myconnectindex].ps;
@@ -975,6 +976,7 @@ int S_PlaySound(int num)
         LOG_F(WARNING, "Invalid sound #%d", sndnum);
         return -1;
     }
+    Emine_AssetSound(sndnum);
 
     auto &snd = g_sounds[(num = sndnum)];
 

@@ -1015,6 +1015,7 @@ EXTERN char editorcolors[256];
 EXTERN char editorcolorsdef[256];
 
 EXTERN char faketile[bitmap_size(MAXTILES)];
+EXTERN char emine_seenpic[bitmap_size(MAXTILES)];  // eMine32: every tile ever drawn (emine_assets)
 EXTERN char *faketiledata[MAXTILES];
 EXTERN int faketilesize[MAXTILES];
 

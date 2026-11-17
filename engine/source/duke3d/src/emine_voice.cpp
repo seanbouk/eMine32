@@ -157,8 +157,39 @@ void Emine_VoiceFoley(const char *take)
     if (it != takeId.end()) S_PlaySound(it->second);
 }
 
+// Our sound effects, as tools/mksfx.py made them (art/sfx/sounds.json): sounds/sfx/sfx.txt has one row per engine
+// sound slot we play, "<slot> <name> <pitch lo> <pitch hi> <priority> <flags> <distance>", and the slot gets
+// sounds/sfx/<name>.wav with those settings in place of whatever was defined there.
+static void Emine_SfxInit(void)
+{
+    buildvfs_kfd const fil = kopen4load("sounds/sfx/sfx.txt", 0);
+    if (fil == buildvfs_kfd_invalid) { LOG_F(WARNING, "eMine32: no sound effects (sounds/sfx/sfx.txt)"); return; }
+    int32_t const len = kfilelength(fil);
+    std::string text(len, '\0');
+    kread(fil, &text[0], len);
+    kclose(fil);
+    int n = 0;
+    for (size_t p = 0; p < text.size();)
+    {
+        size_t e = text.find('\n', p);
+        if (e == std::string::npos) e = text.size();
+        std::string const row = text.substr(p, e - p);
+        p = e + 1;
+        int slot, plo, phi, pri, flags, dist;
+        char name[64];
+        if (sscanf(row.c_str(), "%d %63s %d %d %d %d %d", &slot, name, &plo, &phi, &pri, &flags, &dist) != 7) continue;
+        std::string const file = std::string("sounds/sfx/") + name + ".wav";
+        S_DefineSound(slot, file.c_str(), plo, phi, pri, flags, dist, 1.f);
+        S_SetSoundFile(slot, file.c_str());  // and drop anything already loaded for the slot
+        n++;
+    }
+    LOG_F(INFO, "eMine32: %d sound effects", n);
+}
+
 void Emine_VoiceInit(void)
 {
+    Emine_SfxInit();
+
     // our takes, as tools/mkvoice.py made them
     buildvfs_kfd const fil = kopen4load("sounds/voice/takes.txt", 0);
     if (fil == buildvfs_kfd_invalid) { LOG_F(WARNING, "eMine32: no voice lines (sounds/voice/takes.txt)"); return; }

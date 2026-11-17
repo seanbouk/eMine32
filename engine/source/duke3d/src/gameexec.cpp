@@ -7043,6 +7043,7 @@ void A_Execute(int const spriteNum, int const playerNum, int const playerDist)
         return;
     }
 
+    Emine_AssetActor(vm.pSprite->picnum);
     insptr = 4 + (g_tile[vm.pSprite->picnum].execPtr);
     VM_Execute(true);
     vm.flags &= ~VM_TERMINATE;

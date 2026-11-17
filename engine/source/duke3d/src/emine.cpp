@@ -651,6 +651,7 @@ void Emine_RegisterOSD(void)
     Emine_RegisterFoodOSD();
     Emine_RegisterVoiceOSD();
     Emine_RegisterPerfOSD();
+    Emine_RegisterAssetsOSD();
     OSD_RegisterFunction("emine_glow", "emine_glow [minlight 1-15]: dev - teleport next to the nearest glowing block", osdcmd_emine_cave);
     OSD_RegisterFunction("emine_drop", "emine_drop [height] [blocktype]: dev - drop a block (sand) on yourself", osdcmd_emine_drop);
     OSD_RegisterFunction("emine_cave", "emine_cave [maxlight 0-15]: dev - teleport to the nearest dark cave", osdcmd_emine_cave);

@@ -39,6 +39,10 @@ void Emine_PerfTics(int tics, double ms);
 void Emine_PerfFrame(double drawms, double waitms, int q16ang);
 void Emine_PerfPart(int part, double ms);  // 0 input, 1 world, 2 HUD and weapon, 3 present, 4 sound
 void Emine_RegisterPerfOSD(void);
+void Emine_RegisterAssetsOSD(void);
+void Emine_AssetSound(int num);  // emine_assets: what of Duke's the game still uses
+void Emine_AssetActor(int pic);
+void Emine_AssetQuote(int q);
 
 // Once per game tic (G_MoveWorld): falling blocks etc.
 void Emine_Tick(void);
