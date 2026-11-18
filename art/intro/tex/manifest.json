@@ -1,0 +1,203 @@
+{
+ "brick": {
+  "mode": "tile",
+  "bu": 4
+ },
+ "asphalt": {
+  "mode": "tile",
+  "bu": 4
+ },
+ "render": {
+  "mode": "tile",
+  "bu": 4
+ },
+ "shutter": {
+  "mode": "tile",
+  "bu": 4
+ },
+ "cinder": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "lino": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "ceiling": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "carpet": {
+  "mode": "tile",
+  "bu": 4
+ },
+ "brick_pale": {
+  "mode": "tile",
+  "bu": 4
+ },
+ "arcade_wall": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "laminate": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "plywood": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "steel": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "rubber": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "paint_black": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "truck_white": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "cab0_upper": {
+  "mode": "fit"
+ },
+ "cab0_lower": {
+  "mode": "fit"
+ },
+ "cab0_panel": {
+  "mode": "fit"
+ },
+ "cab1_upper": {
+  "mode": "fit"
+ },
+ "cab1_lower": {
+  "mode": "fit"
+ },
+ "cab1_panel": {
+  "mode": "fit"
+ },
+ "cab2_upper": {
+  "mode": "fit"
+ },
+ "cab2_lower": {
+  "mode": "fit"
+ },
+ "cab2_panel": {
+  "mode": "fit"
+ },
+ "mineshift_upper": {
+  "mode": "fit",
+  "emit": "mineshift_emit_upper"
+ },
+ "mineshift_lower": {
+  "mode": "fit",
+  "emit": "mineshift_emit_lower"
+ },
+ "mineshift_panel": {
+  "mode": "fit",
+  "emit": "mineshift_emit_panel"
+ },
+ "mineshift_emit_upper": {
+  "mode": "fit"
+ },
+ "mineshift_emit_lower": {
+  "mode": "fit"
+ },
+ "mineshift_emit_panel": {
+  "mode": "fit"
+ },
+ "pinball_back": {
+  "mode": "fit"
+ },
+ "pinball_front": {
+  "mode": "fit"
+ },
+ "pinball_top": {
+  "mode": "fit"
+ },
+ "claw_front": {
+  "mode": "fit"
+ },
+ "truck_side": {
+  "mode": "fit"
+ },
+ "truck_cab": {
+  "mode": "fit"
+ },
+ "dumpster_front": {
+  "mode": "fit"
+ },
+ "dumpster_steel": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "fire_door": {
+  "mode": "fit"
+ },
+ "sign_exit": {
+  "mode": "sprite",
+  "w": 0.7,
+  "h": 0.5416393442622951,
+  "emit": true
+ },
+ "sign_staff": {
+  "mode": "sprite",
+  "w": 0.6,
+  "h": 0.3986013986013986
+ },
+ "sign_freeplay": {
+  "mode": "sprite",
+  "w": 0.25,
+  "h": 0.24842767295597484
+ },
+ "sign_outoforder": {
+  "mode": "sprite",
+  "w": 0.45,
+  "h": 0.4691119691119691
+ },
+ "sign_noentry": {
+  "mode": "sprite",
+  "w": 0.6,
+  "h": 0.3168831168831169
+ },
+ "spr_barrel": {
+  "mode": "sprite",
+  "w": 0.5680612244897959,
+  "h": 0.95
+ },
+ "spr_toilet": {
+  "mode": "sprite",
+  "w": 0.41047120418848165,
+  "h": 0.8
+ },
+ "spr_chair": {
+  "mode": "sprite",
+  "w": 0.5963114754098361,
+  "h": 1.0
+ },
+ "spr_bags": {
+  "mode": "sprite",
+  "w": 0.8509293680297397,
+  "h": 0.7
+ },
+ "spr_brick": {
+  "mode": "sprite",
+  "w": 0.23138297872340424,
+  "h": 0.15
+ },
+ "spr_fire": {
+  "mode": "sprite",
+  "w": 0.6,
+  "h": 0.95,
+  "emit": true
+ },
+ "frost_front": {
+  "mode": "fit",
+  "emit": true
+ }
+}
