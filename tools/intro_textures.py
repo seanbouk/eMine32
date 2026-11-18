@@ -276,6 +276,10 @@ MAN['vending_front']['emit'] = True
 ew, eh = ext.size                                   # the painting hangs a little sign above the extinguisher: split them
 sign, ext = ext.crop((0, 0, ew, int(eh * 0.24))), ext.crop((0, int(eh * 0.24), ew, eh))
 ext = ext.crop(ext.getchannel('A').getbbox()); sign = sign.crop(sign.getchannel('A').getbbox())
+ea = np.asarray(ext).copy()                            # its floor shadow (grey, along the bottom) goes: it's a sprite
+esat = ea[..., :3].max(2).astype(int) - ea[..., :3].min(2)
+ea[(esat < 40) & (np.arange(ea.shape[0])[:, None] > ea.shape[0] * 0.8), 3] = 0
+ext = Image.fromarray(ea); ext = ext.crop(ext.getchannel('A').getbbox())
 hb = 0.6; wb = hb * ext.size[0] / ext.size[1]
 save(ext.resize((round(wb * 64), round(hb * 64)), Image.LANCZOS), 'spr_extinguisher', mode='sprite', w=wb, h=hb)
 hb = 0.3; wb = hb * sign.size[0] / sign.size[1]

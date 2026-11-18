@@ -216,6 +216,7 @@ def yard_ground():
     for name in ('paint_bays', 'paint_keepclear'):
         x0, y0, x1, y1 = MAN['_floor'][name]
         im = src(name).resize((round((x1 - x0) * FLOOR_TPU), round((y1 - y0) * FLOOR_TPU)), Image.NEAREST)
+        if name == 'paint_keepclear': im = im.rotate(180)            # its words read from the yard, not the door
         big.alpha_composite(im, (round(x0 * FLOOR_TPU), round(y0 * FLOOR_TPU)))
     return to_index(big)
 
