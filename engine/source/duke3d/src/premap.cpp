@@ -1951,13 +1951,7 @@ int G_EnterLevel(int gameMode)
 
     auto &m = g_mapInfo[mapidx];
 
-    // eMine32: one world, and it's ours: whatever the game data calls the first map, it's "The Mines" (shown as play
-    // starts, in the window title and on saves)
-    if (mapidx == 0 && m.name != NULL && Bstrcmp(m.name, "The Mines"))
-    {
-        Xfree(m.name);
-        m.name = Xstrdup("The Mines");
-    }
+    // eMine32: the level names come from EMINE.CON (Graveyard Shift, then The Mines)
     if (mapidx == 0)
         Bstrcpy(g_volumeNames[0], "Shift Happens");  // the episode, as the save screen lists it
 

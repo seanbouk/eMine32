@@ -33,8 +33,9 @@ BASEPALS = ['underwater', 'nightvision', 'title', 'studio', 'ending']  # LOOKUP.
 TINTS = {1: ((110, 140, 200), 1.5), 2: ((216, 64, 24), 2.5), 4: None, 6: ((150, 255, 110), 2.0),
          7: ((220, 180, 30), 1.25), 8: ((150, 200, 80), 2.0),
          # the intro's lights (tools/mkintro.py): sodium lamps, Mine Shift's glow, pink neon, cold street light, fire
-         10: ((255, 165, 70), 1.6), 11: ((80, 255, 190), 1.7), 12: ((255, 90, 200), 1.7), 13: ((150, 180, 255), 1.4),
+         10: ((255, 165, 70), 1.6), 11: ((80, 255, 190), 1.7), 12: ((255, 90, 200), 1.7), 13: ((150, 180, 255), 1.4, 0.4),
          14: ((255, 120, 45), 1.8)}
+# a third number keeps that much of each colour's own hue (the street light through the frosted front: bluer, not grey)
 
 
 def grp_files():
@@ -103,8 +104,12 @@ def tables(pal6):
         if tint is None:
             m = np.full(256, nearest(np.zeros((1, 3)), pal, normal)[0], np.uint8)
         else:
-            colour, gain = tint
-            want = np.clip(np.array(colour, float)[None] * np.clip(lum[:, None] * gain, 0, 1.3), 0, 255)
+            colour, gain, keep = tint if len(tint) == 3 else tint + (0,)
+            want = np.array(colour, float)[None] * np.clip(lum[:, None] * gain, 0, 1.3)
+            if keep:
+                own = pal * (np.array(colour, float) / max(colour) * 0.35 + 0.65)[None] * 1.15
+                want = own * keep + want * (1 - keep)
+            want = np.clip(want, 0, 255)
             m = nearest(want, pal, normal).astype(np.uint8)
         m[255] = 255
         swaps[pn] = m

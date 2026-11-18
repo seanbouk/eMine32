@@ -1,6 +1,6 @@
 // Intro map views: start a new game (the intro is level 1), screenshot the start, then stand at each look-dev camera.
-// usage: node intro.js <url> <outdir> [view ...]   view = name:x:y:ang (plan hundredths, Build angle) or :<console cmd>
-//        or +k<key> / +w<ms> / +W<ms> / +S<name> (key, walk forward, wait, screenshot)
+// usage: node intro.js <url>/eduke32.html <outdir> [view ...]   view = name:x:y:ang (plan hundredths, Build angle) or :<console cmd>
+//        or +k<key>[@ms] (Home looks up, End down) / +w<ms> / +W<ms> / +S<name> (key, walk forward, wait, screenshot)
 const { chromium } = require('playwright-core');
 (async () => {
   const [url, out, ...views] = process.argv.slice(2);
@@ -15,11 +15,11 @@ const { chromium } = require('playwright-core');
   const type = async s => { for (const c of s) { if (c === '_') await page.keyboard.press('Shift+Minus'); else await page.keyboard.type(c); await page.waitForTimeout(40); } };
   const con = async cmd => { await hold('Backquote'); await type(cmd); await hold('Enter'); await hold('Backquote'); };
   for (const k of ['Space', 'Enter', 'Enter', 'Enter', 'Enter']) { await hold(k); await page.waitForTimeout(500); }
-  await page.waitForTimeout(7000);
+  await page.waitForTimeout(1200); await page.screenshot({ path: `${out}/title.png` }); await page.waitForTimeout(5800);
   await page.screenshot({ path: `${out}/start.png` });
   for (const v of views) {
     if (v[0] === ':') { await con(v.slice(1)); await page.waitForTimeout(500); continue; }
-    if (v.startsWith('+k')) { await hold(v.slice(2)); continue; }
+    if (v.startsWith('+k')) { const [k, ms] = v.slice(2).split('@'); await hold(k, ms ? +ms : 120); continue; }
     if (v.startsWith('+w')) { await hold('w', +v.slice(2)); continue; }
     if (v.startsWith('+W')) { await page.waitForTimeout(+v.slice(2)); continue; }
     if (v.startsWith('+S')) { await page.screenshot({ path: `${out}/${v.slice(2)}.png` }); continue; }

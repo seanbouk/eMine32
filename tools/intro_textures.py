@@ -136,12 +136,12 @@ def fit(name, im, w_bu, h_bu, density=64, glow=False, emit=None):
 # arcade cabinets: the front splits at the control panel; above it is the tall block's face, below it the ledge's
 CAB_W, CAB_H, PANEL_H = 0.9, 1.9, 1.0
 SPLIT = 1 - PANEL_H / CAB_H        # the ledge is 1.0 of the cabinet's 1.9
-def cabinet(name, im, band):
+def cabinet(name, im, band, density=64):
     w, h = im.size
     top, bot = im.crop((0, 0, w, int(h * SPLIT))), im.crop((0, int(h * SPLIT), w, h))
-    fit(name + '_upper', top, CAB_W, CAB_H - PANEL_H)
-    fit(name + '_lower', bot, CAB_W, PANEL_H)
-    fit(name + '_panel', im.crop((0, int(h * band[0]), w, int(h * band[1]))), CAB_W, 0.35)
+    fit(name + '_upper', top, CAB_W, CAB_H - PANEL_H, density)
+    fit(name + '_lower', bot, CAB_W, PANEL_H, density)
+    fit(name + '_panel', im.crop((0, int(h * band[0]), w, int(h * band[1]))), CAB_W, 0.35, density)
 
 cabs = src('cabinets')
 for i, (x0, x1) in enumerate([(0.12, 0.31), (0.405, 0.595), (0.71, 0.88)]):
@@ -149,7 +149,7 @@ for i, (x0, x1) in enumerate([(0.12, 0.31), (0.405, 0.595), (0.71, 0.88)]):
 
 # Mine Shift: crop to the cabinet; the marquee, screen and big red button glow
 ms = crop(src('mineshift'), 0.16, 0.04, 0.84, 0.97)
-cabinet('mineshift', ms, (0.43, 0.50))
+cabinet('mineshift', ms, (0.43, 0.50), density=256)   # 4x the texels: its name has to read
 mask = Image.new('L', ms.size, 0)
 dm = ImageDraw.Draw(mask)
 W, H = ms.size
@@ -161,7 +161,7 @@ rect(0.20, 0.06, 0.80, 0.14)    # marquee
 rect(0.29, 0.245, 0.71, 0.425)  # screen
 rect(0.59, 0.455, 0.70, 0.495)  # big red button
 emit = Image.composite(ms, Image.new('RGB', ms.size, 0), mask)
-cabinet('mineshift_emit', emit, (0.43, 0.50))
+cabinet('mineshift_emit', emit, (0.43, 0.50), density=256)
 for part in ('upper', 'lower', 'panel'):
     MAN[f'mineshift_{part}']['emit'] = f'mineshift_emit_{part}'
 

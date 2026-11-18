@@ -49,7 +49,8 @@ TILES = {
     2325: (HAND + 's, fingers interlocked, cracking the knuckles, forearms running off the bottom', 'pair of hands', 2324, False),
     2326: (HAND + 's, fingers interlocked, cracking the knuckles, forearms running off the bottom', 'pair of hands', 2324, False),
     2327: (HAND + 's, fingers interlocked, cracking the knuckles, forearms running off the bottom', 'pair of hands', 2324, False),
-    2521: ('a kicking leg seen from the kicker\'s own eyes: faded blue denim jeans and a scuffed black leather work boot with a thick tread sole, the boot sole toward the viewer', 'leg', None, False),
+    # v1 and v2 (art/weapons/raw/2521_v1, _v2) showed the leg side-on, the inside of the leg toward the viewer
+    2521: ('the kicker\'s own right leg mid-kick, seen from their own eyes looking down along it from above: the TOP of the thigh faces the viewer (the front of the faded blue denim jeans, a broad rounded mass of denim, no inside-leg seam showing), then a scuffed black leather work boot thrust out forward, its thick tread sole toward the viewer; the leg is seen from above, not from the side', 'leg', None, False),
     2522: ('a leg seen from the kicker\'s own eyes, looking down along it: faded blue denim jeans and a scuffed black leather work boot with laces', 'leg', 2521, False),
     2524: (HAND + ' from behind, gripping a chunky black semi-automatic pistol ' + BEHIND, 'pistol', None, False),
     2525: (HAND + ' gripping a chunky black semi-automatic pistol ' + BEHIND + '; it is firing and kicking up, a bright yellow-orange muzzle flash bursting from the far end', 'pistol', 2524, True),

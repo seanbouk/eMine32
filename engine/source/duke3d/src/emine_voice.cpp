@@ -236,6 +236,7 @@ void Emine_VoiceInit(void)
 
 void Emine_VoiceLevelStart(void)
 {
+    if (!voxworld_active()) return;  // the intro isn't the mines: no crafty lines there
     if (died)
     {
         died = false;

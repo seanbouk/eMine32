@@ -250,6 +250,19 @@ list of lights (shade plus a tint). Things worth knowing:
 - The only fullbright colours are pure primaries, so glowing surfaces (tubes, frosted glass, Mine Shift) glow by shade
   0 plus sector visibility 240 (no distance fade), not by fullbright pixels.
 - Face sprites take their own shade (cstat 2048); otherwise Duke gives them the sector's floor shade, or the sky's.
+- Paint on the ground goes in the floor texture, not floor sprites (they z-fight the floor and show through things
+  in front). The classic renderer takes floor tiles of at most 256 texels a side (8 plan units at 16 Build units a
+  texel, repeating from the map's origin), so the yard floor is cut on an 8-unit grid where there's paint and each
+  cell gets its own 256-texel square of the painted ground; it lines up with the world with no panning.
+- The parallax sky repeats its tile above itself when you look up, so the sky tile must repeat up and down without
+  a seam (no horizon glow in it).
+- Build's 5-view sprites: frame 2 is what you see from the thing's left side, so it heads left on screen.
+
+First playtest fixes (2026-11-18): the level name is EMINE.CON's ("Graveyard Shift", then "The Mines"; `premap.cpp` no
+longer forces "The Mines" on the first map), the crafty start-of-level voice line only plays in the block world
+(`emine_voice.cpp`), and in the map: the paint in the floor (above), the moped views mirrored, a seamless sky, a desk
+top and a CRT in the office, a urinal (the gag), a shower and a drain in the WC, Mine Shift at four times the texels
+with only its marquee and screen lit, and the street-light tint (13) keeping some of each colour's own hue.
 
 ## Native build fixes (2026-11-18)
 
