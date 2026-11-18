@@ -129,6 +129,12 @@
  "truck_cab": {
   "mode": "fit"
  },
+ "truck_cab_l": {
+  "mode": "fit"
+ },
+ "truck_cab_front": {
+  "mode": "fit"
+ },
  "dumpster_front": {
   "mode": "fit"
  },
@@ -229,8 +235,88 @@
  },
  "spr_extinguisher": {
   "mode": "sprite",
-  "w": 0.4098984771573604,
-  "h": 0.75
+  "w": 0.43066666666666664,
+  "h": 0.6
+ },
+ "sign_extinguisher": {
+  "mode": "sprite",
+  "w": 0.22765957446808513,
+  "h": 0.3
+ },
+ "spr_moped_red_0": {
+  "mode": "sprite",
+  "w": 0.4738938053097345,
+  "h": 0.85
+ },
+ "spr_moped_teal_0": {
+  "mode": "sprite",
+  "w": 0.4738938053097345,
+  "h": 0.85
+ },
+ "spr_moped_cream_0": {
+  "mode": "sprite",
+  "w": 0.4738938053097345,
+  "h": 0.85
+ },
+ "spr_moped_red_1": {
+  "mode": "sprite",
+  "w": 0.7569526627218934,
+  "h": 0.85
+ },
+ "spr_moped_teal_1": {
+  "mode": "sprite",
+  "w": 0.7569526627218934,
+  "h": 0.85
+ },
+ "spr_moped_cream_1": {
+  "mode": "sprite",
+  "w": 0.7569526627218934,
+  "h": 0.85
+ },
+ "spr_moped_red_2": {
+  "mode": "sprite",
+  "w": 1.1465732087227414,
+  "h": 0.85
+ },
+ "spr_moped_teal_2": {
+  "mode": "sprite",
+  "w": 1.1465732087227414,
+  "h": 0.85
+ },
+ "spr_moped_cream_2": {
+  "mode": "sprite",
+  "w": 1.1465732087227414,
+  "h": 0.85
+ },
+ "spr_moped_red_3": {
+  "mode": "sprite",
+  "w": 0.7561349693251533,
+  "h": 0.85
+ },
+ "spr_moped_teal_3": {
+  "mode": "sprite",
+  "w": 0.7561349693251533,
+  "h": 0.85
+ },
+ "spr_moped_cream_3": {
+  "mode": "sprite",
+  "w": 0.7561349693251533,
+  "h": 0.85
+ },
+ "spr_moped_red_4": {
+  "mode": "sprite",
+  "w": 0.425,
+  "h": 0.85
+ },
+ "spr_moped_teal_4": {
+  "mode": "sprite",
+  "w": 0.425,
+  "h": 0.85
+ },
+ "spr_moped_cream_4": {
+  "mode": "sprite",
+  "w": 0.425,
+  "h": 0.85
  },
  "sign_trade": {
   "mode": "sprite",

@@ -117,6 +117,18 @@ def flatten(rgba, fill=(14, 12, 14)):
     bg.alpha_composite(rgba)
     return bg.convert('RGB')
 
+def unbackground(im, fill=(22, 20, 22), below=0.0):
+    """the painting's grey studio background and floor, where it shows round a cabinet's edges, become cabinet side"""
+    a = np.asarray(im).astype(np.int32)
+    sat, lum = a.max(2) - a.min(2), a.mean(2)
+    cand = (sat < 22) & (lum > 95)
+    cand[:int(cand.shape[0] * below)] = False         # below: only look under this fraction of the height (a white cab is grey too)
+    lab, _ = ndimage.label(cand)
+    edge = np.unique(np.concatenate([lab[:, 0], lab[:, -1], lab[-1]]))
+    m = np.isin(lab, edge[edge > 0])
+    a[m] = fill
+    return Image.fromarray(a.astype(np.uint8))
+
 def fit(name, im, w_bu, h_bu, density=64, glow=False, emit=None):
     save(im.resize((max(8, round(w_bu * density)), max(8, round(h_bu * density))), Image.LANCZOS), name, glow,
          mode='fit', **({'emit': emit} if emit else {}))
@@ -130,16 +142,6 @@ def cabinet(name, im, band):
     fit(name + '_upper', top, CAB_W, CAB_H - PANEL_H)
     fit(name + '_lower', bot, CAB_W, PANEL_H)
     fit(name + '_panel', im.crop((0, int(h * band[0]), w, int(h * band[1]))), CAB_W, 0.35)
-
-def unbackground(im, fill=(22, 20, 22)):
-    """the painting's grey studio background and floor, where it shows round a cabinet's edges, become cabinet side"""
-    a = np.asarray(im).astype(np.int32)
-    sat, lum = a.max(2) - a.min(2), a.mean(2)
-    lab, _ = ndimage.label((sat < 22) & (lum > 95))
-    edge = np.unique(np.concatenate([lab[:, 0], lab[:, -1], lab[-1]]))
-    m = np.isin(lab, edge[edge > 0])
-    a[m] = fill
-    return Image.fromarray(a.astype(np.uint8))
 
 cabs = src('cabinets')
 for i, (x0, x1) in enumerate([(0.12, 0.31), (0.405, 0.595), (0.71, 0.88)]):
@@ -174,8 +176,13 @@ fit('claw_front', claw, 1.1, 2.05)
 
 # truck: the box side and the cab
 truck = src('truck')
-fit('truck_side', crop(truck, 0.345, 0.07, 0.985, 0.80), 7.5, 2.3)
-fit('truck_cab', crop(truck, 0.02, 0.28, 0.345, 0.92), 2.5, 2.4)
+fit('truck_side', crop(truck, 0.379, 0.078, 0.936, 0.69), 7.5, 2.3)       # the box panel only, so it fills the face to its corners
+# the cab: a square European cab-over (its own painting), side and front; the left side is the mirror image
+cab = src('cab')
+side = unbackground(crop(cab, 0.105, 0.075, 0.448, 0.935), fill=(18, 18, 20), below=0.72)
+fit('truck_cab', side, 2.5, 2.7)
+fit('truck_cab_l', side.transpose(Image.FLIP_LEFT_RIGHT), 2.5, 2.7)
+fit('truck_cab_front', unbackground(crop(cab, 0.565, 0.075, 0.915, 0.935), fill=(18, 18, 20), below=0.8), 2.3, 2.7)
 
 # dumpster: the front, plus a seamless patch of its green steel for the other sides
 dump = flatten(items('dumpster', 1)[0])
@@ -266,8 +273,32 @@ fit('fire_door_inside', crop(src('doorin'), 0.07, 0.025, 0.93, 0.985), 1.5, 2.3)
 vend, ext = items('vending', 2)
 fit('vending_front', flatten(vend), 1.0, 2.0)
 MAN['vending_front']['emit'] = True
-hb = 0.75; wb = hb * ext.size[0] / ext.size[1]
+ew, eh = ext.size                                   # the painting hangs a little sign above the extinguisher: split them
+sign, ext = ext.crop((0, 0, ew, int(eh * 0.24))), ext.crop((0, int(eh * 0.24), ew, eh))
+ext = ext.crop(ext.getchannel('A').getbbox()); sign = sign.crop(sign.getchannel('A').getbbox())
+hb = 0.6; wb = hb * ext.size[0] / ext.size[1]
 save(ext.resize((round(wb * 64), round(hb * 64)), Image.LANCZOS), 'spr_extinguisher', mode='sprite', w=wb, h=hb)
+hb = 0.3; wb = hb * sign.size[0] / sign.size[1]
+save(sign.resize((max(8, round(wb * 64)), round(hb * 64)), Image.LANCZOS), 'sign_extinguisher', mode='sprite', w=wb, h=hb)
+
+# mopeds: a rotating sprite, five views (front, front 3/4, side, rear 3/4, rear) as Build draws them, mirrored for
+# the other three; recoloured copies so the yard isn't all one bike
+import colorsys
+def recolour(im, hue, sat=1.0, val=1.0):
+    a = np.asarray(im).astype(np.float32) / 255
+    hsv = np.asarray(im.convert('RGB').convert('HSV')).astype(np.float32) / 255
+    red = (hsv[..., 1] > 0.35) & ((hsv[..., 0] < 0.06) | (hsv[..., 0] > 0.92))
+    h2 = hsv.copy(); h2[..., 0] = np.where(red, hue, hsv[..., 0]); h2[..., 1] = np.where(red, np.clip(hsv[..., 1] * sat, 0, 1), hsv[..., 1])
+    h2[..., 2] = np.where(red, np.clip(hsv[..., 2] * val, 0, 1), hsv[..., 2])
+    rgb = Image.fromarray((h2 * 255).astype(np.uint8), 'HSV').convert('RGB')
+    out = rgb.convert('RGBA'); out.putalpha(im.getchannel('A'))
+    return out
+MOPED_H = 0.85
+for k, im in enumerate(items('moped', 5)):
+    for tag, col in [('red', None), ('teal', (0.5, 0.8, 0.9)), ('cream', (0.12, 0.25, 1.25))]:
+        f = im if col is None else recolour(im, *col)
+        wb = MOPED_H * f.size[0] / f.size[1]
+        save(f.resize((round(wb * 64), round(MOPED_H * 64)), Image.LANCZOS), f'spr_moped_{tag}_{k}', mode='sprite', w=wb, h=MOPED_H)
 ts = crop(src('tradesign'), 0.055, 0.07, 0.95, 0.87)
 wb = 2.6; hb = wb * ts.size[1] / ts.size[0]
 save(ts.resize((round(wb * 64), round(hb * 64)), Image.LANCZOS), 'sign_trade', mode='sprite', w=wb, h=hb)

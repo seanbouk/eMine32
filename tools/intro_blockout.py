@@ -201,6 +201,35 @@ def sprite(name, x, y, z0, tex, h=None, facing=None, strength=6.0):
     COL['Sprites'].objects.link(ob)
     return ob
 
+ROTATING = []
+def rotating(name, x, y, heading, frames):
+    """a rotating sprite (Build's 5-view kind): frames = textures seen from the front, front 3/4, side, rear 3/4, rear;
+    heading is the way it faces, in plan degrees (0 east, 90 south). The view and its mirroring follow the camera."""
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new(); uvl = bm.loops.layers.uv.new()
+    f = bm.faces.new([bm.verts.new(c) for c in [(-0.5, 0, 0), (0.5, 0, 0), (0.5, 0, 1), (-0.5, 0, 1)]])
+    for loop, uv in zip(f.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]): loop[uvl].uv = uv
+    bm.to_mesh(me); bm.free()
+    me.materials.append(T(frames[0]))
+    ob = bpy.data.objects.new(name, me)
+    ob.location = P(x, y, 0)
+    c = ob.constraints.new('LOCKED_TRACK'); c.track_axis = 'TRACK_NEGATIVE_Y'; c.lock_axis = 'LOCK_Z'
+    SPRITES.append(c)
+    COL['Sprites'].objects.link(ob)
+    ROTATING.append((ob, math.radians(-heading), frames))
+    return ob
+
+def turn_rotating(cam):
+    for ob, th, frames in ROTATING:
+        d = cam.location - ob.location
+        a = math.degrees(math.atan2(d.y, d.x) - th)
+        k = round(((a + 180) % 360 - 180) / 45)          # -4..4: 0 = seen from the front, +-4 = from behind
+        frame = frames[abs(k)]
+        e = MANIFEST[frame]
+        ob.data.materials[0] = T(frame)
+        mirror = (k == -1) or (k in (2, 3))              # the paintings show +45 front 3/4, -90 side, -135 rear 3/4
+        ob.scale = ((-1 if mirror else 1) * e['w'], 1, e['h'])
+
 def floor_paint(name, tex):
     """a floor sprite: paint on the ground over the plan rect stored with the texture"""
     x0, y0, x1, y1 = MANIFEST['_floor'][tex]
@@ -243,6 +272,11 @@ box('gate_shutter', 3.5, 22.9, 0.22, 7.5, 23.1, 4.0, T('shutter'))     # gap und
 box('gate_lintel', 3.5, 22.8, 4.0, 7.5, 23.2, YARD_H, T('brick'))
 sprite('sign_noentry', 5.5, 22.88, 1.5, 'sign_noentry', facing='n')
 floor_paint('parking_bays', 'paint_bays')
+def moped(name, x, y, heading, colour):
+    rotating(name, x, y, heading, [f'spr_moped_{colour}_{k}' for k in range(5)])
+moped('moped_bay_a', 2.4, 9.3, 0, 'red')          # nosed out of the free bay
+moped('moped_bay_b', 3.9, 9.9, 20, 'teal')
+moped('moped_wall', 2.9, 2.8, 160, 'cream')       # under the sodium wash, seen from the truck
 floor_paint('fire_exit_keep_clear', 'paint_keepclear')
 light('street_gate', 'AREA', P(5.5, 24.2, 0.6), (0.45, 0.65, 1.0), 400, size=(4, 1), aim=P(5.5, 20, 0))
 
@@ -273,8 +307,8 @@ box('truck_wall_r', 6.52, 12, FLOOR, 6.6, 19.5, TOP, T('truck_white'), {'e': T('
 box('truck_wall_front', 4, 19.42, FLOOR, 6.6, 19.5, TOP, T('truck_white'), {'n': T('shutter')}, **TR)
 box('truck_roof', 4, 12, TOP, 6.6, 19.5, TOP + 0.08, T('truck_white'), **TR)
 box('truck_chassis', 4.2, 12.3, 0.25, 6.4, 22, FLOOR - 0.15, T('rubber'), **TR)
-box('truck_cab', 4.15, 19.6, 0.4, 6.45, 22.1, 2.8, T('truck_white'), {'w': T('truck_cab'), 'e': T('truck_cab')}, **TR)
-for i, (wx, wy) in enumerate([(4.0, 13.2), (6.3, 13.2), (4.0, 20.8), (6.3, 20.8)]):
+box('truck_cab', 4.15, 19.6, 0.1, 6.45, 22.1, 2.8, T('truck_white'), {'e': T('truck_cab'), 'w': T('truck_cab_l'), 's': T('truck_cab_front')}, **TR)
+for i, (wx, wy) in enumerate([(4.0, 13.2), (6.3, 13.2)]):     # the cab's wheels are in its painting
     box(f'truck_wheel_{i}', wx, wy - 0.5, 0, wx + 0.3, wy + 0.5, 0.9, T('rubber'), **TR)
 for i, (hx, sgn) in enumerate([(4.0, -1), (6.6, 1)]):     # rear doors swung open (~135 deg)
     d = box(f'truck_door_{i}', hx - 1.3 * (sgn < 0), 11.96, FLOOR, hx + 1.3 * (sgn > 0), 12.0, TOP, T('truck_white'))
@@ -342,7 +376,8 @@ for i, (x0, state) in enumerate([(20.6, 'dead'), (23.5, 'dim'), (26.6, 'dead'), 
 box('pilaster', 25.3, 6.95, 0, 25.75, 7.41, CORR_CEIL, T('wall_twotone'))
 box('vending', 24.2, 6.62, 0, 25.25, 7.41, 2.0, T('paint_black'), {'n': T('vending_front', 1.5)})
 light('vending_glow', 'AREA', P(24.72, 6.4, 1.2), (1.0, 0.92, 0.85), 12, size=(0.9, 1.6), aim=P(24.72, 4, 1.0))
-sprite('extinguisher', 26.4, 7.39, 0.45, 'spr_extinguisher', facing='n')
+sprite('extinguisher', 26.4, 7.22, 0.35, 'spr_extinguisher')
+sprite('sign_extinguisher', 26.4, 7.39, 1.05, 'sign_extinguisher', facing='n')
 
 # rooms off the corridor
 box('office_desk', 19.3, 1.3, 0, 21.3, 2.3, 0.75, T('plywood'))
@@ -433,7 +468,7 @@ scene.cycles.use_denoising = True
 scene.cycles.max_bounces = 6
 scene.render.resolution_x, scene.render.resolution_y = 1280, 800
 scene.view_settings.view_transform = 'AgX'
-scene.view_settings.exposure = 0.5
+scene.view_settings.exposure = float(arg('--exposure', '0.5'))   # raise it to inspect dark corners
 try:
     prefs = bpy.context.preferences.addons['cycles'].preferences
     for dev in ('OPTIX', 'CUDA', 'HIP', 'ONEAPI'):
@@ -465,6 +500,8 @@ CAMS = {
     'glass': camera('cam_5_front_glass', P(31.2, 8.5, EYE), P(41, 11.5, EYE + 0.3)),
     'yard':  camera('cam_6_yard_back', P(16.5, 9.5, EYE), P(4, 16, EYE - 0.6)),
     'corridor': camera('cam_7_corridor_back', P(32.2, 5.2, EYE), P(19, 6.0, EYE - 0.15)),
+    'truckside': camera('cam_8_truck_close', P(10.5, 15.5, 1.7), P(5.0, 19.5, 1.3)),
+    'mopeds': camera('cam_9_mopeds', P(7.6, 7.2, 1.3), P(3.0, 9.6, 0.5)),
     'staff': camera('cam_4_staff_doors', P(30, 8.3, EYE), P(33.0, 22, EYE - 0.35)),
 }
 top = bpy.data.cameras.new('top'); top.type = 'ORTHO'; top.ortho_scale = 44
@@ -475,6 +512,7 @@ CAMS['top'] = topob
 def use_camera(cam):
     scene.camera = cam
     for c in SPRITES: c.target = cam      # face sprites turn to whoever is looking
+    turn_rotating(cam)
 
 use_camera(CAMS['truck'])
 os.makedirs(os.path.join(OUT, 'renders'), exist_ok=True)
@@ -489,7 +527,7 @@ if RENDER:
         hide = v == 'top'
         COL['Ceilings'].hide_render = hide
         scene.render.resolution_x, scene.render.resolution_y = (1400, 800) if hide else (1280, 800)
-        scene.render.filepath = os.path.join(OUT, 'renders', ('flat_' if FLAT else '') + ('overhead' if v == 'top' else v) + '.png')
+        scene.render.filepath = os.path.join(OUT, 'renders', ('flat_' if FLAT else '') + ('overhead' if v == 'top' else v) + arg('--suffix', '') + '.png')
         bpy.ops.render.render(write_still=True)
         print('intro: rendered', scene.render.filepath)
     COL['Ceilings'].hide_render = False

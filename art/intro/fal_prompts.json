@@ -109,5 +109,15 @@
   "aspect": "1:1",
   "tile": true,
   "prompt": "Grubby off-white canvas dust sheet cloth with soft vertical drape folds and creases, a few grey dust marks, seen straight on."
+ },
+ "cab": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "Two flat orthographic views side by side on a plain light grey background, evenly lit, not overlapping: on the left the side view and on the right the front view of the same white flat-fronted European cab-over lorry cab (square and boxy like a 1990s European delivery truck cab), with no box or trailer behind it, slightly dirty, black bumper, square headlights, one wheel visible in the side view. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."
+ },
+ "moped": {
+  "aspect": "21:9",
+  "tile": false,
+  "prompt": "Five views of the same small red 1990s moped scooter in a row on a plain light grey background, evenly lit, all at the same scale and not overlapping, each standing upright on its stand: front view, front three-quarter view, side view facing right, rear three-quarter view, rear view. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly."
  }
 }
