@@ -119,5 +119,15 @@
   "aspect": "21:9",
   "tile": false,
   "prompt": "Five views of the same small red 1990s moped scooter in a row on a plain light grey background, evenly lit, all at the same scale and not overlapping, each standing upright on its stand: front view, front three-quarter view, side view facing right, rear three-quarter view, rear view. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly."
+ },
+ "washroom": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "Four game prop sprites in a row on a plain flat light grey background, evenly spaced and not overlapping, all evenly lit: 1) a white porcelain wall-mounted urinal seen straight from the front, with its chrome flush valve and a chrome pipe rising straight up above it; 2) a chrome shower head on a straight vertical chrome pipe hanging straight down, seen exactly from the side, perfectly symmetric left to right, the round head facing straight down; 3) a round chrome floor drain grate seen from directly above; 4) an old beige 1990s CRT computer monitor seen straight from the front, its dark screen showing a few lines of green text. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly."
+ },
+ "desktop": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "An office desk top seen from directly above, flat orthographic, filling the whole frame edge to edge with no desk edges or floor showing: worn beech wood-effect laminate, a beige 1990s computer keyboard and a mouse near the bottom edge, a few scattered papers and a sticky note on the left, a coffee mug with a ring stain on the right, the top middle left clear. Evenly lit, no shadows. Gritty mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."
  }
 }

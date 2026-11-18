@@ -114,6 +114,10 @@ COPIES = {38: 37}
 FREE = {2510: ('gauntlet.png', None, None), 2511: ('gauntlet_fire.png', 2510, (380, 0, 720, 430))}
 FREE_H, FREE_TILT = 110, 15  # idle tile height; degrees the fist leans in towards the crosshair
 FREEFLASH = {2511}
+# The kick's first and last frames (2521, drawn at 220,250) are made from its middle one (2522, at 160,214): no painting
+# of a raised knee came out right, so it's 2522's thigh, cut off at the knee with a rounded end (the shin and boot are
+# hidden behind it), turned to the right and drawn where 2522's leg shows, a little lower and further right.
+KNEE_CUT, KNEE_STRETCH, KNEE_TURN, KNEE_MOVE = 100, 1.6, 20, (24, 34)  # row of 2522 at the knee, stretch, degrees, px
 BLUE_RAMP = np.array([[0, 0, 252], [60, 90, 230], [110, 140, 200], [150, 185, 225], [215, 235, 255]], float)  # the palette has no bright, saturated blue but its fullbright pure blue: that for the edges, steel blues inside
 FLIP = {2608, 2570, 2571, 2572}  # 2570-2572: the detonator was painted as a right hand; it's held in the left. 2608: painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
 ASPECTS = [(21, 9), (16, 9), (3, 2), (4, 3), (1, 1), (3, 4), (2, 3), (9, 16)]
@@ -455,6 +459,53 @@ ERASE = {2536: [(200, 0, 999, 66), (238, 0, 999, 999)]}
 SHIFT = {n: 16 for n in range(2613, 2620)}
 
 
+def knee(leg):
+    """2522's thigh, cut off at the knee with a rounded end, turned to the right: (rgb, alpha, pad). The piece from the
+    knee down is stretched (a raised thigh is longer than the foreshortened one under the extended leg) and carried on
+    below the screen's edge, so its cut never shows."""
+    rgb, al, pad = leg
+    rgb, al = rgb[KNEE_CUT:rgb.shape[0] - pad[3]], al[KNEE_CUT:al.shape[0] - pad[3]]
+    H, W = al.shape
+    H2 = round(H * KNEE_STRETCH)
+    rgb = np.stack([np.asarray(Image.fromarray(rgb[..., c].astype(np.float32), 'F').resize((W, H2), Image.BICUBIC)) for c in range(3)], -1)
+    al = np.asarray(Image.fromarray(al.astype(np.float32), 'F').resize((W, H2), Image.BICUBIC))
+    rgb = np.concatenate([rgb, rgb[:-41:-1]]); al = np.concatenate([al, al[:-41:-1]])          # mirrored on, past the edge
+    H = al.shape[0]
+    cols = np.nonzero(al[H2 // 2] >= 0.5)[0]
+    xl, xr = cols.min(), cols.max()
+    cx, rx = (xl + xr) / 2, (xr - xl) / 2 + 0.5
+    ry = rx * 0.8
+    yy, xx = np.mgrid[0:H, 0:W]
+    e = ((xx - cx) / rx) ** 2 + ((yy - ry) / ry) ** 2                  # the knee: half an ellipse
+    cap = yy < ry
+    al = np.where(cap & (e > 1), 0, np.where(cap, 1.0, al))             # the cap is solid denim
+    shade = np.where(cap, 1 - 0.5 * np.clip((e - 0.3) / 0.7, 0, 1), 1)  # darker round its rim, so it reads as round
+    rgb = np.where(cap[..., None], rgb[np.clip(np.round(ry).astype(int) + (np.round(ry).astype(int) - yy), 0, H - 1), xx], rgb)
+    rgb = rgb * shade[..., None]
+    chans = [Image.fromarray((rgb[..., c] * al).astype(np.float32), 'F') for c in range(3)] + [Image.fromarray(al.astype(np.float32), 'F')]
+    rot = [np.asarray(c.rotate(KNEE_TURN, Image.BICUBIC, expand=True)) for c in chans]  # the game draws the kick mirrored: this turns it right on screen
+    a = np.clip(rot[3], 0, 1)
+    rgb = np.clip(np.stack(rot[:3], -1) / np.maximum(a[..., None], 1e-3), 0, 255)
+    return rgb, a, (0, 0, 0, 0)
+
+
+def knee_picanm(pa, shape, pa22, shape22, pad22):
+    """offsets for the knee frame: its top where 2522's top is drawn (the thigh stands where the leg was), moved by KNEE_MOVE"""
+    h22, w22 = shape22
+    L, T, R, B = pad22
+    W22, H22 = w22 + L + R, h22 + T + B
+    o = offsets(pa22, w22, h22, pad22)
+    xo22, yo22 = ((o >> 8) & 255), ((o >> 16) & 255)
+    xo22, yo22 = (xo22 - 256 if xo22 > 127 else xo22), (yo22 - 256 if yo22 > 127 else yo22)
+    left, top = 160 - (W22 >> 1) - xo22, 214 - (H22 >> 1) - yo22       # 2522's top-left on screen
+    H, W = shape
+    # where 2522 shows (its top, below the padding: most of its thigh is off the bottom of the screen), moved
+    cx, cy = left + W22 / 2 + KNEE_MOVE[0], top + T + H / 2 + KNEE_MOVE[1]
+    xo, yo = round(220 - (W >> 1) - (cx - W / 2)), round(250 - (H >> 1) - (cy - H / 2))
+    assert -128 <= xo <= 127 and -128 <= yo <= 127, (xo, yo)
+    return (pa & ~0xFFFF00) | ((xo & 255) << 8) | ((yo & 255) << 16)
+
+
 def iou(a, b):
     return (a & b).sum() / max(1, (a | b).sum())
 
@@ -515,6 +566,8 @@ def build():
     for n, src in COPIES.items():
         if src in built:
             built[n] = built[src]
+    if 2522 in built:
+        built[2521] = knee(built[2522])
     for n in LOCAL:
         if n in (2538, 2539, 2540) and 2537 not in built:
             continue
@@ -545,6 +598,10 @@ def build():
             h, w = px.shape
             if n in FREE:  # offsets are for the idle frame's size; pad says how the firing frame grew from it
                 w, h = freesize[FREE[n][1] or n]
+            if n == 2521:  # placed relative to where 2522's thigh is drawn
+                tiles.append((out, knee_picanm(pa, out.shape, duke(2522)[2], duke(2522)[1].shape, built[2522][2])))
+                sheet.append((n, out, out))
+                continue
             tiles.append((out, offsets(pa, w, h, pad, SHIFT.get(n, 0), keepy=n in PICKUPS)))
             L, T = pad[0], pad[1]
             if n in FREE:  # no outline of Duke's to match: ours from scratch

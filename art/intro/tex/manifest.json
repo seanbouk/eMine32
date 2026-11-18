@@ -346,5 +346,28 @@
    18.8,
    8.0
   ]
+ },
+ "spr_urinal": {
+  "mode": "sprite",
+  "w": 0.6136363636363636,
+  "h": 1.35
+ },
+ "spr_shower": {
+  "mode": "sprite",
+  "w": 0.2602173913043478,
+  "h": 0.95
+ },
+ "drain": {
+  "mode": "sprite",
+  "w": 0.5,
+  "h": 0.5
+ },
+ "crt_front": {
+  "mode": "fit"
+ },
+ "desk_top": {
+  "mode": "floor",
+  "w": 2,
+  "h": 1
  }
 }

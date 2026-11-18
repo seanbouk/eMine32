@@ -257,12 +257,19 @@ list of lights (shade plus a tint). Things worth knowing:
 - The parallax sky repeats its tile above itself when you look up, so the sky tile must repeat up and down without
   a seam (no horizon glow in it).
 - Build's 5-view sprites: frame 2 is what you see from the thing's left side, so it heads left on screen.
+- Floor tiles run north: the engine draws row k of a floor tile at world y = -k (mod its height), so every floor
+  picture placed in the world (the yard's paint, the desk, the WC's drain) is flipped in y (`floor_rows`). A floor
+  with sector floorstat 8 ("smoosh") draws at twice the texels (the desk top, 64 a plan unit).
 
 First playtest fixes (2026-11-18): the level name is EMINE.CON's ("Graveyard Shift", then "The Mines"; `premap.cpp` no
 longer forces "The Mines" on the first map), the crafty start-of-level voice line only plays in the block world
 (`emine_voice.cpp`), and in the map: the paint in the floor (above), the moped views mirrored, a seamless sky, a desk
 top and a CRT in the office, a urinal (the gag), a shower and a drain in the WC, Mine Shift at four times the texels
-with only its marquee and screen lit, and the street-light tint (13) keeping some of each colour's own hue.
+with only its marquee and screen lit, and the street-light tint (13) keeping some of each colour's own hue. Then: the
+mopeds moved right of the trade sign, the paint flipped onto its spot (the keep-clear by the door), fal paintings for
+the desk top, CRT, urinal, shower head (straight down) and drain, and a new first kick frame (2521): the working
+frame's thigh, cut at the knee and rounded, turned right (`tools/mkweapons.py`, `knee()`); Duke draws the kick
+mirrored.
 
 ## Native build fixes (2026-11-18)
 

@@ -229,86 +229,32 @@ def paint_cells():
     return cells
 
 _ground = None
+def floor_rows(a):
+    """the engine draws a floor tile's rows running north (row k at world y = -k), not south like the plan: a picture
+    laid out with row k at y = k is flipped, and rolled a row so row 0 stays on y = 0"""
+    return np.roll(np.flipud(a), 1, 0)
+
 def ground_cell(i, j):
     global _ground
     if _ground is None: _ground = yard_ground()
     n = CELL * FLOOR_TPU
-    return _ground[j * n:(j + 1) * n, i * n:(i + 1) * n].copy()
+    return floor_rows(_ground[j * n:(j + 1) * n, i * n:(i + 1) * n].copy())
 
-def placed(im, x0, y0):
-    """a floor picture whose top-left corner lands at plan (x0, y0): floors repeat from the map's origin, so roll it"""
-    a = quant(im)
-    return np.roll(a, (round(y0 * FLOOR_TPU) % a.shape[0], round(x0 * FLOOR_TPU) % a.shape[1]), (0, 1))
+def placed(im, x0, y0, tpu=FLOOR_TPU):
+    """a floor picture whose top-left corner lands at plan (x0, y0): floors repeat from the map's origin, so roll it.
+    tpu: texels a plan unit (64 on a smooshed floor, sector floorstat 8)"""
+    a = to_index(im) if im.mode == 'RGBA' else quant(im)
+    return floor_rows(np.roll(a, (round(y0 * tpu) % a.shape[0], round(x0 * tpu) % a.shape[1]), (0, 1)))
 
 def desk_tile():
-    """the office desk's top, 2 x 1 plan units (64 x 32 texels): worn beech laminate, a keyboard and a mouse at the
-    front (south, where the chair is), a mug, papers"""
-    im = Image.new('RGB', (64, 32), (150, 112, 70))
-    d = ImageDraw.Draw(im)
-    rng = np.random.default_rng(3)
-    for yy in range(32):
-        v = int(rng.integers(-10, 10))
-        d.line((0, yy, 63, yy), fill=(150 + v, 112 + v, 70 + v // 2))
-    d.rectangle((0, 0, 63, 0), fill=(110, 80, 50)); d.rectangle((0, 31, 63, 31), fill=(110, 80, 50))
-    d.rectangle((6, 6, 20, 22), fill=(228, 226, 214)); d.rectangle((9, 8, 23, 24), fill=(240, 238, 228))   # papers
-    for yy in range(11, 22, 3): d.line((11, yy, 21, yy), fill=(150, 150, 160))
-    d.rectangle((22, 23, 41, 29), fill=(190, 182, 160))                                                 # keyboard
-    for yy in (24, 26, 28):
-        for xx in range(23, 41, 2): d.point((xx, yy), fill=(120, 114, 100))
-    d.ellipse((45, 24, 48, 28), fill=(190, 182, 160)); d.line((46, 24, 44, 19), fill=(60, 60, 60))      # mouse
-    d.ellipse((51, 8, 57, 14), fill=(200, 40, 40)); d.ellipse((53, 10, 55, 12), fill=(60, 36, 20))      # mug
-    return placed(im, 19.3, 1.3)
-
-def crt_front():
-    """an old beige CRT monitor's face: thick bezel, a curved dark screen with green text left on it"""
-    im = Image.new('RGB', (64, 48), (176, 166, 140))
-    d = ImageDraw.Draw(im)
-    d.rectangle((0, 44, 63, 47), fill=(140, 130, 108))
-    d.rounded_rectangle((7, 5, 56, 38), 6, fill=(30, 34, 32))
-    d.rounded_rectangle((10, 8, 53, 35), 5, fill=(14, 40, 26))
-    for i, yy in enumerate(range(12, 33, 4)):
-        d.line((14, yy, 14 + (30, 22, 36, 12, 26, 4)[i % 6], yy), fill=(90, 230, 120))
-    d.rectangle((14, 32, 16, 33), fill=(160, 255, 170))                       # the cursor
-    d.ellipse((50, 40, 53, 43), fill=(60, 200, 80))                           # power light
-    return im
-
-def urinal_tile():
-    """a wall urinal with its flush pipe running up the wall (0.5 x 1.4 plan units, 80 texels a unit)"""
-    W, H = 40, 112
-    im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.rectangle((18, 0, 21, 52), fill=(170, 174, 180, 255)); d.line((19, 0, 19, 52), fill=(225, 228, 232, 255))
-    d.rectangle((14, 50, 25, 56), fill=(150, 154, 160, 255))                  # the flush valve
-    d.rounded_rectangle((4, 56, 35, 111), 12, fill=(206, 208, 204, 255))      # the bowl
-    d.rounded_rectangle((7, 60, 32, 106), 10, fill=(232, 234, 230, 255))
-    d.ellipse((10, 74, 29, 104), fill=(178, 182, 180, 255))                   # the hollow
-    d.ellipse((13, 80, 26, 100), fill=(150, 156, 154, 255))
-    d.rectangle((17, 95, 22, 97), fill=(90, 92, 94, 255))                     # the drain grille
-    d.ellipse((12, 100, 27, 108), fill=(196, 190, 150, 255))                  # a stain
-    d.rounded_rectangle((4, 56, 35, 111), 12, outline=(160, 162, 160, 255))
-    return quant(im)
-
-def shower_tile():
-    """a shower head on a pipe from the ceiling, seen from the side: chrome pipe, elbow, round head"""
-    W, H = 32, 48
-    im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.rectangle((6, 0, 9, 30), fill=(160, 164, 170, 255)); d.line((7, 0, 7, 30), fill=(225, 228, 232, 255))
-    d.rectangle((6, 27, 20, 31), fill=(160, 164, 170, 255)); d.line((7, 28, 20, 28), fill=(225, 228, 232, 255))
-    d.polygon([(14, 31), (26, 31), (30, 40), (10, 40)], fill=(180, 184, 190, 255))
-    d.line((14, 32, 25, 32), fill=(235, 238, 240, 255))
-    d.rectangle((10, 40, 30, 42), fill=(120, 124, 130, 255))
-    for xx in range(12, 30, 3): d.point((xx, 41), fill=(40, 40, 44, 255))
-    return quant(im)
+    """the office desk's top, 2 x 1 plan units at 64 texels a unit (a smooshed floor): fal's painting (art/intro/tex)"""
+    return placed(src('desk_top'), 19.3, 1.3, tpu=64)
 
 def wc_floor_tile():
-    """the WC's concrete with the shower's drain in it, at plan (26.3, 1.6)"""
-    im = src('concrete').convert('RGB').copy()
-    d = ImageDraw.Draw(im)
-    cx, cy = 64, 64
-    d.ellipse((cx - 8, cy - 8, cx + 8, cy + 8), fill=(70, 72, 74))           # a damp dip round it
-    d.ellipse((cx - 6, cy - 6, cx + 6, cy + 6), fill=(150, 154, 158))
-    for k in range(-4, 5, 2): d.line((cx + k, cy - 4, cx + k, cy + 4), fill=(20, 20, 22))
+    """the WC's concrete with the shower's drain (fal's, art/intro/tex/drain) set in it, at plan (26.3, 1.6)"""
+    im = src('concrete').copy()
+    dr = src('drain')
+    im.alpha_composite(dr, (64 - dr.width // 2, 64 - dr.height // 2))
     return placed(im, 26.3 - 2, 1.6 - 2)
 
 # ---------------------------------------------------------------- regions
@@ -391,7 +337,7 @@ for px, py, h in [(10, 14.2, 0.9), (11.3, 14.2, 0.6), (10, 15.5, 0.3)]:
     room(rect(px, py, px + 1.2, py + 1.2), h, YC, 'plywood', 'sky', 'yard', sky=True, side='plywood')
 spr('face', 16.9, 1.9, 0, 'spr_bags', block=True)
 spr('face', 2.0, 18.5, 0, 'spr_bags', block=True)
-for name, x, y, heading in [('red', 2.4, 9.3, 0), ('teal', 3.9, 9.9, 20), ('cream', 2.9, 2.8, 160)]:
+for name, x, y, heading in [('red', 18.1, 12.1, 4), ('teal', 18.05, 13.05, 352), ('cream', 18.1, 14.0, 10)]:
     spr('moped', x, y, 0, f'spr_moped_{name}', heading=heading)
 
 # the barrel fire
@@ -464,14 +410,14 @@ light(30.4, 5.75, 2.9, 5.0, 12, 0, zones=('corridor', 'rooms'), pool=(0.25, 0.45
 light(24.72, 6.3, 1.2, 1.8, 7, 0, zones=('corridor',))                  # the drinks machine's glow
 light(19.6, 5.75, 1.6, 2.4, 6, P_SODIUM, zones=('corridor',))           # the yard through the door
 # rooms: the office, the staff WC (the toilet gag), the store
-room(rect(19.3, 1.3, 21.3, 2.3), 0.75, CORR_C, 'desk_top', 'pipes', 'rooms', side='plywood')
+room(rect(19.3, 1.3, 21.3, 2.3), 0.75, CORR_C, 'desk_top', 'pipes', 'rooms', side='plywood', smoosh=True)
 room(rect(19.95, 1.42, 20.65, 1.95), 1.27, CORR_C, 'crt_beige', 'pipes', 'rooms', side='crt_beige',
-     faces={'s': ('crt_front', crt_front())}, frame=(19.95, 1.42, 20.65, 1.95, 0, None))
+     faces={'s': 'crt_front'}, frame=(19.95, 1.42, 20.65, 1.95, 0, None))
 light(20.3, 2.2, 1.1, 1.6, 5, P_MINE, zones=('rooms',))                   # the screen's glow on the desk
 light(21.0, 2.6, 2.8, 2.8, 10, 0, zones=('rooms',), pool=(0.5,))          # the office's ceiling light
 spr('face', 20.4, 2.8, 0, 'spr_chair', block=True)
-spr('wall', 24 + TI + 0.02, 2.6, 0.42, 'urinal', facing='e', w=0.5, h=1.4, actor='TOILET', block=True)
-spr('face', 26.3, 1.6, CORR_C - 0.6, 'shower', h=0.6, w=0.4)
+spr('wall', 24 + TI + 0.02, 2.6, 0.45, 'spr_urinal', facing='e', actor='TOILET', block=True)
+spr('face', 26.3, 1.6, CORR_C - 0.95, 'spr_shower')
 light(25.5, 2.4, 2.8, 2.6, 9, 0, zones=('wc',))
 room(rect(27.3, 1 + TO, 32.7, 2.0), 2.2, CORR_C, 'plywood', 'pipes', 'rooms', side='plywood')
 room(rect(27.3, 2.4, 28.5, 3.6), 1.0, CORR_C, 'dustsheet', 'pipes', 'rooms', side='dustsheet')
@@ -809,7 +755,7 @@ def write():
             return made(name, ground_cell(i, j))
         if name == 'desk_top': return made('desk_top', desk_tile())
         if name == 'wc_floor': return made('wc_floor', wc_floor_tile())
-        if name == 'crt_beige': return made('crt_beige', flat_tile((176, 166, 140), noise=0.03))
+        if name == 'crt_beige': return made('crt_beige', flat_tile((196, 186, 160), noise=0.03))
         return tile(name)
 
     # which piece is where (for sprites and for the far side of one-sided walls)
@@ -1012,8 +958,8 @@ def write():
             actors[sp['actor']] = pic
             continue
         # face and wall sprites
-        if sp['tex'] in ('wallpack', 'urinal', 'shower'):
-            pic = made(sp['tex'], {'wallpack': wallpack_tile, 'urinal': urinal_tile, 'shower': shower_tile}[sp['tex']]())
+        if sp['tex'] == 'wallpack':
+            pic = made('wallpack', wallpack_tile())
             tw, th = tsize(pic)
             xr, yr = sp['w'] * 2048 / tw, sp['h'] * 2048 / th
         else:
@@ -1066,7 +1012,7 @@ def write():
         cpic = tex_pic(p['ctex']); fpic = tex_pic(s['ftex'] or p['ftex'])
         cstat = 1 if p['sky'] else 0
         secb.append(struct.pack('<hhiihhhhbBBBhhbBBBBBhhh', s['wallptr'], s['wallnum'], s['cz'], s['fz'],
-                                cstat, 0, cpic, 0, s['cs'], s['cp'], 0, 0, fpic, 0, s['fs'], s['fp'], 0, 0,
+                                cstat, 8 if p.get('smoosh') else 0, cpic, 0, s['cs'], s['cp'], 0, 0, fpic, 0, s['fs'], s['fp'], 0, 0,
                                 s['vis'], 0, 0, 0, 0))
     wallb = []
     for w in walls:

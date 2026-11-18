@@ -331,5 +331,18 @@ m = (m & ~plate) | txt
 save(worn(m, (232, 190, 40), 4), 'paint_keepclear', mode='sprite', w=KEEP[2] - KEEP[0], h=KEEP[3] - KEEP[1])
 MAN['_floor'] = {'paint_bays': BAYS, 'paint_keepclear': KEEP}
 
+# the staff WC and the office (fal sheet 'washroom'): the urinal with its flush pipe, the shower head (straight down,
+# the same from every side, so a face sprite), the drain seen from above (set into the WC floor by mkintro), the CRT's
+# front; and the desk top, seen from above (a floor texture at 64 texels a unit: the sector's floor is smooshed)
+uri, shw, drn, crt = items('washroom', 4, bg_tol=18, hi=2)
+for nm, im, hb in [('spr_urinal', uri, 1.35), ('spr_shower', shw, 0.95)]:
+    wb = hb * im.size[0] / im.size[1]
+    save(im.resize((max(8, round(wb * 64)), max(8, round(hb * 64))), Image.LANCZOS), nm, mode='sprite', w=wb, h=hb)
+save(drn.resize((16, 16), Image.LANCZOS), 'drain', mode='sprite', w=0.5, h=0.5)
+cw, ch = crt.size
+fit('crt_front', flatten(crt.crop((0, 0, cw, int(ch * 0.84)))), 0.7, 0.52)
+dt = src('desktop'); dw, dh = dt.size
+save(dt.crop((0, (dh - dw // 2) // 2, dw, (dh + dw // 2) // 2)).resize((128, 64), Image.LANCZOS), 'desk_top', mode='floor', w=2, h=1)
+
 json.dump(MAN, open(os.path.join(OUT, 'manifest.json'), 'w'), indent=1)
 print(len(MAN), 'textures ->', OUT)
