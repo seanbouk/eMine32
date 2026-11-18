@@ -261,6 +261,8 @@ void S_MenuSound(void)
         S_PlaySound(s);
 }
 
+static char g_playingMusicFn[BMAX_PATH];  // eMine32: the file now playing ("" for none)
+
 static int S_PlayMusic(const char *fn)
 {
     if (!ud.config.MusicToggle)
@@ -268,6 +270,14 @@ static int S_PlayMusic(const char *fn)
 
     if (fn == NULL)
         return 1;
+
+    // eMine32: one track runs from the title through the menus into play. Asked for the track that's already
+    // playing, let it play on instead of starting it again.
+    if (MusicIsWaveform && FX_SoundValidAndActive(MusicVoice) && !Bstrcasecmp(fn, g_playingMusicFn))
+    {
+        LOG_F(INFO, "eMine32: music %s plays on", fn);
+        return 0;
+    }
 
     buildvfs_kfd fp = S_OpenAudio(fn, 0, 1);
     if (/*EDUKE32_PREDICT_FALSE*/(fp == buildvfs_kfd_invalid))
@@ -337,6 +347,8 @@ static int S_PlayMusic(const char *fn)
 
         MusicVoice      = MyMusicVoice;
         MusicIsWaveform = 1;
+        Bstrncpyz(g_playingMusicFn, fn, sizeof(g_playingMusicFn));
+        LOG_F(INFO, "eMine32: music %s starts", fn);
         ALIGNED_FREE_AND_NULL(MusicPtr);
         MusicPtr    = MyMusicPtr;
         g_musicSize = MyMusicSize;
@@ -433,6 +445,7 @@ void S_SetMusicPosition(int32_t position)
 void S_StopMusic(void)
 {
     MusicPaused = 0;
+    g_playingMusicFn[0] = 0;
 
     if (MusicIsWaveform && MusicVoice >= 0)
     {

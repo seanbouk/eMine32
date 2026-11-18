@@ -117,7 +117,12 @@ int MV_PlayXMP(char *ptr, uint32_t length, int loopstart, int loopend, int pitch
     xd->ptr = ptr;
     xd->length = length;
 
+#ifdef __EMSCRIPTEN__
+    // eMine32: the web build has no threads, so the decoder starts inline instead of on a worker
+    voice->task = async::spawn(async::inline_scheduler(), [voice]() -> int
+#else
     voice->task = async::spawn([voice]() -> int
+#endif
     {
         auto xd = (xmp_data *)voice->rawdataptr;
         auto ctx = xd->ctx;

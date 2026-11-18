@@ -146,7 +146,7 @@ The shareware has no freezer art at all (its tiles are empty), so the freezer is
 | ✓ | Asset | Count | Notes |
 |---|---|---|---|
 | [~] | Sound effects + Duke voice lines | 181 VOC | Voice done (see 6). **Sound effects: ours for the 39 slots the game plays**, from `art/sfx/sounds.json` by `tools/mksfx.py`, picked by ear on a soundboard: 21 from **Freedoom** (BSD: guns, reload clicks, the kick, pickups, switches, zombie and skeleton voices; the minigun uses the pistol shot, as Doom's chaingun does) and 18 generated with fal (explosions, glass, water, block breaking, the spider, the lurker's hiss, squish, menu exit). All levelled to the same peak, loaded over the slots at start-up (`Emine_SfxInit`). `emine_assets` lists any Duke sound still played; long scripted sessions show none. |
-| [ ] | Music | 7 MIDI + `D3DTIMBR.TMB` | **Music:** currently MIDI played through EDuke32's built-in OPL3 (AdLib FM) emulator, voiced by Duke's timbre bank. **Replacement:** OGG Vorbis (MP3 isn't supported; OGG is the same idea, about the same size). FLAC, or tracker modules (.mod/.xm/.it), also work. |
+| [x] | Music | 7 MIDI + `D3DTIMBR.TMB` | Ours: one track, *Absurd Outro* (`game/music/absurd-outro.ogg`, from the 200 s WAV at Vorbis q4, 2.8 MB), from the studio screen through the menus into play without a break: every music slot in `EMINE.CON` names it and the engine lets a track already playing play on (`S_PlayMusic`). The web build now decodes Ogg (minivorbis, on the main thread: the web has no worker threads). Later: volume and timing to give the intro level some direction. |
 
 ## 9. Before going public (deferred)
 

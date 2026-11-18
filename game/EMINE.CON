@@ -113,6 +113,11 @@ defineskillname 2 Hard
 defineskillname 3 Brutal
 definelevelname 0 0 E1L1.map 00:00 00:00 The Mines
 
+// music: one track from the very start (the studio screen) through the menus into play. The engine lets it play on
+// when each of these asks for it again (sounds.cpp). Slots: 0 = title, briefing (new game), loading; 1 = the level.
+music 0 music/absurd-outro.ogg music/absurd-outro.ogg music/absurd-outro.ogg
+music 1 music/absurd-outro.ogg
+
 
 // ---- messages -----------------------------------------------------------------------------------------------------
 // The engine shows these by number. 13 is the death message: the engine swaps "SPACE" for whatever key opens things.

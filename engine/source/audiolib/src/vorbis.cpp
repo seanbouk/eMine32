@@ -372,7 +372,12 @@ int MV_PlayVorbis(char *ptr, uint32_t length, int loopstart, int loopend, int pi
     //if (vd->task.valid() && !vd->task.ready())
     //    vd->task.wait();
 
+#ifdef __EMSCRIPTEN__
+    // eMine32: the web build has no threads, so the decoder starts inline instead of on a worker
+    voice->task = async::spawn(async::inline_scheduler(), [voice]() -> int
+#else
     voice->task = async::spawn([voice]() -> int
+#endif
     {
 #if defined _WIN32
         debugThreadName("MV_PlayVorbis");
