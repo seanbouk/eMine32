@@ -15,6 +15,8 @@
 #include "sdl_inc.h"
 #include "softsurface.h"
 
+double emine_yieldMs;  // time spent yielded to the browser so far (emine_perf subtracts it from a frame's drawing)
+
 #ifdef __EMSCRIPTEN__
 // eMine32: the engine runs blocking loops; under ASYNCIFY we hand control back
 // to the browser so it can present frames and deliver input.
@@ -27,7 +29,6 @@ EM_ASYNC_JS(void, em_wait_animation_frame, (), {
     await new Promise(function (resolve) { requestAnimationFrame(function () { resolve(); }); });
 });
 static double em_lastYield;
-double emine_yieldMs;  // time spent yielded to the browser so far (emine_perf subtracts it from a frame's drawing)
 static double em_statStart, em_busy, em_maxSlice;
 static int    em_frames, em_statsOn = -1;
 void emine_sleep(double ms, bool frame)

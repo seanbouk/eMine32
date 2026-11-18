@@ -26,7 +26,8 @@ Needs an llvm-mingw / MinGW toolchain and GNU make on PATH. Run from Git Bash:
 scripts/build-native.sh
 ```
 
-Then `run.bat` (title screen) or `run.bat E1L1.MAP` (straight into a map). Until `game/` has its own data, this
+Then `run.bat` (title screen; a new game starts in the intro, `INTRO.MAP`) or `run.bat E1L1.MAP` (straight into the
+mines). Until `game/` has its own data, this
 needs the Duke3D shareware `DUKE3D.GRP` in `devdata/duke3d-sw/`.
 
 ## Licences

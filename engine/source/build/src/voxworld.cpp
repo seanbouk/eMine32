@@ -1932,9 +1932,9 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
             // near: leaves are cut-outs (see-through); far, or once the ray has been through one column of leaves:
             // opaque, so the ray stops at the next tree (through a gap in the leaves you see the canopy's dark
             // inside, not every leaf face of the whole canopy behind it)
-            bool const far = din > leafdist || pastleaves;
-            vwrun_t const *const runs = far ? c->lruns : c->runs, *const gruns = far ? c->ggruns : c->gruns;
-            int const nr = far ? c->nlruns : c->nruns, nw = c->nwruns, np = c->nplants, ngl = far ? c->nggruns : c->ngruns;
+            bool const farleaves = din > leafdist || pastleaves;
+            vwrun_t const *const runs = farleaves ? c->lruns : c->runs, *const gruns = farleaves ? c->ggruns : c->gruns;
+            int const nr = farleaves ? c->nlruns : c->nruns, nw = c->nwruns, np = c->nplants, ngl = farleaves ? c->nggruns : c->ngruns;
             // Cheap reject: if even the top of this block column projects below every open row, skip it.
             // (The top face's far edge is its highest point when it's below the eye, else the near edge.)
             float const colztop = (float)vw_layertop(max(max(nr ? runs[nr-1].z1 : 0, nw ? c->wruns[nw-1].z1 : 0),
@@ -1956,7 +1956,7 @@ static __attribute__((noinline)) void vw_drawcolumn(int sx, uint8_t *col, float 
                 vw_drawglasscell(c, gruns, ngl, vw_colblocks(gx, gy), gx, gy, side, din, xnext ? gx + stepx : gx, xnext ? gy : gy + stepy,
                                  xnext ? (stepx > 0 ? 0 : 1) : (stepy > 0 ? 2 : 3), dout, dx, dy, gaps, ng);
             }
-            if (ngl && !far && c->hasleaves) pastleaves = true;  // drawn see-through here; solid from the next column on
+            if (ngl && !farleaves && c->hasleaves) pastleaves = true;  // drawn see-through here; solid from the next column on
             if (np)
                 vw_drawplantcell(c, vw_colblocks(gx, gy), gx, gy, k, gaps, ng);
             if (nr)

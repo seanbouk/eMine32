@@ -501,6 +501,33 @@ void Emine_ResetWeapons(int playerNum)
     p.ammo_amount[PISTOL_WEAPON] = min<int16_t>(p.max_ammo_amount[PISTOL_WEAPON], 12);
 }
 
+// At the start of each level. The intro (any map that isn't the block world) is played with your boots alone: no
+// weapons, no ammo. The mines give the pistol and its clip back if you come in without them.
+void Emine_LevelWeapons(void)
+{
+    for (int TRAVERSE_CONNECT(i))
+    {
+        auto &p = *g_player[i].ps;
+        if (!voxworld_active())
+        {
+            p.gotweapon = 1 << KNEE_WEAPON;
+            for (auto &ammo : p.ammo_amount) ammo = 0;
+            p.curr_weapon = KNEE_WEAPON;
+            p.last_weapon = -1;
+            p.kickback_pic = 0;
+            p.weapon_pos = 0;
+        }
+        else if (!(p.gotweapon & (1 << PISTOL_WEAPON)))
+        {
+            Emine_ResetWeapons(i);
+            p.curr_weapon = PISTOL_WEAPON;
+            p.last_weapon = -1;
+            p.kickback_pic = 0;
+            p.weapon_pos = WEAPON_POS_START;
+        }
+    }
+}
+
 // Dev console: `emine_ammo <weapon> <amount>` sets that weapon's ammo (weapon numbers as Duke's: 1 pistol, 2 shotgun,
 // 3 chaingun, 4 RPG, 5 pipe bomb, 7 devastator, ...). For testing a weapon without mining for it.
 static int osdcmd_emine_ammo(osdcmdptr_t parm)
@@ -598,6 +625,32 @@ static int osdcmd_emine_go(osdcmdptr_t parm)
     return OSDCMD_OK;
 }
 
+// Dev console: `emine_tp <x> <y> [angle]` stands the player at a point of an ordinary map (the intro), in hundredths
+// of a plan unit (512 Build units, as tools/mkintro.py lays the map out), on the floor there, facing Build angle.
+static int osdcmd_emine_tp(osdcmdptr_t parm)
+{
+    auto const p = g_player[myconnectindex].ps;
+    if (p->i < 0 || parm->numparms < 2) return OSDCMD_SHOWHELP;
+    int32_t const x = Batol(parm->parms[0]) * 512 / 100, y = Batol(parm->parms[1]) * 512 / 100;
+    int16_t sect = p->cursectnum;
+    updatesector(x, y, &sect);
+    if (sect < 0)
+    {
+        OSD_Printf("emine_tp: no sector there\n");
+        return OSDCMD_OK;
+    }
+    vec3_t const feet = { x, y, getflorzofslope(sect, x, y) };
+    p->pos    = { feet.x, feet.y, feet.z - PHEIGHT };
+    p->opos   = p->pos;
+    p->bobpos = { feet.x, feet.y };
+    p->vel    = { 0, 0, 0 };
+    p->cursectnum = sect;
+    if (parm->numparms >= 3) p->q16ang = fix16_from_int(Batol(parm->parms[2]) & 2047);
+    setsprite(p->i, &feet);
+    OSD_Printf("emine_tp: sector %d\n", sect);
+    return OSDCMD_OK;
+}
+
 // Dev console: `emine_find <blocktype>` stands the player on the nearest column topped with that block type.
 static int osdcmd_emine_find(osdcmdptr_t parm)
 {
@@ -646,6 +699,7 @@ void Emine_RegisterOSD(void)
     OSD_RegisterFunction("emine_ore", "emine_ore <blocktype>: dev - drop what breaking that ore gives (11 coal, 12 iron, 13 gold, 14 redstone, 33 lapis, 34 diamond)", osdcmd_emine_ore);
     OSD_RegisterFunction("emine_spawn", "emine_spawn <tile> [blocks]: dev - spawn that sprite/actor on the ground in front of you (default 4 blocks)", osdcmd_emine_spawn);
     OSD_RegisterFunction("emine_list", "emine_list [blocks]: dev - list the enemies near you (default 32 blocks)", osdcmd_emine_list);
+    OSD_RegisterFunction("emine_tp", "emine_tp <x> <y> [angle]: dev - stand at a point of an ordinary map (hundredths of 512 units)", osdcmd_emine_tp);
     OSD_RegisterFunction("emine_go", "emine_go <dx> <dy> [angle]: dev - move that many blocks across the world (and face Build angle 0-2047)", osdcmd_emine_go);
     OSD_RegisterFunction("emine_where", "emine_where: dev - toggle printing the blocks at the player's eye/body/feet", osdcmd_emine_where);
     OSD_RegisterFunction("emine_water", "emine_water [shore]: dev - jump into the nearest open water (or stand beside it)", osdcmd_emine_water);

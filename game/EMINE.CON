@@ -111,12 +111,14 @@ defineskillname 0 Gentle
 defineskillname 1 Normal
 defineskillname 2 Hard
 defineskillname 3 Brutal
-definelevelname 0 0 E1L1.map 00:00 00:00 The Mines
+// level 1: the Graveyard Shift arcade, where you arrive (tools/mkintro.py); level 2: the mines, through Mine Shift
+definelevelname 0 0 INTRO.MAP 00:00 00:00 Graveyard Shift
+definelevelname 0 1 E1L1.map 00:00 00:00 The Mines
 
 // music: one track from the very start (the studio screen) through the menus into play. The engine lets it play on
-// when each of these asks for it again (sounds.cpp). Slots: 0 = title, briefing (new game), loading; 1 = the level.
+// when each of these asks for it again (sounds.cpp). Slots: 0 = title, briefing (new game), loading; 1 = the levels.
 music 0 music/absurd-outro.ogg music/absurd-outro.ogg music/absurd-outro.ogg
-music 1 music/absurd-outro.ogg
+music 1 music/absurd-outro.ogg music/absurd-outro.ogg
 
 
 // ---- messages -----------------------------------------------------------------------------------------------------
@@ -183,6 +185,9 @@ definequote 203 ROCKETS
 definequote 204 PIPE BOMBS
 definequote 205 DEVASTATOR MISSILES
 definequote 206 HEALTH +10
+
+// the intro
+definequote 220 AHH... SHIFT HAPPENS.
 
 
 // ---- weapon damage ------------------------------------------------------------------------------------------------
@@ -367,3 +372,61 @@ actor PLAYER_TILE 100 PL_STAND 0 0
         break
     }
 enda
+
+
+// ---- the intro: the Graveyard Shift arcade ------------------------------------------------------------------------
+// The map and these tile numbers are generated (tools/mkintro.py -> INTRO.MAP, intro.con). You arrive with no weapons
+// (the engine takes them at the start of the intro and gives the pistol back in the mines: Emine_LevelWeapons).
+
+include intro.con
+
+define S_SWITCH  213
+define S_SHIFT   10
+define NOT_ENEMY 0        // a useractor that isn't an enemy
+define P_KICKING 512      // ifp: kicking
+
+// Mine Shift: its trigger is an invisible sprite on the cabinet's face. Press the big red button (open) or kick it,
+// and the screen floods green and you're shifted into the game.
+action MS_IDLE  0 1 1 1 1
+action MS_SHIFT 0 1 1 1 1
+
+state mineshift_go
+    sound S_SWITCH
+    globalsound S_SHIFT
+    action MS_SHIFT
+    resetcount
+ends
+
+useractor NOT_ENEMY MINESHIFT_TILE 1000 MS_IDLE
+    ifaction MS_SHIFT
+    {
+        ifcount 34 { startlevel 0 1 break }
+        ifcount 24 palfrom 63 0 48 24
+        else ifcount 16 palfrom 48 0 48 24
+        else ifcount 8 palfrom 32 0 40 20
+        else palfrom 20 0 32 16
+        break
+    }
+    ifhitweapon { state mineshift_go break }
+    ifp P_ALIVE ifpdistl 1400 ifcansee
+    {
+        ifhitspace { state mineshift_go break }
+        ifp P_KICKING { state mineshift_go break }
+    }
+enda
+
+// the staff WC: the gag
+useractor NOT_ENEMY TOILET_TILE 0
+    ifcount 45 ifp P_ALIVE ifpdistl 1100 ifcansee ifhitspace { quote 220 resetcount }
+enda
+
+// the barrel fire: it doesn't burn you, it just won't keep still
+useractor NOT_ENEMY FIRE_TILE 0
+    ifrnd 40 { ifrnd 128 cstat 2048 else cstat 2052 }
+enda
+
+// mopeds: five views each, the engine picks one (and mirrors it) by where you stand
+action MOPED_VIEWS 0 1 5 1 1
+useractor NOT_ENEMY MOPED_RED_TILE 0 MOPED_VIEWS enda
+useractor NOT_ENEMY MOPED_TEAL_TILE 0 MOPED_VIEWS enda
+useractor NOT_ENEMY MOPED_CREAM_TILE 0 MOPED_VIEWS enda

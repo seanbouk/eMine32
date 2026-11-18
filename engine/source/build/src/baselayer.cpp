@@ -345,8 +345,8 @@ int32_t mouseAdvanceClickState(void)
 // eMine32: read the mouse from the page's pointerrawupdate total (web/shell.html) instead of SDL's mousemove
 // events. Chrome hands the page one mousemove per frame, so a 1000 Hz mouse backed up by seconds; raw updates
 // come as they happen and the page just adds them up. `emine_rawmouse 0` goes back to SDL's events.
-int emine_rawmouse = 1;
 #endif
+int emine_rawmouse = 1;  // (natively there's no page: the setting is kept for the console command, and does nothing)
 
 void mouseReadPos(int32_t *x, int32_t *y)
 {

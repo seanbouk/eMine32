@@ -81,7 +81,11 @@ void Emine_PerfFrame(double drawms, double waitms, int q16ang)
         if (cur.end - secStart >= 1000.0)
         {
             double const span = cur.end - secStart;
+#ifdef __EMSCRIPTEN__
             int const spikes = EM_ASM_INT({ var v = Module.emineRawSpikes | 0; Module.emineRawSpikes = 0; return v; });
+#else
+            int const spikes = 0;  // the page drops mouse spikes; there's no page natively
+#endif
             OSD_Printf("emine_perf: 1s: %d frames (gap avg %.1f max %.1f, %d over 20 ms); game work per frame avg %.1f max %.1f ms "
                        "(world %.1f hud %.1f present %.1f sound %.1f input %.1f), waiting %.1f; audio mixing %.0f ms/s; "
                        "mouse: %d mousemove (max %d ms late), %d raw (max %d ms late), %d spikes dropped\n",

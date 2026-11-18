@@ -12,7 +12,7 @@ art/palette/colours.json. Everything else is computed here from them, by our own
     fullbright colours (240-254, which glow in the dark) never fade.
   - translucency table: every pair of colours mixed, matched to the nearest colour.
   - palette swaps (LOOKUP.DAT): the whole-sprite tints the engine uses (1 blue: frozen, 2 red, 6 green: night vision,
-    7 yellow, 8 slime green, 4 black: silhouettes). Each colour keeps its brightness and takes the tint's hue. Duke's
+    7 yellow, 8 slime green, 4 black: silhouettes), and the intro's coloured lights (10-14). Each colour keeps its brightness and takes the tint's hue. Duke's
     other swaps recoloured his enemies; they're cut, and an unknown swap draws in normal colours.
 
 TABLES.DAT isn't needed: the engine computes its sine and arctangent tables and has its own fonts.
@@ -31,7 +31,10 @@ FULLBRIGHT = range(240, 255)       # never fade
 BASEPALS = ['underwater', 'nightvision', 'title', 'studio', 'ending']  # LOOKUP.DAT's on-disk order
 # palette swaps: pal number -> (the tint's colour at full brightness, brightness gain), or None for black
 TINTS = {1: ((110, 140, 200), 1.5), 2: ((216, 64, 24), 2.5), 4: None, 6: ((150, 255, 110), 2.0),
-         7: ((220, 180, 30), 1.25), 8: ((150, 200, 80), 2.0)}
+         7: ((220, 180, 30), 1.25), 8: ((150, 200, 80), 2.0),
+         # the intro's lights (tools/mkintro.py): sodium lamps, Mine Shift's glow, pink neon, cold street light, fire
+         10: ((255, 165, 70), 1.6), 11: ((80, 255, 190), 1.7), 12: ((255, 90, 200), 1.7), 13: ((150, 180, 255), 1.4),
+         14: ((255, 120, 45), 1.8)}
 
 
 def grp_files():

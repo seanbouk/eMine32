@@ -1692,6 +1692,8 @@ static void G_ResetAllPlayers(void)
             }
         }
     }
+
+    Emine_LevelWeapons();  // eMine32: no weapons in the intro, the pistol back in the mines
 }
 
 void G_ResetTimers(bool saveMoveCnt)
