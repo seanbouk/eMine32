@@ -199,5 +199,66 @@
  "frost_front": {
   "mode": "fit",
   "emit": true
+ },
+ "concrete": {
+  "mode": "tile",
+  "bu": 4
+ },
+ "pipes": {
+  "mode": "tile",
+  "bu": 4
+ },
+ "dustsheet": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "cinder_pale": {
+  "mode": "tile",
+  "bu": 2
+ },
+ "wall_twotone": {
+  "mode": "tile",
+  "bu": 3.0
+ },
+ "fire_door_inside": {
+  "mode": "fit"
+ },
+ "vending_front": {
+  "mode": "fit",
+  "emit": true
+ },
+ "spr_extinguisher": {
+  "mode": "sprite",
+  "w": 0.4098984771573604,
+  "h": 0.75
+ },
+ "sign_trade": {
+  "mode": "sprite",
+  "w": 2.6,
+  "h": 0.9853211009174312
+ },
+ "paint_bays": {
+  "mode": "sprite",
+  "w": 4.3999999999999995,
+  "h": 12.5
+ },
+ "paint_keepclear": {
+  "mode": "sprite",
+  "w": 3.4000000000000004,
+  "h": 4.4
+ },
+ "_floor": {
+  "paint_bays": [
+   1.2,
+   8.5,
+   5.6,
+   21.0
+  ],
+  "paint_keepclear": [
+   15.4,
+   3.6,
+   18.8,
+   8.0
+  ]
  }
 }

@@ -99,7 +99,6 @@ M = dict(
     tubedim=mat('tube_flicker', (0.9, 0.9, 0.9), emit=(0.9, 0.95, 1.0), strength=6),
     tubedead=mat('tube_dead', (0.5, 0.5, 0.5)),
     bulb=mat('caged_bulb', (0, 0, 0), emit=(1.0, 0.9, 0.7), strength=40),
-    sheet=mat('dust_sheet', (0.28, 0.27, 0.26)),
     mullion=mat('mullion', (0.04, 0.04, 0.04)),
 )
 
@@ -202,6 +201,19 @@ def sprite(name, x, y, z0, tex, h=None, facing=None, strength=6.0):
     COL['Sprites'].objects.link(ob)
     return ob
 
+def floor_paint(name, tex):
+    """a floor sprite: paint on the ground over the plan rect stored with the texture"""
+    x0, y0, x1, y1 = MANIFEST['_floor'][tex]
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new(); uvl = bm.loops.layers.uv.new()
+    f = bm.faces.new([bm.verts.new(c) for c in [(x0, -y1, 0.004), (x1, -y1, 0.004), (x1, -y0, 0.004), (x0, -y0, 0.004)]])
+    for loop, uv in zip(f.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]): loop[uvl].uv = uv
+    bm.to_mesh(me); bm.free()
+    me.materials.append(T(tex))
+    ob = bpy.data.objects.new(name, me)
+    COL['Sprites'].objects.link(ob)
+    return ob
+
 def light(name, kind, at, rgb, power, size=None, aim=None, spot=None, col='Lights'):
     d = bpy.data.lights.new(name, kind)
     d.color = rgb; d.energy = power
@@ -230,6 +242,8 @@ wall('yard_s_b', 7.5, 23, 19, 23, 0, YARD_H, T('brick'), T_OUT)
 box('gate_shutter', 3.5, 22.9, 0.22, 7.5, 23.1, 4.0, T('shutter'))     # gap underneath leaks street light
 box('gate_lintel', 3.5, 22.8, 4.0, 7.5, 23.2, YARD_H, T('brick'))
 sprite('sign_noentry', 5.5, 22.88, 1.5, 'sign_noentry', facing='n')
+floor_paint('parking_bays', 'paint_bays')
+floor_paint('fire_exit_keep_clear', 'paint_keepclear')
 light('street_gate', 'AREA', P(5.5, 24.2, 0.6), (0.45, 0.65, 1.0), 400, size=(4, 1), aim=P(5.5, 20, 0))
 
 # bins, bags, pallets, skip, barrel fire
@@ -271,25 +285,27 @@ for i, (hx, sgn) in enumerate([(4.0, -1), (6.6, 1)]):     # rear doors swung ope
     hv = P(*TR['pivot']); rt = Matrix.Rotation(math.radians(TR['rotz']), 3, 'Z')
     d.location = hv + rt @ (d.location - hv)
     d.rotation_euler.z += math.radians(TR['rotz'])
-box('truck_cargo_sheeted_cabinet', 4.2, 17.6, FLOOR, 5.1, 18.5, FLOOR + 1.9, M['sheet'], **TR)
+box('truck_cargo_sheeted_cabinet', 4.2, 17.6, FLOOR, 5.1, 18.5, FLOOR + 1.9, T('dustsheet'), **TR)
 box('truck_cargo_crate', 5.6, 18.0, FLOOR, 6.45, 19.4, FLOOR + 1.1, T('plywood'), **TR)
 
 # ---------------------------------------------------------------- building shell
-box('bld_floor_corr', 19, 1, -0.1, 41, 7.5, 0.0, T('lino'))
+box('bld_floor_corr', 19, 1, -0.1, 33, 7.5, 0.0, T('concrete'))
+box('bld_floor_prize', 33, 1, -0.1, 41, 7.5, 0.0, T('carpet'))
 box('bld_floor_arcade', 19, 7.5, -0.1, 41, 23, 0.0, T('carpet'))
-wall('bld_w_a', 19, 1, 19, 5, 0, BLD_H, T('render'), T_OUT, {'e': T('cinder')})
+wall('bld_w_a', 19, 1, 19, 5, 0, BLD_H, T('render'), T_OUT, {'e': T('cinder_pale')})
 wall('bld_w_b', 19, 6.5, 19, 23, 0, BLD_H, T('render'), T_OUT, {'e': T('arcade_wall')})
-box('bld_w_lintel', 19 - T_OUT / 2, 5, 2.3, 19 + T_OUT / 2, 6.5, BLD_H, T('render'), {'e': T('cinder')})
+box('bld_w_lintel', 19 - T_OUT / 2, 5, 2.3, 19 + T_OUT / 2, 6.5, BLD_H, T('render'), {'e': T('cinder_pale')})
 wall('bld_n', 19, 1, 41.2, 1, 0, BLD_H, T('render'), T_OUT, {'s': T('cinder')})
 wall('bld_s', 19, 23, 41.2, 23, 0, BLD_H, T('render'), T_OUT, {'n': T('arcade_wall')})
 box('bld_e_band', 40.8, 1, 3.6, 41.2, 23, BLD_H, T('render'), {'w': T('arcade_wall')})
 box('bld_roof', 19, 1, BLD_H, 41.2, 23, BLD_H + 0.2, T('render'), col='Ceilings')
 
 # fire exit: hinged on the north jamb, swung ~70 deg out into the yard, propped with a brick
-fx = box('fire_exit_door', 18.97, 5, 0, 19.03, 6.5, 2.3, T('steel'), {'w': T('fire_door'), 'e': T('fire_door')})
+fx = box('fire_exit_door', 18.97, 5, 0, 19.03, 6.5, 2.3, T('steel'), {'w': T('fire_door'), 'e': T('fire_door_inside')})
 hinge = P(19, 5)
 r = Matrix.Rotation(math.radians(-70), 3, 'Z')
 fx.location = hinge + r @ (fx.location - hinge); fx.rotation_euler.z = math.radians(-70)
+sprite('sign_trade', 18.81, 10.0, 2.3, 'sign_trade', facing='w')
 sprite('brick_wedge', 18.5, 6.65, 0, 'spr_brick')
 sprite('sign_exit', 18.81, 5.75, 2.4, 'sign_exit', facing='w', strength=8)
 light('exit_glow', 'POINT', P(18.5, 5.75, 2.6), (0.2, 1.0, 0.5), 60, size=0.15)
@@ -298,17 +314,17 @@ light('caged_bulb', 'POINT', P(18.6, 4.6, 2.9), (1.0, 0.9, 0.7), 70, size=0.08)
 light('door_spill', 'AREA', P(19.8, 5.75, 2.2), (0.85, 0.9, 1.0), 15, size=(0.8, 1.4), aim=P(17, 5.75, 0))
 
 # interior walls: corridor side cinder block, arcade side dark paint
-CORR_CEIL, ARC_CEIL = 2.6, 4.0
+CORR_CEIL, ARC_CEIL = 3.0, 4.0
 for i, (x0, x1) in enumerate([(19, 21.5), (22.5, 25), (25.8, 29), (30, 33)]):
-    wall(f'corr_n_{i}', x0, 4, x1, 4, 0, CORR_CEIL, T('cinder'), T_IN)
+    wall(f'corr_n_{i}', x0, 4, x1, 4, 0, CORR_CEIL, T('cinder'), T_IN, {'s': T('cinder_pale')})
 for i, x in enumerate([24, 27]):
     wall(f'room_div_{i}', x, 1, x, 4, 0, CORR_CEIL, T('cinder'), T_IN)
-wall('corr_e', 33, 1, 33, 7.5, 0, ARC_CEIL, T('cinder'), T_IN, {'e': T('arcade_wall')})
-wall('corr_s_a', 19, 7.5, 29.2, 7.5, 0, ARC_CEIL, T('cinder'), T_IN, {'s': T('arcade_wall')})
-wall('corr_s_b', 30.8, 7.5, 33, 7.5, 0, ARC_CEIL, T('cinder'), T_IN, {'s': T('arcade_wall')})
-box('staff_door_lintel', 29.2, 7.41, 2.2, 30.8, 7.59, ARC_CEIL, T('cinder'), {'s': T('arcade_wall')})
+wall('corr_e', 33, 1, 33, 7.5, 0, ARC_CEIL, T('cinder'), T_IN, {'e': T('arcade_wall'), 'w': T('wall_twotone')})
+wall('corr_s_a', 19, 7.5, 29.2, 7.5, 0, ARC_CEIL, T('wall_twotone'), T_IN, {'s': T('arcade_wall')})
+wall('corr_s_b', 30.8, 7.5, 33, 7.5, 0, ARC_CEIL, T('wall_twotone'), T_IN, {'s': T('arcade_wall')})
+box('staff_door_lintel', 29.2, 7.41, 2.2, 30.8, 7.59, ARC_CEIL, T('wall_twotone'), {'s': T('arcade_wall')})
 sprite('sign_staff', 28.55, 7.4, 1.3, 'sign_staff', facing='n')
-box('corr_ceiling', 19, 1, CORR_CEIL, 33, 7.5, CORR_CEIL + 0.1, T('ceiling'), col='Ceilings')
+box('corr_ceiling', 19, 1, CORR_CEIL, 33, 7.5, CORR_CEIL + 0.1, T('pipes'), col='Ceilings')
 box('arcade_ceiling', 19, 7.5, ARC_CEIL, 41, 23, ARC_CEIL + 0.1, T('paint_black'), col='Ceilings')
 box('prize_ceiling', 33, 1, ARC_CEIL, 41, 7.5, ARC_CEIL + 0.1, T('paint_black'), col='Ceilings')
 for i, (hx, sgn) in enumerate([(29.2, 1), (30.8, -1)]):     # staff swing doors, ajar into the arcade
@@ -322,13 +338,19 @@ for i, (x0, state) in enumerate([(20.6, 'dead'), (23.5, 'dim'), (26.6, 'dead'), 
     if state != 'dead':
         light(f'tube_{i}', 'AREA', P(x0 + 0.7, 5.75, CORR_CEIL - 0.08), (0.9, 0.95, 1.0), 70 if state == 'on' else 14, size=(1.4, 0.2), aim=P(x0 + 0.7, 5.75, 0))
 
+# a drinks machine against the two-tone wall, a chunk of wall sticking out beside it, an extinguisher beyond
+box('pilaster', 25.3, 6.95, 0, 25.75, 7.41, CORR_CEIL, T('wall_twotone'))
+box('vending', 24.2, 6.62, 0, 25.25, 7.41, 2.0, T('paint_black'), {'n': T('vending_front', 1.5)})
+light('vending_glow', 'AREA', P(24.72, 6.4, 1.2), (1.0, 0.92, 0.85), 12, size=(0.9, 1.6), aim=P(24.72, 4, 1.0))
+sprite('extinguisher', 26.4, 7.39, 0.45, 'spr_extinguisher', facing='n')
+
 # rooms off the corridor
 box('office_desk', 19.3, 1.3, 0, 21.3, 2.3, 0.75, T('plywood'))
 sprite('office_chair', 20.4, 2.8, 0, 'spr_chair')
 sprite('wc_toilet', 25.5, 1.55, 0, 'spr_toilet')
 box('store_shelves', 27.3, 1.2, 0, 32.7, 2.0, 2.2, T('plywood'))
-box('store_part_a', 27.3, 2.4, 0, 28.5, 3.6, 1.0, M['sheet'])
-box('store_part_b', 29, 2.4, 0, 30.2, 3.6, 1.6, M['sheet'])
+box('store_part_a', 27.3, 2.4, 0, 28.5, 3.6, 1.0, T('dustsheet'))
+box('store_part_b', 29, 2.4, 0, 30.2, 3.6, 1.6, T('dustsheet'))
 
 # prize counter and lobby
 box('prize_counter', 34, 5.4, 0, 39.6, 6.2, 1.05, T('laminate'))
@@ -359,7 +381,7 @@ def cabinet(name, cx, cy, face, tex, width=0.95, depth=0.9, ledge=0.3, panel_h=1
 
 def sheeted(name, cx, cy, face, width=0.95, depth=0.9):
     x0, y0, x1, y1 = footprint(cx, cy, face, -depth / 2, depth / 2, width)
-    box(name, x0 - 0.04, y0 - 0.04, 0, x1 + 0.04, y1 + 0.04, 1.95, M['sheet'])
+    box(name, x0 - 0.04, y0 - 0.04, 0, x1 + 0.04, y1 + 0.04, 1.95, T('dustsheet'))
 
 k = 0
 for rx, face in [(19.2, 'e'), (23.5, 'w'), (24.4, 'e'), (26.9, 'e'), (32.2, 'w'), (35.3, 'w'), (36.2, 'e')]:
@@ -441,6 +463,8 @@ CAMS = {
     'wall':  camera('cam_2_pale_wall', P(6.5, 4.8, EYE), P(18, 6.6, EYE - 0.2)),
     'exit':  camera('cam_3_fire_exit', P(19.8, 5.75, EYE), P(32, 5.75, EYE - 0.1)),
     'glass': camera('cam_5_front_glass', P(31.2, 8.5, EYE), P(41, 11.5, EYE + 0.3)),
+    'yard':  camera('cam_6_yard_back', P(16.5, 9.5, EYE), P(4, 16, EYE - 0.6)),
+    'corridor': camera('cam_7_corridor_back', P(32.2, 5.2, EYE), P(19, 6.0, EYE - 0.15)),
     'staff': camera('cam_4_staff_doors', P(30, 8.3, EYE), P(33.0, 22, EYE - 0.35)),
 }
 top = bpy.data.cameras.new('top'); top.type = 'ORTHO'; top.ortho_scale = 44

@@ -1,19 +1,113 @@
 {
-  "_style": "Seamless tileable texture, flat orthographic front view filling the whole square, evenly lit with no shadows, no vignette, no perspective. Gritty mid-1990s PC first-person-shooter game texture, photographic but slightly painterly, strong contrast.",
-  "brick":    {"aspect": "1:1",  "tile": true,  "prompt": "Dark red-brown old brick wall, weathered bricks in running bond, dirty dark mortar, grime streaks."},
-  "asphalt":  {"aspect": "1:1",  "tile": true,  "prompt": "Cracked dark grey asphalt tarmac seen from directly above, oil stains, small stones, a few patched cracks."},
-  "render":   {"aspect": "1:1",  "tile": true,  "prompt": "Grimy grey painted concrete block exterior wall of a commercial building, rain streaks and dirt."},
-  "shutter":  {"aspect": "1:1",  "tile": true,  "prompt": "Galvanised corrugated steel roller shutter slats running horizontally, some rust spots and a few faded graffiti tags."},
-  "cinder":   {"aspect": "1:1",  "tile": true,  "prompt": "Institutional corridor wall of painted cinder blocks, pale grey-green gloss paint, scuffs and marks."},
-  "lino":     {"aspect": "1:1",  "tile": true,  "prompt": "Scuffed grey-green vinyl floor tiles seen from directly above, a 4 by 4 grid of square tiles, worn and dirty."},
-  "ceiling":  {"aspect": "1:1",  "tile": true,  "prompt": "Suspended office ceiling seen from directly below: a 2 by 2 grid of white speckled acoustic ceiling tiles in a thin metal grid, slightly yellowed, one with a water stain."},
-  "carpet":   {"aspect": "1:1",  "tile": true,  "prompt": "1990s video arcade carpet seen from directly above: black background with a busy neon cosmic pattern of pink, cyan, yellow and purple squiggles, stars, planets and triangles."},
-  "door":     {"aspect": "2:3",  "tile": false, "prompt": "Flat orthographic front view of a closed steel fire exit door filling the whole image, grey-green painted steel, stencilled text FIRE EXIT KEEP CLEAR, scuffs, a dented lower kick plate. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."},
-  "cabinets": {"aspect": "16:9", "tile": false, "prompt": "Three upright 1980s arcade cabinets side by side, flat orthographic front views, on a plain light grey background, evenly lit. Each has different original made-up marquee art (a space shooter, a car racing game, a kung fu fighting game), a switched-off dark screen, a control panel with a joystick and buttons, and a coin door. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly."},
-  "mineshift":{"aspect": "9:16", "tile": false, "prompt": "Flat orthographic front view of one upright 1980s arcade cabinet filling the image, on a plain grey background. The illuminated marquee at the top reads MINE SHIFT in chunky blocky green letters. The glowing screen shows blocky pixel-art: an underground mine of stone and ore blocks with a pickaxe, and the words PRESS START. The control panel has one big red button. The coin door has a FREE PLAY sticker. The cabinet sides are painted with blocky dirt and grass block art. Mid-1990s PC game sprite style."},
-  "pinclaw":  {"aspect": "16:9", "tile": false, "prompt": "Two amusement machines side by side, flat orthographic front views, on a plain light grey background, both switched off: on the left a 1990s pinball machine showing its backglass with original made-up haunted graveyard art titled GRAVE DIGGER; on the right a claw crane machine with a glass case full of plush toys. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly."},
-  "truck":    {"aspect": "21:9", "tile": false, "prompt": "Flat orthographic side view of a white box truck on a plain light grey background. The livery on the box side reads GRAVEYARD SHIFT AMUSEMENTS in purple and green arcade lettering, with a cartoon ghost holding an arcade joystick. Slightly dirty. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."},
-  "dumpster": {"aspect": "16:9", "tile": false, "prompt": "Flat orthographic front view of a large green steel commercial dumpster bin with a closed lid, dented and dirty, a few stickers, on a plain light grey background. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."},
-  "signs":    {"aspect": "16:9", "tile": false, "prompt": "A sheet of five separate flat signs on a plain light grey background, front views, evenly spaced, not overlapping: a green illuminated EXIT sign with a running man pictogram; a red and white STAFF ONLY door sign; a small round sticker reading FREE PLAY; a handwritten paper sign reading OUT OF ORDER; a small yellow and black NO ENTRY sign. Mid-1990s PC game texture style."},
-  "sprites":  {"aspect": "16:9", "tile": false, "prompt": "Game prop sprites on a plain flat light grey background, front views, evenly spaced and not overlapping: a rusty dented steel oil drum barrel; a white porcelain toilet seen from the front; a black office swivel chair; a pile of black rubbish bags; a single red brick. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly, evenly lit."}
+ "_style": "Seamless tileable texture, flat orthographic front view filling the whole square, evenly lit with no shadows, no vignette, no perspective. Gritty mid-1990s PC first-person-shooter game texture, photographic but slightly painterly, strong contrast.",
+ "brick": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Dark red-brown old brick wall, weathered bricks in running bond, dirty dark mortar, grime streaks."
+ },
+ "asphalt": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Cracked dark grey asphalt tarmac seen from directly above, oil stains, small stones, a few patched cracks."
+ },
+ "render": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Grimy grey painted concrete block exterior wall of a commercial building, rain streaks and dirt."
+ },
+ "shutter": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Galvanised corrugated steel roller shutter slats running horizontally, some rust spots and a few faded graffiti tags."
+ },
+ "cinder": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Institutional corridor wall of painted cinder blocks, pale grey-green gloss paint, scuffs and marks."
+ },
+ "lino": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Scuffed grey-green vinyl floor tiles seen from directly above, a 4 by 4 grid of square tiles, worn and dirty."
+ },
+ "ceiling": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Suspended office ceiling seen from directly below: a 2 by 2 grid of white speckled acoustic ceiling tiles in a thin metal grid, slightly yellowed, one with a water stain."
+ },
+ "carpet": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "1990s video arcade carpet seen from directly above: black background with a busy neon cosmic pattern of pink, cyan, yellow and purple squiggles, stars, planets and triangles."
+ },
+ "door": {
+  "aspect": "2:3",
+  "tile": false,
+  "prompt": "Flat orthographic front view of a closed steel fire exit door filling the whole image, grey-green painted steel, stencilled text FIRE EXIT KEEP CLEAR, scuffs, a dented lower kick plate. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."
+ },
+ "cabinets": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "Three upright 1980s arcade cabinets side by side, flat orthographic front views, on a plain light grey background, evenly lit. Each has different original made-up marquee art (a space shooter, a car racing game, a kung fu fighting game), a switched-off dark screen, a control panel with a joystick and buttons, and a coin door. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly."
+ },
+ "mineshift": {
+  "aspect": "9:16",
+  "tile": false,
+  "prompt": "Flat orthographic front view of one upright 1980s arcade cabinet filling the image, on a plain grey background. The illuminated marquee at the top reads MINE SHIFT in chunky blocky green letters. The glowing screen shows blocky pixel-art: an underground mine of stone and ore blocks with a pickaxe, and the words PRESS START. The control panel has one big red button. The coin door has a FREE PLAY sticker. The cabinet sides are painted with blocky dirt and grass block art. Mid-1990s PC game sprite style."
+ },
+ "pinclaw": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "Two amusement machines side by side, flat orthographic front views, on a plain light grey background, both switched off: on the left a 1990s pinball machine showing its backglass with original made-up haunted graveyard art titled GRAVE DIGGER; on the right a claw crane machine with a glass case full of plush toys. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly."
+ },
+ "truck": {
+  "aspect": "21:9",
+  "tile": false,
+  "prompt": "Flat orthographic side view of a white box truck on a plain light grey background. The livery on the box side reads GRAVEYARD SHIFT AMUSEMENTS in purple and green arcade lettering, with a cartoon ghost holding an arcade joystick. Slightly dirty. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."
+ },
+ "dumpster": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "Flat orthographic front view of a large green steel commercial dumpster bin with a closed lid, dented and dirty, a few stickers, on a plain light grey background. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."
+ },
+ "signs": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "A sheet of five separate flat signs on a plain light grey background, front views, evenly spaced, not overlapping: a green illuminated EXIT sign with a running man pictogram; a red and white STAFF ONLY door sign; a small round sticker reading FREE PLAY; a handwritten paper sign reading OUT OF ORDER; a small yellow and black NO ENTRY sign. Mid-1990s PC game texture style."
+ },
+ "sprites": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "Game prop sprites on a plain flat light grey background, front views, evenly spaced and not overlapping: a rusty dented steel oil drum barrel; a white porcelain toilet seen from the front; a black office swivel chair; a pile of black rubbish bags; a single red brick. Mid-1990s PC first-person-shooter game sprite style, photographic but slightly painterly, evenly lit."
+ },
+ "concrete": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Old polished grey concrete floor of a back-of-house service corridor seen from directly above, dark stains, scuffs, faint water marks and a slight sheen."
+ },
+ "pipes": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Dark exposed industrial ceiling seen from directly below: black-painted concrete slab with dark pipes, a square duct and cable trays running in one direction, grimy and shadowy."
+ },
+ "vending": {
+  "aspect": "16:9",
+  "tile": false,
+  "prompt": "Two items side by side, flat orthographic front views on a plain light grey background, evenly lit: on the left a tall 1990s soda vending machine with an illuminated front panel for an original made-up cola brand called ZAP COLA in red and yellow with lightning bolts, a coin slot and selection buttons; on the right a small red fire extinguisher. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."
+ },
+ "tradesign": {
+  "aspect": "21:9",
+  "tile": false,
+  "prompt": "Flat orthographic front view of a weathered rectangular aluminium sign screwed to a wall, filling the image: plain black text on white reading GRAVEYARD SHIFT AMUSEMENTS on the first line, then UNIT 4 - REAR ENTRANCE - DELIVERIES AND ENGINEERS, then NO PARKING IN FRONT OF FIRE EXIT, with a small red ghost logo in one corner, rust stains at the screws, dirt streaks. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."
+ },
+ "doorin": {
+  "aspect": "2:3",
+  "tile": false,
+  "prompt": "Flat orthographic front view of the inside of a closed steel fire exit door filling the whole image, painted grey-green, with a horizontal chrome panic push bar across the middle and a small green sign above it reading PUSH BAR TO OPEN, scuffs and a dented lower kick plate. Mid-1990s PC first-person-shooter game texture, photographic but slightly painterly."
+ },
+ "dustsheet": {
+  "aspect": "1:1",
+  "tile": true,
+  "prompt": "Grubby off-white canvas dust sheet cloth with soft vertical drape folds and creases, a few grey dust marks, seen straight on."
+ }
 }

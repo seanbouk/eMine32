@@ -131,9 +131,19 @@ def cabinet(name, im, band):
     fit(name + '_lower', bot, CAB_W, PANEL_H)
     fit(name + '_panel', im.crop((0, int(h * band[0]), w, int(h * band[1]))), CAB_W, 0.35)
 
+def unbackground(im, fill=(22, 20, 22)):
+    """the painting's grey studio background and floor, where it shows round a cabinet's edges, become cabinet side"""
+    a = np.asarray(im).astype(np.int32)
+    sat, lum = a.max(2) - a.min(2), a.mean(2)
+    lab, _ = ndimage.label((sat < 22) & (lum > 95))
+    edge = np.unique(np.concatenate([lab[:, 0], lab[:, -1], lab[-1]]))
+    m = np.isin(lab, edge[edge > 0])
+    a[m] = fill
+    return Image.fromarray(a.astype(np.uint8))
+
 cabs = src('cabinets')
-for i, (x0, x1) in enumerate([(0.115, 0.315), (0.40, 0.60), (0.705, 0.885)]):
-    cabinet(f'cab{i}', crop(cabs, x0, 0.08, x1, 0.98), (0.47, 0.58))
+for i, (x0, x1) in enumerate([(0.12, 0.31), (0.405, 0.595), (0.71, 0.88)]):
+    cabinet(f'cab{i}', unbackground(crop(cabs, x0, 0.08, x1, 0.97)), (0.47, 0.58))
 
 # Mine Shift: crop to the cabinet; the marquee, screen and big red button glow
 ms = crop(src('mineshift'), 0.16, 0.04, 0.84, 0.97)
@@ -228,6 +238,67 @@ a = a * 0.85 * (1 - k) + pink * k
 a = a * (1 - core) + np.array([255, 150, 210], np.float32) * core
 a = a + np.random.default_rng(9).normal(0, 4, a.shape[:2])[..., None]     # frosting grain, and no banding once it's palette colours
 save(Image.fromarray(a.clip(0, 255).astype(np.uint8)), 'frost_front', True, mode='fit', emit=True)
+
+# ---------------------------------------------------------------- the staff corridor (T2 service corridor), take 2
+for name, px, bu in [('concrete', 128, 4), ('pipes', 128, 4), ('dustsheet', 64, 2)]:
+    tile(name, src(name), px, bu)
+c = np.asarray(seamless(src('cinder')), np.float32)
+lum = c.mean(2, keepdims=True) / 255
+tile('cinder_pale', Image.fromarray((np.array([226, 233, 234]) * (0.55 + 0.5 * lum)).clip(0, 255).astype(np.uint8)), 64, 2, make_seamless=False)
+
+# one wall painted white, then brown to just under half way, with a messy edge; one repeat is the corridor's height
+CORR_H = 3.0
+N2 = round(CORR_H * 32)
+rng = np.random.default_rng(12)
+plaster = ndimage.gaussian_filter(rng.standard_normal((N2, N2)), 1.0, mode='wrap')
+plaster += ndimage.gaussian_filter(rng.standard_normal((N2, N2)), (8, 0.7), mode='wrap') * 1.5   # drips, roller marks
+edge = N2 - (N2 * 0.42 + np.cumsum(rng.normal(0, 0.45, N2)) % 3 + ndimage.gaussian_filter1d(rng.normal(0, 2.5, N2), 2, mode='wrap'))
+rows = np.arange(N2)[:, None]
+brown = rows > edge[None, :]
+w2 = np.where(brown[..., None], np.array([132, 94, 52]), np.array([222, 220, 210])).astype(np.float32)
+w2 *= (1 + plaster[..., None] * 0.07)
+w2[(np.abs(rows - edge[None, :]) < 1.0)] *= 0.8                                                  # the line itself
+grime = np.clip((rows - N2 * 0.8) / (N2 * 0.2), 0, 1) * 0.3                                       # scuffed at the skirting
+w2 *= (1 - grime[..., None])
+save(Image.fromarray(w2.clip(0, 255).astype(np.uint8)), 'wall_twotone', mode='tile', bu=CORR_H)
+
+fit('fire_door_inside', crop(src('doorin'), 0.07, 0.025, 0.93, 0.985), 1.5, 2.3)
+vend, ext = items('vending', 2)
+fit('vending_front', flatten(vend), 1.0, 2.0)
+MAN['vending_front']['emit'] = True
+hb = 0.75; wb = hb * ext.size[0] / ext.size[1]
+save(ext.resize((round(wb * 64), round(hb * 64)), Image.LANCZOS), 'spr_extinguisher', mode='sprite', w=wb, h=hb)
+ts = crop(src('tradesign'), 0.055, 0.07, 0.95, 0.87)
+wb = 2.6; hb = wb * ts.size[1] / ts.size[0]
+save(ts.resize((round(wb * 64), round(hb * 64)), Image.LANCZOS), 'sign_trade', mode='sprite', w=wb, h=hb)
+
+# ---------------------------------------------------------------- floor paint (floor sprites): parking bays, the fire exit's keep-clear box
+def worn(mask, colour, seed):
+    r = np.random.default_rng(seed)
+    wear = ndimage.gaussian_filter(r.standard_normal(mask.shape), 1.2) > -0.35       # paint worn through in patches
+    alpha = (mask & wear) * 255
+    rgb = np.broadcast_to(np.array(colour, np.uint8), mask.shape + (3,)) * (0.85 + 0.15 * r.random(mask.shape))[..., None]
+    return Image.fromarray(np.dstack([rgb, alpha]).astype(np.uint8), 'RGBA')
+
+BAYS = (1.2, 8.5, 5.6, 21.0)                     # plan rect: four bays along the west wall, the truck parked across them
+bw, bh = round((BAYS[2] - BAYS[0]) * 32), round((BAYS[3] - BAYS[1]) * 32)
+m = np.zeros((bh, bw), bool)
+for yb in np.arange(BAYS[1], BAYS[3] + 0.01, 2.5):
+    r0 = int(round((yb - BAYS[1]) * 32)); m[max(0, r0 - 2):r0 + 2, :] = True
+m[:, bw - 4:] = True                             # the line across the bay mouths
+save(worn(m, (225, 225, 215), 3), 'paint_bays', mode='sprite', w=BAYS[2] - BAYS[0], h=BAYS[3] - BAYS[1])
+
+KEEP = (15.4, 3.6, 18.8, 8.0)
+kw, kh = round((KEEP[2] - KEEP[0]) * 32), round((KEEP[3] - KEEP[1]) * 32)
+yy, xx = np.mgrid[0:kh, 0:kw]
+m = ((xx < 4) | (xx >= kw - 4) | (yy < 4) | (yy >= kh - 4)) | (((xx + yy) % 22) < 4)
+txt = Image.new('L', (kh, kw), 0)                 # KEEP CLEAR runs along the box, read from the yard
+ImageDraw.Draw(txt).text((kh / 2, kw / 2), 'KEEP CLEAR', font=ImageFont.truetype(os.path.join(ROOT, 'art', 'fonts', 'anton', 'Anton-Regular.ttf'), 26), fill=255, anchor='mm')
+txt = np.asarray(txt.rotate(90, expand=True)) > 128
+plate = ndimage.binary_dilation(txt, iterations=4)
+m = (m & ~plate) | txt
+save(worn(m, (232, 190, 40), 4), 'paint_keepclear', mode='sprite', w=KEEP[2] - KEEP[0], h=KEEP[3] - KEEP[1])
+MAN['_floor'] = {'paint_bays': BAYS, 'paint_keepclear': KEEP}
 
 json.dump(MAN, open(os.path.join(OUT, 'manifest.json'), 'w'), indent=1)
 print(len(MAN), 'textures ->', OUT)
