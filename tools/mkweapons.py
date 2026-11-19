@@ -104,7 +104,7 @@ PICKUPS = (37, 40, 41, 42, 44, 47, 49, 26, 51, 54, 2605, 2606, 2607, 2608, 2609,
 LOCAL = [2523, 2533, 2534, 2535, 2538, 2539, 2540, 2541, 2542, 2543, 2614, 2615]
 GROUPS = [(2324, 2327), (2521, 2526), (2528, 2546), (2570, 2575), (2613, 2619), (37, 38), (40, 41), (44, 44), (47, 47), (49, 49),
           (26, 26), (51, 51), (54, 54), (2605, 2611), (42, 42), (2510, 2511)]
-COPIES = {38: 37}
+COPIES = {38: 37, 2571: 2570, 2572: 2570}  # 2571-2572: the detonator's press is the same picture (tools/mkdetonator.py)
 # Painted freely (no layout guide), then fitted here. The devastator: an armoured gauntlet with a wrist-mounted twin
 # rocket launcher, the forearm rising from the bottom edge (only the bottom: on wide screens the sides show). The game
 # draws it in the right hand and mirrored in the left; offsets (in duke()) put it low in each corner.
@@ -119,7 +119,7 @@ FREEFLASH = {2511}
 # hidden behind it), turned to the right and drawn where 2522's leg shows, a little lower and further right.
 KNEE_CUT, KNEE_STRETCH, KNEE_TURN, KNEE_MOVE = 100, 1.6, 20, (24, 34)  # row of 2522 at the knee, stretch, degrees, px
 BLUE_RAMP = np.array([[0, 0, 252], [60, 90, 230], [110, 140, 200], [150, 185, 225], [215, 235, 255]], float)  # the palette has no bright, saturated blue but its fullbright pure blue: that for the edges, steel blues inside
-FLIP = {2608, 2570, 2571, 2572, 2573}  # 2570-2572: the detonator was painted as a right hand; it's held in the left. 2573: the pipe bomb held up, the other way round (playtest 2026-11-19). 2608: painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
+FLIP = {2608, 2573}  # (2570-2572, the detonator, were flipped while fal's right hand was used; Sean's is a left hand) 2573: the pipe bomb held up, the other way round (playtest 2026-11-19). 2608: painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
 ASPECTS = [(21, 9), (16, 9), (3, 2), (4, 3), (1, 1), (3, 4), (2, 3), (9, 16)]
 LONG = 1024  # guide canvas, long side
 
@@ -437,9 +437,10 @@ def local(n, built):
     raise KeyError(n)
 
 
-def offsets(pa, w, h, pad, dx=0, keepy=False):
+def offsets(pa, w, h, pad, dx=0, keepy=False, dy=0):
     """Duke's picanm with the offsets moved so a tile padded by pad = (left, top, right, bottom) draws its original
-    pixels where his were (the game draws from the tile's centre plus its offsets), then dx screen pixels right."""
+    pixels where his were (the game draws from the tile's centre plus its offsets), then dx screen pixels right and dy
+    down."""
     L, T, R, B = pad
     W, H = w + L + R, h + T + B
     xo, yo = (pa >> 8) & 255, (pa >> 16) & 255
@@ -447,6 +448,7 @@ def offsets(pa, w, h, pad, dx=0, keepy=False):
     xo += L + (w >> 1) - (W >> 1) - dx
     if not keepy:
         yo += T + (h >> 1) - (H >> 1)
+    yo -= dy
     assert -128 <= xo <= 127 and -128 <= yo <= 127, (xo, yo)
     return (pa & ~0xFFFF00) | ((xo & 255) << 8) | ((yo & 255) << 16)
 
@@ -457,9 +459,10 @@ ERASE = {2536: [(200, 0, 999, 66), (238, 0, 999, 999)]}
 
 # screen pixels to move a weapon right (the shotgun: its barrel, carried on, passed left of the crosshair)
 SHIFT = {n: 16 for n in range(2613, 2620)}
-SHIFT.update({n: 28 for n in (2570, 2571, 2572)})   # the detonator: a little further in from the left edge
+# screen pixels to move a weapon down (the detonator: Sean's is tall, an antenna on top; Duke's was a low fist)
+SHIFT_Y = {n: -36 for n in (2570, 2571, 2572)}
 # degrees to turn a weapon clockwise on screen, about its middle (the detonator leant a little to the right)
-TURN = {n: 8 for n in (2570, 2571, 2572)}
+TURN = {}
 TURN[2573] = 30   # the pipe bomb held up (in the left hand): turned well over to the right (playtest 2026-11-19)
 
 
@@ -621,7 +624,7 @@ def build():
                 tiles.append((out, knee_picanm(pa, out.shape, duke(2522)[2], duke(2522)[1].shape, built[2522][2])))
                 sheet.append((n, out, out))
                 continue
-            tiles.append((out, offsets(pa, w, h, pad, SHIFT.get(n, 0), keepy=n in PICKUPS)))
+            tiles.append((out, offsets(pa, w, h, pad, SHIFT.get(n, 0), keepy=n in PICKUPS, dy=SHIFT_Y.get(n, 0))))
             L, T = pad[0], pad[1]
             if n in FREE:  # no outline of Duke's to match: ours from scratch
                 sheet.append((n, out, out))
