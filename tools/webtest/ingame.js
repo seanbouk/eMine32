@@ -11,7 +11,7 @@ const { chromium } = require('playwright-core');
   page.on('pageerror', e => console.log(ts(), '[pageerror]', e.message));
   await page.goto(url);
   await page.waitForTimeout(4000);
-  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('canvas'); await page.waitForTimeout(500);
+  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('#canvas'); await page.waitForTimeout(500);
   const key = async (k) => { await page.keyboard.down(k); await page.waitForTimeout(120); await page.keyboard.up(k); await page.waitForTimeout(900); };
   for (const k of menuKeys.split(',').filter(Boolean)) await key(k);
   console.log(ts(), '--- in level');

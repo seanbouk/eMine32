@@ -9,7 +9,7 @@ const fs = require('fs');
   const page = await browser.newPage({ viewport: { width: 1100, height: 620 } });
   page.on('console', m => { const t = m.text(); if (/voxworld|r_voxdump|abort|RuntimeError/i.test(t)) console.log(t.slice(0, 200)); });
   await page.goto(url); await page.waitForTimeout(3000);
-  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('canvas'); await page.waitForTimeout(400);
+  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('#canvas'); await page.waitForTimeout(400);
   const hold = async (k, ms = 120) => { await page.keyboard.down(k); await page.waitForTimeout(ms); await page.keyboard.up(k); await page.waitForTimeout(300); };
   for (const k of ['Space', 'Enter', 'Enter', 'Enter', 'Enter']) { await hold(k); await page.waitForTimeout(500); }
   await page.waitForTimeout(8000);

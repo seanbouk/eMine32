@@ -6,6 +6,7 @@
 The zip is the build we test at http://localhost:8032/ (tools/serve.py): there is no separate release version.
 
 On itch:
+- Cover image: art/page/cover.png (630 x 500, tools/mkboxart.py).
 - Kind of project: HTML. Tick "This file will be played in the browser".
 - Embed options: "Click to launch in fullscreen" (itch opens the page filling the browser window: the game near
   the top, the wall of blocks round it). Not a fixed-size embed, and itch's own fullscreen button isn't needed: the

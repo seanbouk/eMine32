@@ -4,7 +4,7 @@ const { chromium } = require('playwright-core');
   const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
   const page = await browser.newPage({ viewport: { width: 1100, height: 700 } });
   await page.goto(url); await page.waitForTimeout(3000);
-  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('canvas'); await page.waitForTimeout(400);
+  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('#canvas'); await page.waitForTimeout(400);
   const key = async (k) => { await page.keyboard.down(k); await page.waitForTimeout(120); await page.keyboard.up(k); await page.waitForTimeout(900); };
   await key('Space'); await key('Enter'); await key('Enter');
   await page.screenshot({ path: out + '_before.png' });

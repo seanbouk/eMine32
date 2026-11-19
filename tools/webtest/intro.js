@@ -10,7 +10,7 @@ const { chromium } = require('playwright-core');
   page.on('console', m => { const t = m.text(); if (/emine_|abort|RuntimeError|error|warn|INTRO|E1L1|map/i.test(t)) console.log(t.slice(0, 240)); });
   page.on('pageerror', e => console.log('[pageerror]', e.message));
   await page.goto(url); await page.waitForTimeout(3000);
-  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('canvas'); await page.waitForTimeout(400);
+  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('#canvas'); await page.waitForTimeout(400);
   const hold = async (k, ms = 120) => { await page.keyboard.down(k); await page.waitForTimeout(ms); await page.keyboard.up(k); await page.waitForTimeout(250); };
   const type = async s => { for (const c of s) { if (c === '_') await page.keyboard.press('Shift+Minus'); else await page.keyboard.type(c); await page.waitForTimeout(40); } };
   const con = async cmd => { await hold('Backquote'); await type(cmd); await hold('Enter'); await hold('Backquote'); };

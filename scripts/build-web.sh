@@ -32,5 +32,5 @@ rm -f mapster32.html mapster32.js mapster32.wasm mapster32.data
 STAMP="$(date +%Y-%m-%d\ %H:%M:%S) $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo +)"
 sed -i "s|__EMINE_BUILD__|$STAMP|g" "$ROOT/web/out/index.html"
 # the page background's blocks (tools/mkpagetiles.py), inlined so the page stays one file
-python "$ROOT/tools/inline_tiles.py" "$ROOT/web/out/index.html" "$ROOT/web/tiles.png"
+python "$ROOT/tools/inline_tiles.py" "$ROOT/web/out/index.html"
 echo "Built: $ROOT/web/out ($STAMP)"

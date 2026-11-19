@@ -841,7 +841,7 @@
   "group": "new-intro",
   "trigger": "Intro: stepping through the propped-open fire exit",
   "decision": "new",
-  "final": "Fire door propped open with a brick. Health and safety's gonna love this.",
+  "final": "Fire door propped open with a brick. OSHA's gonna love this.",
   "original": "",
   "sound": ""
  },

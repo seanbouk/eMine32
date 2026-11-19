@@ -8,7 +8,7 @@ const { chromium } = require('playwright-core');
   page.on('console', m => { const t = m.text(); if (/voxworld|ERROR|abort/i.test(t) && !/0 error/.test(t)) console.log(t.slice(0, 160)); });
   page.on('pageerror', e => console.log('[pageerror]', e.message));
   await page.goto(url); await page.waitForTimeout(3000);
-  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('canvas'); await page.waitForTimeout(400);
+  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('#canvas'); await page.waitForTimeout(400);
   const tap = async (k, ms = 120) => { await page.keyboard.down(k); await page.waitForTimeout(ms); await page.keyboard.up(k); await page.waitForTimeout(500); };
   for (const k of ['Space', 'Enter', 'Enter', 'Enter', 'Enter']) { await tap(k); await page.waitForTimeout(400); }
   await page.waitForTimeout(1500);

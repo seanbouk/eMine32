@@ -460,6 +460,7 @@ SHIFT = {n: 16 for n in range(2613, 2620)}
 SHIFT.update({n: 28 for n in (2570, 2571, 2572)})   # the detonator: a little further in from the left edge
 # degrees to turn a weapon clockwise on screen, about its middle (the detonator leant a little to the right)
 TURN = {n: 8 for n in (2570, 2571, 2572)}
+TURN[2573] = 30   # the pipe bomb held up (in the left hand): turned well over to the right (playtest 2026-11-19)
 
 
 def turn(t, deg):

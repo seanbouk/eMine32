@@ -7,7 +7,7 @@ const { chromium } = require('playwright-core');
   const page = await browser.newPage({ viewport: { width: 1100, height: 620 } });
   page.on('console', m => { const t = m.text(); if (/video mode|eMine32 build/i.test(t)) console.log(t.slice(0, 120)); });
   await page.goto(url); await page.waitForTimeout(3000);
-  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('canvas'); await page.waitForTimeout(400);
+  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('#canvas'); await page.waitForTimeout(400);
   const tap = async (k) => { await page.keyboard.down(k); await page.waitForTimeout(120); await page.keyboard.up(k); await page.waitForTimeout(900); };
   for (const k of ['Space', 'Enter', 'Enter', 'Enter', 'Enter']) await tap(k);
   await page.waitForTimeout(9000);

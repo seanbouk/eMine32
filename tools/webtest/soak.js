@@ -10,7 +10,7 @@ const { chromium } = require('playwright-core');
   let n = 0;
   page.on('console', m => { const t = m.text(); if (/EMINE fps/.test(t) && (n++ % 10) == 0) console.log(ts(), t); if (/voxworld: col/.test(t)) console.log(ts(), t.slice(t.indexOf('voxworld'))); });
   await page.goto(url); await page.waitForTimeout(3000);
-  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('canvas'); await page.waitForTimeout(400);
+  await page.click('#overlay'); await page.waitForTimeout(3000); await page.click('#canvas'); await page.waitForTimeout(400);
   const tap = async (k, ms = 120) => { await page.keyboard.down(k); await page.waitForTimeout(ms); await page.keyboard.up(k); await page.waitForTimeout(500); };
   for (const k of ['Space', 'Enter', 'Enter', 'Enter', 'Enter']) { await tap(k); await page.waitForTimeout(400); }
   for (const c of 'dnkroz') { await page.keyboard.press(c); await page.waitForTimeout(60); }

@@ -24,7 +24,7 @@ const { chromium } = require('playwright-core');
   await page.click('#overlay');
   await page.waitForTimeout(600);
   await storm('intro');            // logos / title, before the game loop proper
-  await page.click('canvas'); await page.waitForTimeout(300);
+  await page.click('#canvas'); await page.waitForTimeout(300);
   await key('Space');
   await storm('menu');
   for (const k of ['Enter', 'Enter', 'Enter', 'Enter']) await key(k);
