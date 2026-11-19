@@ -37,7 +37,7 @@
 <body>
 <div id="game"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
 <div id="overlay"><h1>SHIFT HAPPENS</h1><div id="tag">A 90s shooter on the Duke Nukem 3D engine, in a world of blocks you can mine, build and blow up.</div><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div></div>
-<div id="controls"><button id="fullscreen" title="Fullscreen (Esc to leave)">⛶ Fullscreen</button></div>
+<div id="controls"><button id="fullscreen" title="Fullscreen: Alt+Enter (Esc to leave)">⛶ Fullscreen (Alt+Enter)</button></div>
 <script>
   var overlay = document.getElementById('overlay'), statusEl = document.getElementById('status'),
       barEl = document.querySelector('#bar > i'), canvas = document.getElementById('canvas');
@@ -92,9 +92,19 @@
   // Follow the window size (F11, dragging the window): ask the engine to switch resolution once things settle.
   // the fullscreen button: the game's box fills the screen (the game stays 4:3); Esc leaves
   var gameEl = document.getElementById('game');
-  document.getElementById('fullscreen').addEventListener('click', function () {
+  function toggleFullscreen() {
     if (document.fullscreenElement) document.exitFullscreen();
     else gameEl.requestFullscreen().then(function () { canvas.focus(); }, function () {});
+  }
+  document.getElementById('fullscreen').addEventListener('click', toggleFullscreen);
+  // Alt+Enter (EDuke32's own fullscreen key) toggles it while playing, when the mouse is the game's; the game
+  // doesn't see it
+  ['keydown', 'keyup', 'keypress'].forEach(function (type) {
+    window.addEventListener(type, function (e) {
+      if (e.key !== 'Enter' || !e.altKey) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (type === 'keydown' && !e.repeat) toggleFullscreen();
+    }, true);
   });
   var resizeTimer = 0;
   window.addEventListener('resize', function () {
