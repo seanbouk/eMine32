@@ -438,8 +438,8 @@ static void Emine_IntroMusic(void)
         return;
     }
     float const x = p->pos.x / 512.f, y = p->pos.y / 512.f;
-    auto ramp = [](float d, float d0, float d1, float near, float far)
-    { float const t = fminf(fmaxf((d - d0) / (d1 - d0), 0.f), 1.f); return near + (far - near) * t; };
+    auto ramp = [](float d, float d0, float d1, float atNear, float atFar)
+    { float const t = fminf(fmaxf((d - d0) / (d1 - d0), 0.f), 1.f); return atNear + (atFar - atNear) * t; };
     float sx, sy, want;
     if (x < 19.f)                                              { sx = 19.f; sy = 5.75f; want = ramp(hypotf(x - sx, y - sy), 1, 11, 0.25f, 0.1f); }
     else if (y < 7.6f && x < 33.1f)                            { sx = 30.f; sy = 7.5f;  want = ramp(hypotf(x - sx, y - sy), 1, 11, 0.55f, 0.35f); }
