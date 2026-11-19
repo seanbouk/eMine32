@@ -119,7 +119,7 @@ FREEFLASH = {2511}
 # hidden behind it), turned to the right and drawn where 2522's leg shows, a little lower and further right.
 KNEE_CUT, KNEE_STRETCH, KNEE_TURN, KNEE_MOVE = 100, 1.6, 20, (24, 34)  # row of 2522 at the knee, stretch, degrees, px
 BLUE_RAMP = np.array([[0, 0, 252], [60, 90, 230], [110, 140, 200], [150, 185, 225], [215, 235, 255]], float)  # the palette has no bright, saturated blue but its fullbright pure blue: that for the edges, steel blues inside
-FLIP = {2608, 2570, 2571, 2572}  # 2570-2572: the detonator was painted as a right hand; it's held in the left. 2608: painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
+FLIP = {2608, 2570, 2571, 2572, 2573}  # 2570-2572: the detonator was painted as a right hand; it's held in the left. 2573: the pipe bomb held up, the other way round (playtest 2026-11-19). 2608: painted facing the other way from the rocket's other views: mirrored to match  # the HUD shows freezer ammo as FREEZEAMMO+1 (empty in the shareware): the same canister  # one ART file each (consecutive tiles)
 ASPECTS = [(21, 9), (16, 9), (3, 2), (4, 3), (1, 1), (3, 4), (2, 3), (9, 16)]
 LONG = 1024  # guide canvas, long side
 
@@ -457,6 +457,21 @@ ERASE = {2536: [(200, 0, 999, 66), (238, 0, 999, 999)]}
 
 # screen pixels to move a weapon right (the shotgun: its barrel, carried on, passed left of the crosshair)
 SHIFT = {n: 16 for n in range(2613, 2620)}
+SHIFT.update({n: 28 for n in (2570, 2571, 2572)})   # the detonator: a little further in from the left edge
+# degrees to turn a weapon clockwise on screen, about its middle (the detonator leant a little to the right)
+TURN = {n: 8 for n in (2570, 2571, 2572)}
+
+
+def turn(t, deg):
+    """a built tile (rgb, alpha, pad) turned clockwise by deg, grown to fit; its middle stays put"""
+    rgb, al, (L, T, R, B) = t
+    H, W = al.shape
+    chans = [Image.fromarray((rgb[..., c] * al).astype(np.float32), 'F') for c in range(3)] + [Image.fromarray(al.astype(np.float32), 'F')]
+    rot = [np.asarray(c.rotate(-deg, Image.BICUBIC, expand=True)) for c in chans]
+    a = np.clip(rot[3], 0, 1)
+    out = np.clip(np.stack(rot[:3], -1) / np.maximum(a[..., None], 1e-3), 0, 255)
+    dh, dw = a.shape[0] - H, a.shape[1] - W
+    return out, a, (L + dw // 2, T + dh // 2, R + dw - dw // 2, B + dh - dh // 2)
 
 
 def knee(leg):
@@ -521,6 +536,9 @@ def build():
         if n in built:
             rgb, al, pad = built[n]
             built[n] = (rgb[:, ::-1], al[:, ::-1], (pad[2], pad[1], pad[0], pad[3]))
+    for n, deg in TURN.items():
+        if n in built:
+            built[n] = turn(built[n], deg)
     freebox, freesize = {}, {}
     for n, (fname, base, take) in FREE.items():
         im = np.asarray(Image.open(os.path.join(ART, 'free', fname)).convert('RGB')).astype(float).copy()

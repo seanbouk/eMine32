@@ -100,6 +100,20 @@ void Emine_Bounce(int spriteNum, int32_t z)
         emine_drops[emine_ndrops++] = { (int16_t)spriteNum, sprite[spriteNum].picnum, z, -500 - (krand() & 255), 0 };
 }
 
+// The ore drops lying about, until they go: one that goes was picked up (they're only ever taken), for the voice.
+static struct { int16_t sprite, picnum; } emine_ores[64];
+static int emine_nores;
+static void Emine_WatchOres(void)
+{
+    for (int i = 0; i < emine_nores; i++)
+    {
+        auto const &o = emine_ores[i];
+        if (sprite[o.sprite].statnum < MAXSTATUS && sprite[o.sprite].picnum == o.picnum) continue;
+        Emine_VoiceOreTaken();
+        emine_ores[i--] = emine_ores[--emine_nores];
+    }
+}
+
 static bool Emine_OreDrop(int bx, int by, int bz, int type, int ownerSprite)
 {
     int count;
@@ -118,6 +132,7 @@ static bool Emine_OreDrop(int bx, int by, int bz, int type, int ownerSprite)
         setsprite(j, &at);
         if (emine_ndrops < EMINE_MAXDROPS)
             emine_drops[emine_ndrops++] = { (int16_t)j, sprite[j].picnum, at.z, -500 - (krand() & 255), 0 };  // pop up about a quarter of a block
+        if (emine_nores < (int)ARRAY_SIZE(emine_ores)) emine_ores[emine_nores++] = { (int16_t)j, sprite[j].picnum };
     }
     return true;
 }
@@ -471,6 +486,7 @@ void Emine_Tick(void)
     if (p->i >= 0) voxworld_stream(p->pos.x, p->pos.y);
     voxworld_tick();
     Emine_MoveDrops();
+    Emine_WatchOres();
     lap(EMINE_PERF_WORLD);
     Emine_FoodTick();
     lap(EMINE_PERF_FOOD);

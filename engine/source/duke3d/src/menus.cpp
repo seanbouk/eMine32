@@ -3927,6 +3927,7 @@ static void Menu_EntryLinkActivate(MenuEntry_t *entry)
 
         ud.m_player_skill = M_SKILL.currentEntry+1;
 
+        skillsound = BONUS_SPEECH1;  // eMine32: "Let's rock" for every skill (Duke's others are lines of ours now)
         ud.skill_voice = S_PlaySound(skillsound);
 
         if (M_SKILL.currentEntry == 3) ud.m_respawn_monsters = 1;

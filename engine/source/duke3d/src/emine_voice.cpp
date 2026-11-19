@@ -103,7 +103,8 @@ bool play(Line &l)
 
 // --- what the voice keeps track of in play
 struct Seen { bool cave, deep, lava, water, peak, mushroom, melon; } seen;
-int16_t ammoKnown[MAX_WEAPONS];  // -1: never had any yet
+int gotKnown = -1;      // the weapons the player had last tic (-1: not looked yet this level)
+bool oreTakenPending;   // the first ore ammo picked up: "This town's made of ammo!" at the next chance
 int lastHealth = -1, lowHealthTic = -100000, outOfAmmoTic = -100000, lastAmmo = -1, lastWeapon = -1;
 bool died;
 int blastTic = -100000; vec3_t blastAt;
@@ -300,7 +301,6 @@ void Emine_VoiceInit(void)
             soundKind[s.id] = kindOf(t.substr(0, t.find('_')));  // "use-nothing_2" -> "use-nothing"
         }
     }
-    for (auto &w : ammoKnown) w = -1;
     ready = true;
     LOG_F(INFO, "eMine32: %d voice takes for %d lines", id - FIRST_ID, (int)lines.size());
 }
@@ -323,7 +323,7 @@ void Emine_VoiceLevelStart(void)
     else
         startPending = "level-start";
     startTic = voice_tic;
-    lastHealth = -1; lastAmmo = -1; lastWeapon = -1;
+    lastHealth = -1; lastAmmo = -1; lastWeapon = -1; gotKnown = -1;
 }
 
 void Emine_VoiceKill(int type, bool explosive, bool burnt, bool fused)
@@ -420,13 +420,19 @@ void Emine_VoiceTick(void)
     if (lastHealth >= 25 && health < 25 && voice_tic - lowHealthTic > 45 * 30 && Emine_Say("low-health")) lowHealthTic = voice_tic;
     lastHealth = health;
 
-    // ammo: the first time each weapon has some, and running dry
-    for (int w = 0; w < MAX_WEAPONS; w++)
+    // the first ore ammo picked up: the penny drops (once a game)
+    if (oreTakenPending && Emine_Say("weapon-2", 0)) oreTakenPending = false;
+    // a weapon you didn't have: one of the pickup lines (what you arrive with doesn't count)
+    int const got = ps->gotweapon;
+    // (it waits for a chance, a few seconds at most: the case's pickups come just after the start line)
+    static char const *weaponPending; static int weaponTic;
+    if (gotKnown >= 0 && (got & ~gotKnown) && !oreTakenPending)
     {
-        int const a = ps->ammo_amount[w];
-        // (what Duke starts with doesn't count; a line that can't play yet tries again next tic)
-        if (ammoKnown[w] < 0 && a > 0 && (voice_tic <= 1 || Emine_SayChance("weapon-", 1))) ammoKnown[w] = 1;
+        static char const *const pickup[] = { "weapon-3", "weapon-4", "weapon-6" };
+        weaponPending = pickup[krand() % 3]; weaponTic = voice_tic;
     }
+    gotKnown = got;
+    if (weaponPending && (Emine_Say(weaponPending) || voice_tic - weaponTic > 8 * 30)) weaponPending = nullptr;
     int const cur = ps->curr_weapon, ca = ps->ammo_amount[cur];
     if (cur == lastWeapon && lastAmmo > 0 && ca == 0 && cur != KNEE_WEAPON && voice_tic - outOfAmmoTic > 30 * 30 && Emine_Say("out-of-ammo", 3))
         outOfAmmoTic = voice_tic;
@@ -449,11 +455,17 @@ void Emine_VoiceTick(void)
     else if (!seen.melon && nearVisible(ps, VW_MELON, 7, 2)) seen.melon = Emine_Say("melon-first", 0);
 }
 
+void Emine_VoiceOreTaken(void)
+{
+    if (!lines["weapon-2"].said) oreTakenPending = true;
+    else Emine_Say("weapon-1", 12);  // now and then: "Look ma... I'm mining!"
+}
+
 void Emine_VoiceReset(void)
 {
     seen = {};
     for (auto &kv : lines) kv.second.said = 0;
-    for (auto &w : ammoKnown) w = -1;
+    gotKnown = -1; oreTakenPending = false;
 }
 
 // Dev console: `emine_voice` lists the lines and checks Duke's voice slots (any still on a file of Duke's is named);

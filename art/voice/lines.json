@@ -263,7 +263,7 @@
  {
   "id": "weapon-1",
   "group": "duke-silent",
-  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "trigger": "Now and then, picking up ore ammo after that",
   "decision": "replace",
   "final": "Look ma.... I'm mining!",
   "original": "\"Cool.\"",
@@ -272,7 +272,7 @@
  {
   "id": "weapon-2",
   "group": "duke-silent",
-  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "trigger": "The first time you pick up ammo an ore dropped (the penny drops: ammo comes out of the ore)",
   "decision": "replace",
   "final": "This town's made of ammo!",
   "original": "\"Come get some.\"",
@@ -281,7 +281,7 @@
  {
   "id": "weapon-3",
   "group": "duke-silent",
-  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "trigger": "Picking up a weapon you didn't have (one of three)",
   "decision": "replace",
   "final": "For me!?",
   "original": "\"Groovy.\"",
@@ -290,7 +290,7 @@
  {
   "id": "weapon-4",
   "group": "duke-silent",
-  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "trigger": "Picking up a weapon you didn't have (one of three)",
   "decision": "replace",
   "final": "Don't mind if I do!",
   "original": "\"Wanna dance?\"",
@@ -299,7 +299,7 @@
  {
   "id": "weapon-6",
   "group": "duke-silent",
-  "trigger": "Was: picking up a weapon. Now: the first time an ore gives you ammo for a weapon.",
+  "trigger": "Picking up a weapon you didn't have (one of three)",
   "decision": "keep",
   "final": "Hail to the king, baby.",
   "original": "\"Hail to the king, baby.\"",
