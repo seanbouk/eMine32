@@ -140,6 +140,9 @@ struct Spot { int16_t sprite, line; bool use, done; };
 std::vector<Spot> introSpots;
 int introTic;
 char const *introPending;  // the latest spot's line, said at the next chance (a later spot's line replaces it)
+char const *startPending;  // the mines' start line: said as soon as Duke isn't talking, whatever the gap
+bool noGap;                // saying startPending: the gap doesn't hold it up
+int startTic;              // when it was set (it gives up after 15 s, so a missing take can't silence everything)
 
 void introFind(void)
 {
@@ -304,21 +307,22 @@ void Emine_VoiceInit(void)
 
 void Emine_VoiceLevelStart(void)
 {
-    introTic = 0; introPending = nullptr; introSpots.clear();
+    introTic = 0; introPending = nullptr; introSpots.clear(); startPending = nullptr;
     if (!voxworld_active())  // the intro isn't the mines: none of the crafty lines there, its own (introTick)
     {
         lines["intro-truck"].said = 0;
         for (auto l : introLines) lines[l].said = 0;
         return;
     }
+    // the start line always plays: it waits (in Emine_VoiceTick) until Duke has finished any line from the intro
     if (died)
     {
         died = false;
-        if (krand() & 1) { if (!Emine_Say("respawn")) Emine_Say("ready"); }
-        else if (!Emine_Say("ready")) Emine_Say("respawn");
+        startPending = (krand() & 1) ? "respawn" : "ready";
     }
     else
-        Emine_Say("level-start");
+        startPending = "level-start";
+    startTic = voice_tic;
     lastHealth = -1; lastAmmo = -1; lastWeapon = -1;
 }
 
@@ -377,7 +381,7 @@ bool Emine_VoiceGate(int soundNum)
     if (it == soundKind.end() || it->second != SPEECH) return true;
     // only in play: the menu's "Let's rock" and the title's "Shift happens" don't hold up the first line in the mines
     if (!(g_player[myconnectindex].ps->gm & MODE_GAME)) return true;
-    if (voice_tic - lastSpeechEnd < (voxworld_active() ? GAP : INTRO_GAP)) return false;
+    if (!noGap && voice_tic - lastSpeechEnd < (voxworld_active() ? GAP : INTRO_GAP)) return false;
     speaking = true;
     lastSpeechEnd = voice_tic;
     return true;
@@ -391,6 +395,15 @@ void Emine_VoiceTick(void)
     auto const ps = g_player[myconnectindex].ps;
     if (!ready || ps->i < 0) return;
     if (!voxworld_active()) { if (ps->gm & MODE_GAME) introTick(ps); return; }
+    if (startPending)  // nothing else is said before it
+    {
+        if (!(ps->gm & MODE_GAME)) return;
+        noGap = true;
+        bool const said = Emine_Say(startPending);
+        noGap = false;
+        if (said || voice_tic - startTic > 15 * 30) startPending = nullptr;
+        return;
+    }
     int const health = sprite[ps->i].extra;
 
     // dying: by a lurker's blast, its own line (it comes first, so Duke's death line keeps quiet)
