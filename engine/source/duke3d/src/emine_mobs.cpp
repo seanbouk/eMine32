@@ -980,6 +980,7 @@ int columnTop(int bx, int by)
 // The highest place to stand in a column (open sky above it).
 bool surfaceCell(int bx, int by, Node *n)
 {
+    if (voxworld_instart(bx, by)) return false;  // never in or by the start case
     int const top = columnTop(bx, by);
     if (top < 0 || !standable(bx, by, top + 1, 2) || !goodGround(bx, by, top + 1)) return false;
     *n = { (int16_t)bx, (int16_t)by, (int16_t)(top + 1) };
@@ -989,6 +990,7 @@ bool surfaceCell(int bx, int by, Node *n)
 // A dark place to stand somewhere down this column (a cave).
 bool caveCell(int bx, int by, Node *n)
 {
+    if (voxworld_instart(bx, by)) return false;
     int const hi = columnTop(bx, by) - 3;
     if (hi < 3) return false;
     int bz = 2 + krand() % (hi - 1);

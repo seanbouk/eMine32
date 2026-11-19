@@ -474,19 +474,16 @@ def write_map(size_blocks=2032, height_blocks=160, seed=1234):
 
     B = 512
     sprites = [
-        spr(0, 0, 1405, ang=0),                 # APLAYER start, facing +x
+        spr(B // 2, B // 2, 1405, ang=0),       # APLAYER start: the back of the start case (voxworld.cpp), facing +x along it
         spr(10 * B, 3 * B, 1680, ang=1024),     # LIZTROOP
         spr(14 * B, -4 * B, 1680, ang=1024),
         spr(20 * B, 6 * B, 2000, ang=1024),     # PIGCOP
-        spr(4 * B, 2 * B, 51),                  # medkit-ish pickup
-        spr(5 * B, -2 * B, 40),                 # ammo
-        # Test weapons by the spawn so every mining weapon is easy to try.
-        spr(2 * B, -2 * B, 28),                 # SHOTGUNSPRITE
-        spr(2 * B, -3 * B, 49),                 # SHOTGUNAMMO
-        spr(3 * B, -2 * B, 22),                 # CHAINGUNSPRITE
-        spr(3 * B, -3 * B, 41),                 # BATTERYAMMO
-        spr(4 * B, -2 * B, 23),                 # RPGSPRITE
-        spr(4 * B, -3 * B, 44),                 # RPGAMMO
+        # the weapons laid out on the start case's floor, ahead of you (EMINE.CON: *_PICKUP_TILE)
+        spr(2 * B + B // 2, -B + B // 2, 7160),      # shotgun
+        spr(3 * B + B // 2, B + B // 2, 7161),       # minigun
+        spr(4 * B + B // 2, -B + B // 2, 7162),      # rocket launcher
+        spr(5 * B + B // 2, B + B // 2, 7163),       # pipe bombs
+        spr(6 * B + B // 2, B // 2, 7164),           # devastator
     ]
 
     out = struct.pack('<iiiihhH', 7, 0, 0, floorz - 40 * 8192, 0, 0, len(sectors))

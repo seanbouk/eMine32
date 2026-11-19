@@ -320,3 +320,13 @@ tilefromtexture 7151 { file "sprites/apple_0_main0.png" xoffset 0 yoffset 0 }
 tilefromtexture 7152 { file "sprites/meat_raw_0_main0.png" xoffset 0 yoffset 0 }
 // meat_cooked (from art/props/meat_cooked.png, replaces (new: food pickup, tile 7153; emine_food.cpp))
 tilefromtexture 7153 { file "sprites/meat_cooked_0_main0.png" xoffset 0 yoffset 0 }
+// pickup_shotgun (from art/props/pickup_shotgun.png, replaces (new: weapon pickup in the mines' start case, tile 7160; EMINE.CON))
+tilefromtexture 7160 { file "sprites/pickup_shotgun_0_main0.png" xoffset 0 yoffset 0 }
+// pickup_minigun (from art/props/pickup_minigun.png, replaces (new: weapon pickup in the mines' start case, tile 7161; EMINE.CON))
+tilefromtexture 7161 { file "sprites/pickup_minigun_0_main0.png" xoffset 0 yoffset 0 }
+// pickup_rocket (from art/props/pickup_rocket.png, replaces (new: weapon pickup in the mines' start case, tile 7162; EMINE.CON))
+tilefromtexture 7162 { file "sprites/pickup_rocket_0_main0.png" xoffset 0 yoffset 0 }
+// pickup_pipebombs (from art/props/pickup_pipebombs.png, replaces (new: weapon pickup in the mines' start case, tile 7163; EMINE.CON))
+tilefromtexture 7163 { file "sprites/pickup_pipebombs_0_main0.png" xoffset 0 yoffset 0 }
+// pickup_devastator (from art/props/pickup_devastator.png, replaces (new: weapon pickup in the mines' start case, tile 7164; EMINE.CON))
+tilefromtexture 7164 { file "sprites/pickup_devastator_0_main0.png" xoffset 0 yoffset 0 }

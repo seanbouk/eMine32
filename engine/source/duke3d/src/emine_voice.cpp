@@ -438,7 +438,7 @@ void Emine_VoiceTick(void)
     if (!voxworld_toblock(ps->pos.x, ps->pos.y, ps->pos.z, &bx, &by, &bz)) return;
     int fx, fy, fz;
     voxworld_toblock(ps->pos.x, ps->pos.y, sprite[ps->i].z - 256, &fx, &fy, &fz);
-    if (!seen.cave && voxworld_lightlevel(bx, by, bz) <= 3) seen.cave = Emine_Say("cave-first", 0);
+    if (!seen.cave && voxworld_lightlevel(bx, by, bz) <= 3 && !voxworld_instart(bx, by)) seen.cave = Emine_Say("cave-first", 0);
     if (!seen.deep && bz <= 16) seen.deep = Emine_Say("cave-deep", 0);
     if (!seen.water && Emine_InWaterAt(sprite[ps->i].xyz)) seen.water = Emine_Say("water-first", 0);
     int const under = voxworld_get(fx, fy, fz - 1);

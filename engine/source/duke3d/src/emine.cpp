@@ -529,9 +529,9 @@ static int osdcmd_emine_water(osdcmdptr_t parm)
 // Duke has every weapon, all the time; what he can use depends on the ammo he's dug up. He starts with a clip.
 void Emine_ResetWeapons(int playerNum)
 {
+    // the boot and the pistol; the rest are pickups (laid out in the start case, and given by their ores' ammo)
     auto &p = *g_player[playerNum].ps;
-    for (int w = 0; w < MAX_WEAPONS; w++)
-        p.gotweapon |= 1 << w;
+    p.gotweapon |= (1 << KNEE_WEAPON) | (1 << PISTOL_WEAPON);
     p.ammo_amount[PISTOL_WEAPON] = min<int16_t>(p.max_ammo_amount[PISTOL_WEAPON], 12);
 }
 

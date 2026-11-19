@@ -11,7 +11,7 @@
 // A hitscan shot (Duke weapons, enemy fire) landed; if it hit a block, damage it. shotSprite carries the damage
 // in its `extra` (as Duke's shotsparks do).
 void Emine_HitscanBlock(int shotSprite, const hitdata_t *hit);
-void Emine_ResetWeapons(int playerNum);  // every weapon from the start; ammo comes from ores
+void Emine_ResetWeapons(int playerNum);  // the boot and the pistol; the rest are pickups (start case, ores)
 void Emine_LevelWeapons(void);          // the intro takes your weapons, the mines give the pistol back
 // After a shot's hitscan: smash the plants it went through, within reach (xy distance; 0 = no limit).
 void Emine_ShotPlants(int shooterSprite, const vec3_t *start, int32_t reach);

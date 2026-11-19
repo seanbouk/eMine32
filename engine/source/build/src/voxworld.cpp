@@ -974,13 +974,25 @@ static int vw_surface(int x, int y)
     return -1;
 }
 
+// The start case (the mines' spawn): a short dirt tunnel under a grassy mound, the player at its closed back end facing
+// +x along it, the weapons laid out on its floor, its far end sealed with glass looking out over a cleared patch.
+// In global blocks: the player's column is (wsx/2, wsy/2); the inside runs x -1..+7, y -1..+1 from there, 4 layers
+// high from the floor surface layer (vw_casefloor), the glass at x +8; the mound reaches 4 out, the patch 5 ahead.
+static int vw_casefloor(void) { return vw_terrainh(vw_wsx/2, vw_wsy/2) + 1; }  // first air layer above its floor
+static bool vw_incase(int x, int y, int margin)
+{
+    int const dx = x - vw_wsx/2, dy = y - vw_wsy/2;
+    return dx >= -4 - margin && dx <= 13 + margin && dy >= -4 - margin && dy <= 4 + margin;
+}
+static bool vw_incaseinside(int x, int y) { int const dx = x - vw_wsx/2, dy = y - vw_wsy/2; return dx >= -1 && dx <= 7 && abs(dy) <= 1; }
+bool voxworld_instart(int bx, int by) { return vw_active && vw_incase(bx + vw_ox, by + vw_oy, 0); }
+
 static void vw_carve(int x, int y, int z)
 {
     if (!vw_ging(x, y) || z < 1 || z >= vw_sz) return;
     int const h = vw_height(x, y);
-    // keep the spawn point and the test arch intact
-    int const dx = x - (vw_wsx/2 + 3), dy = y - vw_wsy/2;
-    if (dx*dx + dy*dy < 10*10 && z > h - 9) return;
+    // keep the start case whole (caves under it, deep down, are fine)
+    if (vw_incase(x, y, 3) && z > min(h, vw_casefloor()) - 9) return;
     // don't open caves up into lakes (the water would hang there until something disturbed it). The water table
     // fills each column from its terrain height up to the sea line.
     auto wet = [](int x, int y, int z) { return z < vw_sea && z > vw_height(x, y); };
@@ -1294,33 +1306,55 @@ static void vw_genscratch(int x0, int y0)
                 b[s+1] = VW_TALLGRASS;
         }
 
-    // A test structure by the spawn: a planks arch with a cobble floor, to show overhangs.
+    // The start case (see vw_incase): built over whatever the terrain did here.
     {
-        int const cx = vw_wsx/2 + 6, cy = vw_wsy/2;
-        if (cx + 4 >= vw_gx0 && cx - 4 < x1 && cy + 7 >= vw_gy0 && cy - 1 < y1)
+        int const cx = vw_wsx/2, cy = vw_wsy/2, s = vw_casefloor();
+        if (cx + 14 >= vw_gx0 && cx - 5 < x1 && cy + 5 >= vw_gy0 && cy - 5 < y1)
         {
-            int const s = vw_terrainh(cx, cy) + 1;
-            for (int dx = -4; dx <= 4; dx++)
+            // the mound: a stepped skirt (4 out: up to the floor; 3 out: two layers up), then the shell round the
+            // inside (dirt, 1 thick, grass on the roof); everything solid down to the ground under it
+            auto fill = [&](int x, int y, int top) {
+                for (int z = top; z >= 1; z--)
+                {
+                    uint8_t const b = vw_gget(x, y, z);
+                    if (z < top && vw_issolid(b) && b != VW_LEAVES && b != VW_WOOD) break;
+                    vw_put(x, y, z, z == top ? VW_GRASS : VW_DIRT);
+                }
+                // no plants on it, and no tree standing in it (its trunk and crown would hang over the mound)
+                for (int z = top + 1; z < min(vw_sz, top + 12); z++)
+                {
+                    uint8_t const t = vw_gget(x, y, z);
+                    if (t == VW_TALLGRASS || t == VW_FLOWER_RED || t == VW_FLOWER_YELLOW || t == VW_WOOD || t == VW_LEAVES)
+                        vw_put(x, y, z, VW_AIR);
+                }
+            };
+            for (int dx = -4; dx <= 8; dx++)
+                for (int dy = -4; dy <= 4; dy++)
+                {
+                    int const ring = max(dx < -1 ? -1 - dx : 0, abs(dy) - 1);  // 0 inside, 1 the shell, 2-3 the skirt
+                    int const x = cx + dx, y = cy + dy;
+                    if (dx == 8 && abs(dy) <= 2) { fill(x, y, s + 4); continue; }  // the front, round the glass
+                    if (ring == 3) fill(x, y, s - 1);
+                    else if (ring == 2) fill(x, y, s + 2);
+                    else fill(x, y, s + 4);
+                }
+            // the inside: dirt floor, air (no grass or plants in it), and the glass across the far end
+            for (int dx = -1; dx <= 7; dx++)
                 for (int dy = -1; dy <= 1; dy++)
                 {
-                    vw_put(cx + dx, cy + dy, s - 1, VW_COBBLE);
-                    for (int z = s; z < s + 6; z++) vw_put(cx + dx, cy + dy, z, VW_AIR);
-                    vw_put(cx + dx, cy + dy, s + 4, VW_PLANKS);
-                    if (abs(dx) == 4) for (int z = s; z < s + 4; z++) vw_put(cx + dx, cy + dy, z, VW_PLANKS);
+                    vw_put(cx + dx, cy + dy, s - 1, VW_DIRT);
+                    for (int z = s; z <= s + 3; z++) vw_put(cx + dx, cy + dy, z, VW_AIR);
                 }
-            // a glass window in the far end wall
             for (int dy = -1; dy <= 1; dy++)
-                for (int z = s + 1; z <= s + 2; z++) vw_put(cx + 4, cy + dy, z, VW_GLASS);
-            // The middle of the end wall facing the spawn is gravel with sand on top: shoot it to see blocks fall.
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                for (int z = s; z <= s + 4; z++) vw_put(cx - 4, cy + dy, z, VW_GRAVEL);
-                for (int z = s + 5; z <= s + 6; z++) vw_put(cx - 4, cy + dy, z, VW_SAND);
-            }
-            // a floating slab to look up at, half of it glass
-            for (int dx = -2; dx <= 2; dx++)
-                for (int dy = 4; dy <= 7; dy++)
-                    vw_put(cx + dx, cy + dy, s + 3, dy >= 6 ? VW_GLASS : VW_STONE);
+                for (int z = s; z <= s + 3; z++) vw_put(cx + 8, cy + dy, z, VW_GLASS);
+            // the patch outside the glass: level ground at the floor's height, open sky over it
+            for (int dx = 9; dx <= 13; dx++)
+                for (int dy = -2; dy <= 2; dy++)
+                {
+                    fill(cx + dx, cy + dy, s - 1);
+                    for (int z = s; z < min(vw_sz, s + 8); z++)
+                        if (vw_gget(cx + dx, cy + dy, z) != VW_LEAVES) vw_put(cx + dx, cy + dy, z, VW_AIR);
+                }
         }
     }
 }
@@ -1331,6 +1365,7 @@ static int32_t vw_groundz(int32_t x, int32_t y)
     int bx, by, bz;
     voxworld_toblock(x, y, 0, &bx, &by, &bz);
     if (!vw_inxy(bx, by)) return INT32_MAX;
+    if (vw_incaseinside(bx + vw_ox, by + vw_oy)) return vw_layertop(vw_casefloor());  // in the start case: its floor
     vwcolumn_t const *c = vw_col(bx, by);
     if (!c->nsruns) return INT32_MAX;
     return vw_layertop(c->sruns[c->nsruns-1].z1);

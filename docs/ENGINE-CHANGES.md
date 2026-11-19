@@ -285,3 +285,20 @@ Use is pressed, so a use spot also keeps Duke's "where is it?" grunt quiet. Mine
 The native build had broken since the web mouse/perf work: `EM_ASM_INT` used outside its `__EMSCRIPTEN__` guard in
 `emine_perf.cpp`, `emine_rawmouse`/`emine_yieldMs` only defined on the web (`baselayer.cpp`, `sdlayer.cpp`), and a
 local named `far` in `voxworld.cpp` (a macro in the Windows headers; now `farleaves`).
+
+## The mines' start case (2026-11-19)
+
+The test arch by the spawn is gone. In its place (`voxworld.cpp`, `vw_incase` and the end of chunk generation) is the
+start case: a dirt tunnel under a stepped, grass-topped mound, 9 blocks long, 3 wide and 4 high inside, the player at
+its closed back end facing +x, the far end sealed with glass (4 x 3) looking out over a cleared, level patch. It's
+built over whatever the terrain did there (trees in it are cleared), and caves keep out of it (`vw_carve`). The
+ground under anything that starts inside the case is its floor, not the mound's top (`vw_groundz`).
+`voxworld_instart()` keeps mobs from spawning in or by it (`emine_mobs.cpp`) and the dark inside from counting as the
+first cave (the voice line).
+
+Weapons: in the mines you start with the boot and the pistol (12 rounds) only (`Emine_ResetWeapons`). The shotgun,
+minigun, rocket launcher, pipe bombs and devastator lie on the case's floor (map sprites, `tools/mkworld.py`; tiles
+7160-7164, CON actors `*_PICKUP_TILE`), each giving the weapon and a big load (30 / 150 / 15 / 10 / 40). Ore ammo
+uses `addweapon` now, so ammo for a weapon you skipped gives you the weapon too (and switches to it, as picking up a
+weapon does). The pickup art is one fal sheet (`art/props/fal/weapons.png`, prompt in `fal_prompts.json`, the HUD
+paintings as references), cut out and laid flat by `tools/mkpickups.py`, then made into tiles by `tools/mksprite.py`.

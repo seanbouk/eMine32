@@ -41,6 +41,11 @@ define EXPLOSION_TILE    1890
 define SMOKE_TILE        2329
 define FLAME_TILE        2270    // something burning (a mob in lava)
 define BIG_FLAME_TILE    2310
+define SHOTGUN_PICKUP_TILE    7160  // the weapons laid out in the mines' start case (tools/mkpickups.py)
+define MINIGUN_PICKUP_TILE    7161
+define ROCKET_PICKUP_TILE     7162
+define PIPEBOMB_PICKUP_TILE   7163
+define DEVASTATOR_PICKUP_TILE 7164
 define BLOOD_TILE        1620
 define RADIUS_BLAST      1670    // what the engine says hit you when a blast's radius catches you
 
@@ -185,6 +190,11 @@ definequote 203 ROCKETS
 definequote 204 PIPE BOMBS
 definequote 205 DEVASTATOR MISSILES
 definequote 206 HEALTH +10
+definequote 207 SHOTGUN!
+definequote 208 MINIGUN!
+definequote 209 ROCKET LAUNCHER!
+definequote 210 PIPE BOMBS!
+definequote 211 DEVASTATOR!
 
 // the intro
 definequote 220 AHH... SHIFT HAPPENS.
@@ -209,7 +219,8 @@ enda
 
 
 // ---- pickups ------------------------------------------------------------------------------------------------------
-// Ores drop these (emine.cpp). Walk over one to take it: a chime and a flash.
+// Ores drop these (emine.cpp). Walk over one to take it: a chime and a flash. Ammo for a weapon you haven't got gives
+// you the weapon too (and switches to it, as picking up a weapon does).
 
 define PICKUP_REACH 844
 
@@ -228,31 +239,57 @@ enda
 actor SHELLS_TILE
     fall
     ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
-        { addammo W_SHOTGUN 10 quote 201 state taken }
+        { addweapon W_SHOTGUN 10 quote 201 state taken }
 enda
 
 actor MINIGUN_AMMO_TILE
     fall
     ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
-        { addammo W_MINIGUN 50 quote 202 state taken }
+        { addweapon W_MINIGUN 50 quote 202 state taken }
 enda
 
 actor ROCKET_AMMO_TILE
     fall
     ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
-        { addammo W_ROCKETS 5 quote 203 state taken }
+        { addweapon W_ROCKETS 5 quote 203 state taken }
 enda
 
 actor PIPEBOMB_AMMO_TILE
     fall
     ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
-        { addammo W_PIPEBOMB 5 quote 204 state taken }
+        { addweapon W_PIPEBOMB 5 quote 204 state taken }
 enda
 
 actor DEVASTATOR_AMMO_TILE
     fall
     ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
-        { addammo W_DEVASTATOR 15 quote 205 state taken }
+        { addweapon W_DEVASTATOR 15 quote 205 state taken }
+enda
+
+// The weapons in the start case: each the weapon and a big load for it (you burn through them)
+actor SHOTGUN_PICKUP_TILE
+    ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
+        { addweapon W_SHOTGUN 30 quote 207 state taken }
+enda
+
+actor MINIGUN_PICKUP_TILE
+    ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
+        { addweapon W_MINIGUN 150 quote 208 state taken }
+enda
+
+actor ROCKET_PICKUP_TILE
+    ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
+        { addweapon W_ROCKETS 15 quote 209 state taken }
+enda
+
+actor PIPEBOMB_PICKUP_TILE
+    ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
+        { addweapon W_PIPEBOMB 10 quote 210 state taken }
+enda
+
+actor DEVASTATOR_PICKUP_TILE
+    ifp P_ALIVE ifcount 6 ifpdistl PICKUP_REACH ifcanseetarget
+        { addweapon W_DEVASTATOR 40 quote 211 state taken }
 enda
 
 actor HEART_TILE

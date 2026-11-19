@@ -183,5 +183,10 @@
     "groups": [
       { "tiles": [7153, 7153], "height": 28 }
     ]
-  }
+  },
+  "pickup_shotgun": {"source": "art/props/pickup_shotgun.png", "replaces": "(new: weapon pickup in the mines' start case, tile 7160; EMINE.CON)", "groups": [{"tiles": [7160, 7160], "height": 22}]},
+  "pickup_minigun": {"source": "art/props/pickup_minigun.png", "replaces": "(new: weapon pickup in the mines' start case, tile 7161; EMINE.CON)", "groups": [{"tiles": [7161, 7161], "height": 24}]},
+  "pickup_rocket": {"source": "art/props/pickup_rocket.png", "replaces": "(new: weapon pickup in the mines' start case, tile 7162; EMINE.CON)", "groups": [{"tiles": [7162, 7162], "height": 20}]},
+  "pickup_pipebombs": {"source": "art/props/pickup_pipebombs.png", "replaces": "(new: weapon pickup in the mines' start case, tile 7163; EMINE.CON)", "groups": [{"tiles": [7163, 7163], "height": 20}]},
+  "pickup_devastator": {"source": "art/props/pickup_devastator.png", "replaces": "(new: weapon pickup in the mines' start case, tile 7164; EMINE.CON)", "groups": [{"tiles": [7164, 7164], "height": 20}]}
 }

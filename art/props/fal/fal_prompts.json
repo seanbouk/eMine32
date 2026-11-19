@@ -1,0 +1,14 @@
+{
+ "weapons": {
+  "model": "fal-ai/nano-banana-2/edit",
+  "aspect": "21:9",
+  "refs": [
+   "art/weapons/raw/2613.png",
+   "art/weapons/raw/2536.png",
+   "art/weapons/raw/2544.png",
+   "art/weapons/raw/2573.png",
+   "art/weapons/free/gauntlet.png"
+  ],
+  "prompt": "Five weapon pickup sprites for a mid-1990s first-person shooter, in a row left to right on a flat solid magenta (#FF00FF) background, evenly spaced, well apart, not overlapping, no shadows, no floor, no text, no hands, no people. Each lies on the ground seen from the side and a little above, its whole length visible, evenly lit from the upper left. Keep each weapon's exact design, materials and colours from the reference images (the references show them in the shooter's hands; here they lie on their own): 1) the all-black pump-action shotgun (first image), lying on its side, barrel pointing right; 2) the heavy black rotary machine gun with its cluster of barrels (second image), lying on its side, barrels pointing right; 3) the olive-drab and gunmetal shoulder-fired rocket launcher tube with riveted bands and a tan stripe (third image), lying on its side, pointing right; 4) a bundle of three steel pipe bombs, grey canisters with yellow and black hazard-striped end caps (fourth image), tied together with tape, lying on their sides; 5) the armoured gauntlet with the wrist-mounted twin mini-rocket launcher, gunmetal with lapis-blue armour plates (fifth image), lying on its side, empty, fingers pointing right. Pre-rendered 3D look, chunky readable shapes, crisp edges."
+ }
+}
