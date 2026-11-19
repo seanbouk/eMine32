@@ -4,6 +4,9 @@
 
 `bash scripts/build-web.sh && bash scripts/package-itch.sh` gives `web/itch/shift-happens.zip` (index.html at its root).
 On itch:
+Preview it as on itch: `python tools/serve.py 8034 web/itch`, then http://localhost:8034/ (the game in a 960 x 720 frame with a
+fullscreen button under it).
+
 - Kind of project: HTML. Tick "This file will be played in the browser".
 - Embed: 960 x 720, tick "Fullscreen button".
 - Tick the AI-generated content disclosure (art, voice).
