@@ -14,14 +14,14 @@ On itch:
 - Tick the AI-generated content disclosure (art, voice).
 - Submit to Game Off 2026.
 
-## Page text (draft)
+## Page text
 
 **Shift Happens**
 
 *A 90s shooter in a world of blocks.*
 
 It's the graveyard shift at a dead arcade, and one machine is still awake. Hit its big red button and you're
-shifted into the mines: an endless world of blocks you can dig, build and blow up, built on the Duke Nukem 3D
+shifted into the mines: a huge world of blocks you can dig, build and blow up, built on the Duke Nukem 3D
 engine.
 
 Grab the guns, shoot your way out and get on with it:
@@ -35,7 +35,8 @@ Plays in the browser with a keyboard and mouse.
 **Credits**
 - Built on EDuke32 (Ken Silverman's Build engine, 3D Realms' Duke Nukem 3D source, and the EDuke32 team).
 - Music: "Absurd Outro", made with Suno.
-- Art and voice made with AI tools (fal.ai), then reworked by hand into 8-bit tiles.
+- Made by SeanOfEarth.
+- Art and voice made with AI tools (fal.ai, Gemini), then reworked into 8-bit tiles.
 - Source code (GPLv2): https://github.com/seanbouk/eMine32
 
 Made for GitHub Game Off 2026. A fan project, not affiliated with 3D Realms, Gearbox or Mojang.
