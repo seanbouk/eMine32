@@ -271,6 +271,15 @@ the desk top, CRT, urinal, shower head (straight down) and drain, and a new firs
 frame's thigh, cut at the knee and rounded, turned right (`tools/mkweapons.py`, `knee()`); Duke draws the kick
 mirrored.
 
+Intro voice lines (2026-11-19): twelve lines (`art/voice/lines.json`, group new-intro). One is timed (the truck, 3 s
+in); the rest hang on invisible sprites `tools/mkintro.py` places (`voice()`): lotag 9000 + k is a spot, said the
+first time you come within hitag Build units of it and can see it; lotag 9100 + k is a use spot, said when you press
+Use facing it (within about 56 degrees) inside hitag units. k indexes `VOICE_LINES` in mkintro.py and `introLines` in
+`emine_voice.cpp`, which must match. A spot's line waits for the next chance if Duke is talking (a later spot's line
+replaces it). The gap between spoken lines is 1 s in the intro, not 5. `sector.cpp` asks `Emine_VoiceUse` first when
+Use is pressed, so a use spot also keeps Duke's "where is it?" grunt quiet. Mine Shift has two spots: in sight within
+9 units (well down the aisle from the staff doors, which are 14 away) and, within 2.75, the call to kick it.
+
 ## Native build fixes (2026-11-18)
 
 The native build had broken since the web mouse/perf work: `EM_ASM_INT` used outside its `__EMSCRIPTEN__` guard in

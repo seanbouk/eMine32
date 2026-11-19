@@ -87,3 +87,15 @@ eat-mushroom-first eat-mushroom-first
 low-health low-health
 respawn respawn
 death-lurker death-lurker
+intro-truck intro-truck
+intro-fire intro-fire
+intro-door intro-door
+intro-arcade intro-arcade
+intro-mineshift intro-mineshift
+intro-kick intro-kick
+intro-urinal intro-urinal
+intro-drinks intro-drinks
+intro-crt intro-crt
+intro-outoforder intro-outoforder
+intro-moped intro-moped
+intro-shower intro-shower

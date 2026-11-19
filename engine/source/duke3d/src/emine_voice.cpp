@@ -25,6 +25,7 @@ namespace
 
 int constexpr FIRST_ID = 2000;  // our sounds go here (Duke's end well below)
 int constexpr GAP = 5 * 30;     // tics of quiet after Duke finishes a spoken line, before the next may start
+int constexpr INTRO_GAP = 30;   // in the intro, where the lines are a short walk apart
 
 // What each of our sounds is, for the gap: speech waits for it; noises (grunts, screams, gasps, the gulp, the
 // knuckle crack) and dying never wait, and don't start it.
@@ -127,7 +128,74 @@ bool nearVisible(DukePlayer_t *ps, int type, int r, int rz)
     return false;
 }
 
+// --- the intro (Graveyard Shift). Its lines are tied to invisible sprites tools/mkintro.py puts in the map: lotag
+// INTRO_SPOT + k is said the first time you come within hitag Build units of it and can see it; INTRO_USE + k when you
+// press Use facing it within hitag units. k is the line's place here and in mkintro.py's VOICE_LINES (keep them in step).
+int constexpr INTRO_SPOT = 9000, INTRO_USE = 9100;
+char const *const introLines[] = { "intro-fire", "intro-door", "intro-arcade", "intro-mineshift", "intro-kick",
+    "intro-urinal", "intro-drinks", "intro-crt", "intro-outoforder", "intro-moped", "intro-shower" };
+int constexpr NINTRO = sizeof(introLines) / sizeof(introLines[0]);
+int constexpr INTRO_TRUCK = 3 * 30;   // tics in: waking in the truck
+struct Spot { int16_t sprite, line; bool use, done; };
+std::vector<Spot> introSpots;
+int introTic;
+char const *introPending;  // the latest spot's line, said at the next chance (a later spot's line replaces it)
+
+void introFind(void)
+{
+    introSpots.clear();
+    for (int i = 0; i < MAXSPRITES; i++)
+    {
+        if (sprite[i].statnum >= MAXSTATUS) continue;
+        int const t = sprite[i].lotag;
+        if (t >= INTRO_SPOT && t < INTRO_SPOT + NINTRO) introSpots.push_back({ (int16_t)i, (int16_t)(t - INTRO_SPOT), false, false });
+        else if (t >= INTRO_USE && t < INTRO_USE + NINTRO) introSpots.push_back({ (int16_t)i, (int16_t)(t - INTRO_USE), true, false });
+    }
+}
+
+bool introSees(DukePlayer_t *ps, spritetype const &s)
+{
+    return cansee(ps->pos.x, ps->pos.y, ps->pos.z, ps->cursectnum, s.x, s.y, s.z, s.sectnum);
+}
+
+void introTick(DukePlayer_t *ps)
+{
+    if (++introTic == 1) introFind();
+    if (introTic == INTRO_TRUCK) introPending = "intro-truck";
+    if (introPending && Emine_Say(introPending, 0)) introPending = nullptr;
+    if (introTic % 6 || ps->cursectnum < 0) return;
+    for (auto &sp : introSpots)
+    {
+        if (sp.use || sp.done) continue;
+        auto const &s = sprite[sp.sprite];
+        if (FindDistance2D(ps->pos.x - s.x, ps->pos.y - s.y) > s.hitag || !introSees(ps, s)) continue;
+        sp.done = true;
+        if (!lines[introLines[sp.line]].said) introPending = introLines[sp.line];
+    }
+}
+
 }  // namespace
+
+bool Emine_VoiceUse(int playerNum)
+{
+    auto const ps = g_player[playerNum].ps;
+    if (!ready || voxworld_active() || ps->cursectnum < 0) return false;
+    int const ang = fix16_to_int(ps->q16ang);
+    Spot const *best = nullptr;
+    int bestDelta = 320;  // within about 56 degrees of straight ahead
+    for (auto const &sp : introSpots)
+    {
+        if (!sp.use) continue;
+        auto const &s = sprite[sp.sprite];
+        int const dx = s.x - ps->pos.x, dy = s.y - ps->pos.y;
+        if (FindDistance2D(dx, dy) > s.hitag) continue;
+        int const d = klabs(G_GetAngleDelta(ang, getangle(dx, dy)));
+        if (d < bestDelta && introSees(ps, s)) { best = &sp; bestDelta = d; }
+    }
+    if (!best) return false;
+    Emine_Say(introLines[best->line]);  // every time (unless Duke's still talking)
+    return true;
+}
 
 bool Emine_Say(const char *line, int oneIn)
 {
@@ -236,7 +304,13 @@ void Emine_VoiceInit(void)
 
 void Emine_VoiceLevelStart(void)
 {
-    if (!voxworld_active()) return;  // the intro isn't the mines: no crafty lines there
+    introTic = 0; introPending = nullptr; introSpots.clear();
+    if (!voxworld_active())  // the intro isn't the mines: none of the crafty lines there, its own (introTick)
+    {
+        lines["intro-truck"].said = 0;
+        for (auto l : introLines) lines[l].said = 0;
+        return;
+    }
     if (died)
     {
         died = false;
@@ -303,7 +377,7 @@ bool Emine_VoiceGate(int soundNum)
     if (it == soundKind.end() || it->second != SPEECH) return true;
     // only in play: the menu's "Let's rock" and the title's "Shift happens" don't hold up the first line in the mines
     if (!(g_player[myconnectindex].ps->gm & MODE_GAME)) return true;
-    if (voice_tic - lastSpeechEnd < GAP) return false;
+    if (voice_tic - lastSpeechEnd < (voxworld_active() ? GAP : INTRO_GAP)) return false;
     speaking = true;
     lastSpeechEnd = voice_tic;
     return true;
@@ -315,7 +389,8 @@ void Emine_VoiceTick(void)
     // the gap counts from when the line finishes
     if (speaking) { if (S_TalkPlaying()) lastSpeechEnd = voice_tic; else speaking = false; }
     auto const ps = g_player[myconnectindex].ps;
-    if (!ready || !voxworld_active() || ps->i < 0) return;
+    if (!ready || ps->i < 0) return;
+    if (!voxworld_active()) { if (ps->gm & MODE_GAME) introTick(ps); return; }
     int const health = sprite[ps->i].extra;
 
     // dying: by a lurker's blast, its own line (it comes first, so Duke's death line keeps quiet)

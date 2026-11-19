@@ -817,5 +817,113 @@
   "final": "...Should've seen that coming.",
   "original": "",
   "sound": ""
+ },
+ {
+  "id": "intro-truck",
+  "group": "new-intro",
+  "trigger": "Intro: a few seconds after waking in the truck",
+  "decision": "new",
+  "final": "Woke up in the back of a truck. Again.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-fire",
+  "group": "new-intro",
+  "trigger": "Intro: out of the truck, the barrel fire in sight",
+  "decision": "new",
+  "final": "Somebody's keeping warm. Or burning evidence.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-door",
+  "group": "new-intro",
+  "trigger": "Intro: stepping through the propped-open fire exit",
+  "decision": "new",
+  "final": "Fire door propped open with a brick. Health and safety's gonna love this.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-arcade",
+  "group": "new-intro",
+  "trigger": "Intro: through the staff doors onto the arcade floor",
+  "decision": "new",
+  "final": "Graveyard Shift. They weren't kidding.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-mineshift",
+  "group": "new-intro",
+  "trigger": "Intro: Mine Shift in sight, well down the aisle",
+  "decision": "new",
+  "final": "One machine still awake. Hello, gorgeous.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-kick",
+  "group": "new-intro",
+  "trigger": "Intro: close to Mine Shift (a call to kick it)",
+  "decision": "new",
+  "final": "Insert coin? How about my boot.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-urinal",
+  "group": "new-intro",
+  "trigger": "Intro: Use on the urinal",
+  "decision": "new",
+  "final": "Ahhh... shift happens.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-drinks",
+  "group": "new-intro",
+  "trigger": "Intro: Use on the drinks machine",
+  "decision": "new",
+  "final": "Out of order. Story of my life.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-crt",
+  "group": "new-intro",
+  "trigger": "Intro: Use on the office CRT",
+  "decision": "new",
+  "final": "Still running DOS. Respect.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-outoforder",
+  "group": "new-intro",
+  "trigger": "Intro: Use on an out-of-order cabinet",
+  "decision": "new",
+  "final": "Out of order. Like most of this town.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-moped",
+  "group": "new-intro",
+  "trigger": "Intro: Use on a moped",
+  "decision": "new",
+  "final": "Nice ride. If you're twelve.",
+  "original": "",
+  "sound": ""
+ },
+ {
+  "id": "intro-shower",
+  "group": "new-intro",
+  "trigger": "Intro: Use on the shower",
+  "decision": "new",
+  "final": "No time. The stink stays.",
+  "original": "",
+  "sound": ""
  }
 ]

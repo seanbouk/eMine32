@@ -293,6 +293,14 @@ SPRITES = []
 def spr(kind, x, y, z, tex, **kw):
     SPRITES.append(dict(kind=kind, x=x, y=y, z=z, tex=tex, **kw))
 
+# Duke's lines in the intro (art/voice/lines.json): each is an invisible sprite where it's said. A spot's line is said
+# the first time you come within reach and can see it; a use spot's when you press Use facing it within reach. The
+# engine (emine_voice.cpp, introLines) knows them by their place in this list: keep the two in step.
+VOICE_LINES = ['intro-fire', 'intro-door', 'intro-arcade', 'intro-mineshift', 'intro-kick', 'intro-urinal',
+               'intro-drinks', 'intro-crt', 'intro-outoforder', 'intro-moped', 'intro-shower']
+def voice(x, y, line, reach, use=False, z=1.0):
+    spr('voice', x, y, z, None, line=line, reach=reach, use=use)
+
 LIGHTS = []
 def light(x, y, z, r, s, pal=0, zones=('yard',), pool=None, seg=None, tag=None, walls_only=False):
     """shade falls by s at the light, fading to nothing at radius r. pool: ring radii (fractions of r) cut in floors.
@@ -340,11 +348,13 @@ spr('face', 16.9, 1.9, 0, 'spr_bags', block=True)
 spr('face', 2.0, 18.5, 0, 'spr_bags', block=True)
 for name, x, y, heading in [('red', 18.1, 12.1, 4), ('teal', 18.05, 13.05, 352), ('cream', 18.1, 14.0, 10)]:
     spr('moped', x, y, 0, f'spr_moped_{name}', heading=heading)
+    voice(x, y, 'intro-moped', 1.8, use=True, z=0.6)
 
 # the barrel fire
 spr('face', 12.6, 7.8, 0, 'spr_barrel', block=True)
 spr('face', 12.6, 7.8, 0.72, 'spr_fire', h=0.95, actor='FIRE', glow=True)
 light(12.6, 7.8, 1.4, 5.0, 17, P_FIRE, zones=('yard',), pool=(0.3, 0.6, 1.0))
+voice(12.6, 7.8, 'intro-fire', 5.5, z=1.2)       # out of the truck, with the fire in view
 
 # the sodium wall-pack over the pale wall
 spr('wall', 5.55, Y0 + 0.02, 4.3, 'wallpack', facing='s', w=0.7, h=0.4)
@@ -377,8 +387,9 @@ for hx, sgn in [(4.0, -1), (6.6, 1)]:
 # fire exit: in the west wall, 5..6.5, propped open (hinged on its north jamb, swung 70 degrees out into the yard)
 room(rect(19 - TO, 5, 19 + TO, 6.5), 0, 2.3, 'concrete', 'steel', 'corridor', side='render', walltex='steel')
 spr('door', 19 - TO, 5.0, 0, 'fire_door_inside', ang=math.radians(90 + 70), length=1.5, h=2.3, back='fire_door')
-spr('face', 18.45, 6.6, 0, 'spr_brick')
+spr('face', 17.6, 5.58, 0, 'spr_brick')     # at the door's free edge, on the side it would close toward
 spr('wall', X1 - 0.015, 5.75, 2.4, 'sign_exit', facing='w', glow=True)
+voice(19.0, 5.75, 'intro-door', 0.9)              # stepping through it
 spr('wall', X1 - 0.015, 10.0, 2.3, 'sign_trade', facing='w')
 light(18.5, 5.75, 2.6, 2.6, 8, P_MINE, zones=('yard',))                # the EXIT sign's green
 light(18.6, 4.6, 2.9, 4.2, 15, 0, zones=('yard',), pool=(0.45, 0.9))  # the caged bulb over the door
@@ -409,6 +420,7 @@ for x0, state in TUBES:
 light(24.2, 5.75, 2.9, 3.6, 9, 0, zones=('corridor',), pool=(0.55,), tag='flicker')
 light(30.4, 5.75, 2.9, 5.0, 12, 0, zones=('corridor', 'rooms'), pool=(0.25, 0.45, 0.65, 0.85))
 light(24.72, 6.3, 1.2, 1.8, 7, 0, zones=('corridor',))                  # the drinks machine's glow
+voice(24.72, 6.55, 'intro-drinks', 1.4, use=True)
 light(19.6, 5.75, 1.6, 2.4, 6, P_SODIUM, zones=('corridor',))           # the yard through the door
 # rooms: the office, the staff WC (the toilet gag), the store
 room(rect(19.3, 1.3, 21.3, 2.3), 0.75, CORR_C, 'desk_top', 'pipes', 'rooms', side='plywood', smoosh=True)
@@ -417,8 +429,11 @@ room(rect(19.95, 1.42, 20.65, 1.95), 1.27, CORR_C, 'crt_beige', 'pipes', 'rooms'
 light(20.3, 2.2, 1.1, 1.6, 5, P_MINE, zones=('rooms',))                   # the screen's glow on the desk
 light(21.0, 2.6, 2.8, 2.8, 10, 0, zones=('rooms',), pool=(0.5,))          # the office's ceiling light
 spr('face', 20.4, 2.8, 0, 'spr_chair', block=True)
+voice(20.3, 2.0, 'intro-crt', 1.8, use=True, z=1.5)
 spr('wall', 24 + TI + 0.02, 2.6, 0.45, 'spr_urinal', facing='e', actor='TOILET', block=True)
 spr('face', 26.3, 1.6, CORR_C - 0.95, 'spr_shower')
+voice(24 + TI + 0.15, 2.6, 'intro-urinal', 1.4, use=True)
+voice(26.3, 1.6, 'intro-shower', 1.3, use=True, z=1.8)
 light(25.5, 2.4, 2.8, 2.6, 9, 0, zones=('wc',))
 room(rect(27.3, 1 + TO, 32.7, 2.0), 2.2, CORR_C, 'plywood', 'pipes', 'rooms', side='plywood')
 room(rect(27.3, 2.4, 28.5, 3.6), 1.0, CORR_C, 'dustsheet', 'pipes', 'rooms', side='dustsheet')
@@ -427,6 +442,7 @@ room(rect(29, 2.4, 30.2, 3.6), 1.6, CORR_C, 'dustsheet', 'pipes', 'rooms', side=
 # the arcade floor (and the prize counter's corner of it, which is open to it)
 ARC = unary_union([rect(19 + TO, 7.5 + TI, 41 - 0.03, 23 - TO), rect(33 + TI, 1 + TO, 41 - 0.03, 7.5 + TI)])
 room(ARC, 0, ARC_C, 'carpet', 'paint_black', 'arcade', cut=True)
+voice(30.0, 8.2, 'intro-arcade', 1.0)             # through the staff doors onto the floor
 paint(19, 7.5, 41, 23.5, None, 'arcade_wall')
 paint(33, 1, 41, 7.6, None, 'arcade_wall')
 room(rect(29.2, 7.5 - TI, 30.8, 7.5 + TI), 0, 2.2, 'concrete', 'steel', 'corridor', side='wall_twotone', walltex='steel')
@@ -479,6 +495,7 @@ for rx, face in [(19.2, 'e'), (23.5, 'w'), (24.4, 'e'), (26.9, 'e'), (32.2, 'w')
             cabinet(cx, cy, face, f'cab{k % 3}')
             if k % 9 == 4:
                 spr('wall', cx + AXIS[face][0] * 0.47, cy, 1.25, 'sign_outoforder', facing=face, h=0.4)
+                voice(cx + AXIS[face][0] * 0.55, cy, 'intro-outoforder', 1.4, use=True, z=1.25)
         k += 1; y += 1.15
 def pinball(x):
     room(rect(x, 21.45, x + 0.7, 23 - TO), 0.95, ARC_C, 'laminate', 'paint_black', 'arcade', side='laminate',
@@ -500,6 +517,8 @@ backwall('PPCPPCP', 31.3)
 cabinet(30.0, 23 - TO - 0.425, 'n', 'mineshift', width=1.0, depth=0.85, glow=True)
 spr('trigger', 30.0, 23 - TO - 0.85 - 0.02, 1.0, 'trigger', facing='n', actor='MINESHIFT')
 light(30.0, 21.6, 1.4, 8.0, 23, P_MINE, zones=('arcade',), pool=(0.2, 0.38, 0.58, 0.8, 1.0))
+voice(30.0, 21.85, 'intro-mineshift', 9.0)        # in sight, well down the aisle from the staff doors (14 away)
+voice(30.0, 21.85, 'intro-kick', 2.75)            # close: the call to give it a kick
 
 # ================================================================ overlay
 GRID = 1.0
@@ -951,6 +970,12 @@ def write():
                 sh, pal = lightat((cx + ox * 6) / B, (cy + oy * 6) / B, 1.2, zone, (math.cos(nrm), math.sin(nrm), 0))
                 add_sprite(cx + ox, cy + oy, z, pic, 16 | 64 | 1 | 256, sp['length'] * 2048 / tw, sp['h'] * 2048 / th,
                            ang=bang(nrm), shade=sh, pal=pal)
+            continue
+        if k == 'voice':
+            # invisible; lotag says which line (9000 + its place in VOICE_LINES, 9100 + for a use spot), hitag the reach
+            pic = made('voice_spot', np.full((4, 4), 255, np.uint8))
+            add_sprite(x, y, z, pic, 32768, 4, 4, lotag=(9100 if sp['use'] else 9000) + VOICE_LINES.index(sp['line']),
+                       hitag=round(sp['reach'] * B))
             continue
         if k == 'trigger':
             pic = made('trigger', np.full((16, 16), 255, np.uint8))

@@ -40,6 +40,7 @@ TEXT = {
     'low-health': "A Western Double Chee would go down well about now.",
     'gib-9': 'Remember when I promised to jib you last!?',  # "gib" with a soft G
     'gib-10': 'If you can bleed, I can jib you!',
+    'intro-urinal': '[relieved sigh] Ahhh... shift happens.',
 }
 # foley, made with the sound-effects model: (description, seconds)
 SFX = {

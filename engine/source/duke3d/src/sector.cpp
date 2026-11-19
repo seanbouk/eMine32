@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "duke3d.h"
 #include "input.h"
+#include "emine.h"
 
 // PRIMITIVE
 
@@ -3364,6 +3365,9 @@ void P_CheckSectors(int playerNum)
         nearSprite = -1;
         pPlayer->toggle_key_flag = 1;
         foundWall = -1;
+
+        if (TEST_SYNC_KEY(g_player[playerNum].input.bits, SK_OPEN) && Emine_VoiceUse(playerNum))  // eMine32: the intro's lines
+            return;
 
         int wallDist = P_FindWall(pPlayer, &foundWall);
 
