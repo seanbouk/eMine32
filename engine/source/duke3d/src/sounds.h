@@ -99,6 +99,7 @@ void S_MenuSound(void);
 void S_MusicShutdown(void);
 void S_MusicStartup(void);
 void S_MusicVolume(int32_t volume);
+void S_MusicPlace(int32_t volume, int32_t left, int32_t right);  // eMine32
 void S_RestartMusic(void);
 void S_PauseMusic(bool paused);
 void S_PauseSounds(bool paused);

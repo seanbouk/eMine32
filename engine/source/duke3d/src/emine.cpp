@@ -424,8 +424,42 @@ void Emine_SwimSink(int playerNum, uint32_t playerBits, int32_t floorZ)
         p->pos.z = min(p->pos.z + 160, stand);
 }
 
+// The intro's music is Mine Shift's: heard from where you are, quiet out in the yard (loudest at the fire exit), louder
+// in the staff corridor (loudest at the doors to the arcade), full by the cabinet; from that way (left or right). In
+// plan units (tools/mkintro.py's map: 512 Build units each). The mines, and the menus, have it as it is.
+static void Emine_IntroMusic(void)
+{
+    static float gain = -1, pan;
+    static bool placed;
+    auto const p = g_player[myconnectindex].ps;
+    if (voxworld_active() || p->i < 0)
+    {
+        if (placed) { S_MusicVolume(ud.config.MusicVolume); placed = false; gain = -1; }
+        return;
+    }
+    float const x = p->pos.x / 512.f, y = p->pos.y / 512.f;
+    auto ramp = [](float d, float d0, float d1, float near, float far)
+    { float const t = fminf(fmaxf((d - d0) / (d1 - d0), 0.f), 1.f); return near + (far - near) * t; };
+    float sx, sy, want;
+    if (x < 19.f)                                              { sx = 19.f; sy = 5.75f; want = ramp(hypotf(x - sx, y - sy), 1, 11, 0.25f, 0.1f); }
+    else if (y < 7.6f && x < 33.1f)                            { sx = 30.f; sy = 7.5f;  want = ramp(hypotf(x - sx, y - sy), 1, 11, 0.55f, 0.35f); }
+    else                                                       { sx = 30.f; sy = 22.4f; want = ramp(hypotf(x - sx, y - sy), 3, 14, 1.f, 0.6f); }
+    // which side it's on: +1 right, -1 left (Build angles turn clockwise, so +512 is to the right)
+    int const rel = getangle((int)(sx * 512) - p->pos.x, (int)(sy * 512) - p->pos.y) - fix16_to_int(p->q16ang);
+    float const side = sintable[rel & 2047] / 16384.f;
+    if (gain < 0) gain = want, pan = side;
+    gain += (want - gain) * 0.06f;
+    pan += (side - pan) * 0.15f;
+    float const v = ud.config.MusicVolume * gain;
+    // the far ear hears it too, through the walls: never under 55%
+    int const l = (int)(v * (1 - 0.45f * fmaxf(pan, 0.f))), r = (int)(v * (1 - 0.45f * fmaxf(-pan, 0.f)));
+    S_MusicPlace((int)v, l, r);
+    placed = true;
+}
+
 void Emine_Tick(void)
 {
+    Emine_IntroMusic();
     emine_tic++;
     double t = timerGetFractionalTicks(), t1;
     auto lap = [&](int sys) { t1 = timerGetFractionalTicks(); Emine_PerfSystem(sys, t1 - t); t = t1; };

@@ -232,6 +232,13 @@ void S_MusicVolume(int32_t volume)
     MUSIC_SetVolume(volume);
 }
 
+// eMine32: the music at a level and balance of its own (0-255), for music heard from somewhere in the map
+void S_MusicPlace(int32_t volume, int32_t left, int32_t right)
+{
+    if (MusicIsWaveform && MusicVoice >= 0)
+        FX_SetPan(MusicVoice, volume, left, right);
+}
+
 void S_RestartMusic(void)
 {
     if (ud.recstat != 2 && g_player[myconnectindex].ps->gm&MODE_GAME)
