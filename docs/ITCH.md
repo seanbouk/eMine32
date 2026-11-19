@@ -7,7 +7,9 @@ The zip is the build we test at http://localhost:8032/ (tools/serve.py): there i
 
 On itch:
 - Kind of project: HTML. Tick "This file will be played in the browser".
-- Embed: 960 x 760 (the game, 960 x 720, and the bar under it with our own fullscreen button). Leave itch's "Fullscreen button" off: the page has its own.
+- Embed options: "Click to launch in fullscreen" (itch opens the page filling the browser window: the game near
+  the top, the wall of blocks round it). Not a fixed-size embed, and itch's own fullscreen button isn't needed: the
+  page has its own (Alt+Enter too).
 - Tick the AI-generated content disclosure (art, voice).
 - Submit to Game Off 2026.
 

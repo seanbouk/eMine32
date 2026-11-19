@@ -5,20 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shift Happens</title>
 <style>
-  /* the page: the game, 960 x 720 (smaller if the window is), with a bar under it for the fullscreen button.
-     itch embeds this page as it is: embed size 960 x 760. */
-  html, body { margin: 0; height: 100%; background: #111; color: #c8b27a; overflow: hidden;
+  /* the page: a whole browser window (itch opens it that way), a wall of blocks (#bg, a match-three: click three or
+     more alike that touch) and the game near the top, 960 x 720 (smaller if the window is), with a bar under it for
+     the fullscreen button. No scrollbars. */
+  html, body { margin: 0; height: 100%; background: #0c0b0a; color: #c8b27a; overflow: hidden;
     font: 14px/1.4 ui-monospace, Consolas, monospace; }
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  #game { position: relative; background: #000; aspect-ratio: 4 / 3;
-    width: min(960px, 100vw, (100vh - 40px) * 4 / 3); }
+  #bg { position: fixed; left: 0; top: 0; display: block; image-rendering: pixelated; }
+  #page { position: relative; height: 100%; display: flex; flex-direction: column; align-items: center;
+    padding-top: 24px; box-sizing: border-box; pointer-events: none; }
+  #game, #controls > * { pointer-events: auto; }
+  #game { position: relative; background: #000; aspect-ratio: 4 / 3; box-shadow: 0 0 0 2px #000, 0 8px 40px #000;
+    width: min(960px, 100vw - 32px, (100vh - 24px - 48px) * 4 / 3); }
   /* fullscreen: the whole screen, the game 4:3 in the middle */
   #game:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; }
   /* keep the 8-bit pixels crisp and the aspect ratio fixed */
-  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges;
+  #canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges;
     width: 100%; height: 100%; object-fit: contain; outline: none; }
   #controls { display: flex; justify-content: flex-end; align-items: center; height: 40px; box-sizing: border-box;
-    width: min(960px, 100vw, (100vh - 40px) * 4 / 3); }
+    width: min(960px, 100vw - 32px, (100vh - 24px - 48px) * 4 / 3); }
   #fullscreen { background: #2a2010; color: #e8c040; border: 1px solid #6a5020; padding: 5px 12px; cursor: pointer;
     font: inherit; }
   #fullscreen:hover { background: #3a3018; }
@@ -35,9 +39,12 @@
 </style>
 </head>
 <body>
+<canvas id="bg"></canvas>
+<div id="page">
 <div id="game"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
 <div id="overlay"><h1>SHIFT HAPPENS</h1><div id="tag">A 90s shooter on the Duke Nukem 3D engine, in a world of blocks you can mine, build and blow up.</div><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div></div>
 <div id="controls"><button id="fullscreen" title="Fullscreen (Esc to leave)">⛶ Fullscreen</button></div>
+</div>
 <script>
   var overlay = document.getElementById('overlay'), statusEl = document.getElementById('status'),
       barEl = document.querySelector('#bar > i'), canvas = document.getElementById('canvas');
@@ -91,7 +98,9 @@
   }
   canvas.addEventListener('click', function () { if (document.pointerLockElement !== canvas) canvas.requestPointerLock(); });
   window.addEventListener('keydown', function (e) { if (e.key !== 'Escape' && wantLock()) canvas.requestPointerLock(); });
-  window.addEventListener('mousedown', function () { if (wantLock()) canvas.requestPointerLock(); });
+  // (a click on the game takes the mouse back; a click on the blocks round it is for them)
+  window.addEventListener('mousedown', function (e) { if (gameHas(e) && wantLock()) canvas.requestPointerLock(); });
+  function gameHas(e) { return e.target && e.target.closest && e.target.closest('#game'); }
   // Follow the window size (F11, dragging the window): ask the engine to switch resolution once things settle.
   // the fullscreen button: the game's box fills the screen (the game stays 4:3); Esc leaves
   var gameEl = document.getElementById('game');
@@ -141,6 +150,119 @@
       if (lag > Module.emineRawLag) Module.emineRawLag = lag;
     }, true);
   window.addEventListener('error', function (e) { statusEl.textContent = 'Error: ' + e.message; });
+</script>
+<script>
+// The wall of blocks behind the game: a match-three with no score. Click a block with at least two more of its kind
+// touching it (any shape) and they go; the gap fills from the top, the left or the right (at random), the rest
+// sliding over and new blocks coming in. Tiles: web/tiles.png (tools/mkpagetiles.py), inlined at build.
+(function () {
+  var cv = document.getElementById('bg'), cx = cv.getContext('2d');
+  var tiles = new Image();
+  var SRC = 24, CELL = 48, KINDS = 7, DIM = 0.68;      // seven kinds of the nine (the slime and the vent sit out)
+  var cols = 0, rows = 0, grid = [], hover = null, shake = null, moving = false;
+  function cell(kind) { return { k: kind, ox: 0, oy: 0 }; }
+  function rnd() { return Math.floor(Math.random() * KINDS); }
+  function size() {
+    var w = Math.ceil(innerWidth / CELL), h = Math.ceil(innerHeight / CELL);
+    cv.width = w * CELL; cv.height = h * CELL;
+    cv.style.width = cv.width + 'px'; cv.style.height = cv.height + 'px';
+    var g = [];
+    for (var x = 0; x < w; x++) { g.push([]); for (var y = 0; y < h; y++) g[x].push((grid[x] && grid[x][y]) || cell(rnd())); }
+    grid = g; cols = w; rows = h; draw();
+  }
+  function group(x, y) {
+    var k = grid[x][y].k, seen = {}, out = [], st = [[x, y]];
+    while (st.length) {
+      var p = st.pop(), id = p[0] + ',' + p[1];
+      if (seen[id] || p[0] < 0 || p[1] < 0 || p[0] >= cols || p[1] >= rows || grid[p[0]][p[1]].k !== k) continue;
+      seen[id] = 1; out.push(p);
+      st.push([p[0] + 1, p[1]], [p[0] - 1, p[1]], [p[0], p[1] + 1], [p[0], p[1] - 1]);
+    }
+    return out;
+  }
+  function clear(g) {
+    var gone = {}; g.forEach(function (p) { gone[p[0] + ',' + p[1]] = 1; });
+    var from = ['top', 'left', 'right'][Math.floor(Math.random() * 3)], x, y, i, n, keep, c;
+    if (from === 'top') {
+      for (x = 0; x < cols; x++) {            // each column falls; new blocks drop in above it
+        keep = [];
+        for (y = 0; y < rows; y++) if (!gone[x + ',' + y]) keep.push([grid[x][y], y]);
+        n = rows - keep.length;
+        for (y = 0; y < rows; y++) {
+          if (y < n) { c = cell(rnd()); c.oy = -n * CELL; grid[x][y] = c; }
+          else { var kp = keep[y - n]; kp[0].oy += (kp[1] - y) * CELL; grid[x][y] = kp[0]; }
+        }
+      }
+    } else {
+      var fromLeft = from === 'left';         // each row slides away from that side; new blocks slide in from it
+      for (y = 0; y < rows; y++) {
+        keep = [];
+        for (x = 0; x < cols; x++) if (!gone[x + ',' + y]) keep.push([grid[x][y], x]);
+        n = cols - keep.length;
+        var row = [];
+        if (fromLeft) for (i = 0; i < n; i++) { c = cell(rnd()); c.ox = -n * CELL; row.push(c); }
+        for (i = 0; i < keep.length; i++) { keep[i][0].ox += (keep[i][1] - row.length) * CELL; row.push(keep[i][0]); }
+        if (!fromLeft) for (i = 0; i < n; i++) { c = cell(rnd()); c.ox = n * CELL; row.push(c); }
+        for (x = 0; x < cols; x++) grid[x][y] = row[x];
+      }
+    }
+    animate();
+  }
+  function draw() {
+    if (!cols) return;
+    cx.imageSmoothingEnabled = false;
+    cx.fillStyle = '#0c0b0a'; cx.fillRect(0, 0, cv.width, cv.height);
+    var hg = {};
+    if (hover && hover.length >= 3) hover.forEach(function (p) { hg[p[0] + ',' + p[1]] = 1; });
+    for (var x = 0; x < cols; x++) for (var y = 0; y < rows; y++) {
+      var c = grid[x][y], sx = x * CELL + c.ox, sy = y * CELL + c.oy;
+      if (shake && shake.x === x && shake.y === y) sx += Math.sin(shake.t * 1.7) * 3 * (shake.t / 12);
+      cx.drawImage(tiles, c.k * SRC, 0, SRC, SRC, sx, sy, CELL, CELL);
+      cx.fillStyle = 'rgba(12,11,10,' + (hg[x + ',' + y] ? DIM - 0.3 : DIM) + ')';
+      cx.fillRect(sx, sy, CELL, CELL);
+    }
+  }
+  function animate() {
+    if (moving) return;
+    moving = true;
+    (function step() {
+      var busy = false;
+      for (var x = 0; x < cols; x++) for (var y = 0; y < rows; y++) {
+        var c = grid[x][y];
+        if (c.ox || c.oy) {
+          busy = true;
+          c.ox = Math.abs(c.ox) < 1 ? 0 : c.ox * 0.8;
+          c.oy = Math.abs(c.oy) < 1 ? 0 : c.oy * 0.8;
+        }
+      }
+      if (shake) { busy = true; if (--shake.t <= 0) shake = null; }
+      draw();
+      if (busy) requestAnimationFrame(step); else moving = false;
+    })();
+  }
+  function at(e) {
+    var x = Math.floor(e.clientX / CELL), y = Math.floor(e.clientY / CELL);
+    return x >= 0 && y >= 0 && x < cols && y < rows ? [x, y] : null;
+  }
+  function key(g) { return g && g.length >= 3 ? g.map(String).sort().join(';') : ''; }
+  cv.addEventListener('mousemove', function (e) {
+    var p = at(e), h = p ? group(p[0], p[1]) : null, changed = key(h) !== key(hover);
+    hover = h; cv.style.cursor = key(h) ? 'pointer' : 'default';
+    if (changed && !moving) draw();
+  });
+  cv.addEventListener('mouseleave', function () { hover = null; if (!moving) draw(); });
+  cv.addEventListener('mousedown', function (e) {
+    var p = at(e);
+    if (!p || moving) return;
+    var g = group(p[0], p[1]);
+    if (g.length >= 3) { hover = null; cv.style.cursor = 'default'; clear(g); }
+    else { shake = { x: p[0], y: p[1], t: 12 }; animate(); }
+  });
+  tiles.onload = size;
+  tiles.src = '__EMINE_TILES__';
+  var t = 0;
+  addEventListener('resize', function () { clearTimeout(t); t = setTimeout(size, 100); });
+})();
 </script>
 {{{ SCRIPT }}}
 </body>

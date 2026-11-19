@@ -1,0 +1,7 @@
+{
+ "tiles": {
+  "model": "fal-ai/nano-banana-2",
+  "aspect": "1:1",
+  "prompt": "A 3 by 3 grid of nine square game block textures, each one filling its own square cell completely edge to edge, the cells separated by thin straight pure black gutters, seen flat-on like Minecraft block faces but in the gritty mid-1990s Duke Nukem 3D texture style, painterly-photographic and slightly pixelated: 1) an olive-green military ammo crate with stencilled lettering and brass cartridges; 2) a red TNT crate face with bundled dynamite sticks; 3) the top of a yellow nuclear waste drum with a black radiation trefoil; 4) old red city bricks with grime; 5) a cluster of rusty industrial pipes and valves; 6) diagonal yellow and black hazard stripes on dented steel; 7) a blue glowing atomic health orb set in a dark metal panel; 8) a bubbling bright green toxic slime pool; 9) a grey steel air vent grille with rivets. No text labels, no border around the whole image, no shadows between cells."
+ }
+}
