@@ -302,3 +302,10 @@ minigun, rocket launcher, pipe bombs and devastator lie on the case's floor (map
 uses `addweapon` now, so ammo for a weapon you skipped gives you the weapon too (and switches to it, as picking up a
 weapon does). The pickup art is one fal sheet (`art/props/fal/weapons.png`, prompt in `fal_prompts.json`, the HUD
 paintings as references), cut out and laid flat by `tools/mkpickups.py`, then made into tiles by `tools/mksprite.py`.
+
+Web page and fullscreen (2026-11-19): the page shows the game in a 960x720 box with a Fullscreen button under it
+(Alt+Enter too, once the game is running). The render resolution is fixed at 960x720 and never changes while the
+game runs: the page used to ask the engine for a new video mode on every window resize, and any mid-game mode
+change corrupts memory on the web (SDL's own data, then the audio mixer: "null function" in MV_Mix, the picture
+black and the sound gone). That was likely the 2026-11-13 adaptive-resolution crash too. Fullscreen and small
+windows just scale the canvas. `?res=WxH` picks another size at start-up, for tests.

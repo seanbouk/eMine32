@@ -37,7 +37,7 @@
 <body>
 <div id="game"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
 <div id="overlay"><h1>SHIFT HAPPENS</h1><div id="tag">A 90s shooter on the Duke Nukem 3D engine, in a world of blocks you can mine, build and blow up.</div><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div></div>
-<div id="controls"><button id="fullscreen" title="Fullscreen: Alt+Enter (Esc to leave)">⛶ Fullscreen (Alt+Enter)</button></div>
+<div id="controls"><button id="fullscreen" title="Fullscreen (Esc to leave)">⛶ Fullscreen</button></div>
 <script>
   var overlay = document.getElementById('overlay'), statusEl = document.getElementById('status'),
       barEl = document.querySelector('#bar > i'), canvas = document.getElementById('canvas');
@@ -63,6 +63,9 @@
     overlay.remove();
     canvas.focus();
     Module.callMain(Module.emineArgs || []);
+    // the game's running: Alt+Enter works from here (the page has the keyboard), so say so
+    var fsb = document.getElementById('fullscreen');
+    fsb.textContent = '⛶ Fullscreen (Alt+Enter)'; fsb.title = 'Fullscreen: Alt+Enter (Esc to leave)';
   });
   // Let the browser keep F11 (fullscreen) and F12 (dev tools): stop them before SDL sees and swallows them.
   ['keydown', 'keyup', 'keypress'].forEach(function (type) {
@@ -106,16 +109,7 @@
       if (type === 'keydown' && !e.repeat) toggleFullscreen();
     }, true);
   });
-  var resizeTimer = 0;
-  window.addEventListener('resize', function () {
-    if (/[?&]res=/.test(location.search)) return;  // explicit resolution: just scale
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function () {
-      if (!Module._emine_request_resize || !Module.emineRes) return;
-      var r = Module.emineRes();
-      Module._emine_request_resize(r[0], r[1]);
-    }, 250);
-  });
+  // (no resolution change on resize or fullscreen: see emineRes in pre.js; the canvas just scales)
   // emine_perf: mouse movement as the browser delivers it to the page (summed; the engine reads and resets it each
   // frame), to tell input the browser holds back from input the engine is slow to take.
   // emineMouseLag: the most any event was late (ms from when the browser stamped it to when the page got it).
