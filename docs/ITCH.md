@@ -3,8 +3,7 @@
 ## Upload
 
 `bash scripts/build-web.sh && bash scripts/package-itch.sh` gives `web/itch/shift-happens.zip` (index.html at its root).
-Preview it as on itch: `python tools/serve.py 8034 web/itch`, then http://localhost:8034/ (the game in a 960 x 720 frame with a
-fullscreen button under it).
+The zip is the build we test at http://localhost:8032/ (tools/serve.py): there is no separate release version.
 
 On itch:
 - Kind of project: HTML. Tick "This file will be played in the browser".

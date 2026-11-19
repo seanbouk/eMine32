@@ -1,5 +1,5 @@
 // Intro map views: start a new game (the intro is level 1), screenshot the start, then stand at each look-dev camera.
-// usage: node intro.js <url>/eduke32.html <outdir> [view ...]   view = name:x:y:ang (plan hundredths, Build angle) or :<console cmd>
+// usage: node intro.js http://localhost:8032/ <outdir> [view ...]   view = name:x:y:ang (plan hundredths, Build angle) or :<console cmd>
 //        or +k<key>[@ms] (Home looks up, End down) / +w<ms> / +W<ms> / +S<name> (key, walk forward, wait, screenshot)
 const { chromium } = require('playwright-core');
 (async () => {
