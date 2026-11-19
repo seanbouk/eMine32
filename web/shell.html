@@ -26,29 +26,70 @@
   #fullscreen { background: #2a2010; color: #e8c040; border: 1px solid #6a5020; padding: 5px 12px; cursor: pointer;
     font: inherit; }
   #fullscreen:hover { background: #3a3018; }
-  /* the start screen: the box cover (web/boxart.jpg, tools/mkboxart.py), "Click to play" at its foot */
-  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; align-items: center;
-    justify-content: flex-end; padding-bottom: 5%; box-sizing: border-box; cursor: pointer; text-align: center;
-    background: #000 url('__EMINE_BOXART__') center / cover no-repeat; color: #f0d890; font-size: 20px; letter-spacing: 2px;
-    text-shadow: 2px 2px 0 #000, 0 0 8px #000; }
-  #status { min-height: 1.4em; }
-  #bar { width: 260px; height: 6px; background: #2a2010; }
-  #bar > i { display: block; height: 100%; width: 0; background: #e8c040; }
-  #overlay.ready #bar { display: none; }
-  #overlay:not(.ready) { cursor: progress; }
-  #build { position: absolute; right: 12px; bottom: 8px; font-size: 11px; opacity: .5; }
+  /* the start screen: a DOS prompt, someone's just found the game on their drive. As it downloads, SHIFT.EXE types
+     itself out at the prompt; when it's ready the cursor blinks, and a click (or Enter) runs it. 80 x 25 text. */
+  #game { container-type: inline-size; }
+  #overlay { position: absolute; inset: 0; background: #000; cursor: progress; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end; padding: 1.2cqi 1.5cqi; box-sizing: border-box; }
+  #overlay.ready { cursor: pointer; }
+  #dos { margin: 0; color: #aaa; font: 2.05cqi/1.4 'Perfect DOS VGA 437', 'Lucida Console', Consolas, ui-monospace, monospace;
+    white-space: pre; }
+  #dos b { color: #fff; font-weight: normal; }
+  #cursor { display: inline-block; width: .6em; height: .22em; background: #ccc; vertical-align: -.15em; visibility: hidden; }
+  #overlay.ready #cursor { visibility: visible; animation: blink 1.06s steps(1) infinite; }
+  @keyframes blink { 50% { visibility: hidden; } }
+  #build { position: absolute; right: 1.5cqi; top: 1cqi; font: 1.1cqi ui-monospace, monospace; color: #555; }
 </style>
 </head>
 <body>
 <canvas id="bg"></canvas>
 <div id="page">
 <div id="game"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
-<div id="overlay"><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div></div>
+<div id="overlay"><pre id="dos">C:\>cd GAMES
+
+C:\GAMES>dir /w
+
+ Volume in drive C is SEANOFEARTH
+ Directory of C:\GAMES
+
+[.]            [..]           [ARCADE]       [CHESS]        [PINBALL]
+[SHIFT]        [SOLITAIR]
+        0 file(s)              0 bytes
+        7 dir(s)     312,475,648 bytes free
+
+C:\GAMES>cd SHIFT
+
+C:\GAMES\SHIFT>dir
+
+ Volume in drive C is SEANOFEARTH
+ Directory of C:\GAMES\SHIFT
+
+.            &lt;DIR&gt;        11-19-96  11:58p
+..           &lt;DIR&gt;        11-19-96  11:58p
+SHIFT    EXE     4,263,281 11-19-96  11:58p
+SHIFT    DAT    10,934,531 11-19-96  11:58p
+README   TXT         1,337 11-19-96  11:58p
+        3 file(s)     15,199,149 bytes
+        2 dir(s)     312,475,648 bytes free
+
+C:\GAMES\SHIFT>type README.TXT
+
+  SHIFT HAPPENS v1.0
+  (C) SeanOfEarth. Not responsible for lost weekends.
+
+C:\GAMES\SHIFT><b id="cmd"></b><span id="cursor"></span></pre><div id="build">build __EMINE_BUILD__</div></div></div>
 <div id="controls"><button id="fullscreen" title="Fullscreen (Esc to leave)">⛶ Fullscreen</button></div>
 </div>
 <script>
-  var overlay = document.getElementById('overlay'), statusEl = document.getElementById('status'),
-      barEl = document.querySelector('#bar > i'), canvas = document.getElementById('canvas');
+  var overlay = document.getElementById('overlay'), cmdEl = document.getElementById('cmd'),
+      dosEl = document.getElementById('dos'), canvas = document.getElementById('canvas');
+  // the command types itself as the game downloads (the loading bar); a failure is DOS's
+  var CMD = 'SHIFT.EXE', typed = 0;
+  function typeTo(n) { n = Math.max(typed, Math.min(CMD.length, n)); typed = n; cmdEl.textContent = CMD.slice(0, n); }
+  function dosError(msg) {
+    dosEl.textContent += '\n\nGeneral failure reading drive C (' + msg + ')\nAbort, Retry, Fail?';
+    overlay.classList.remove('ready');
+  }
   console.log('eMine32 build __EMINE_BUILD__');
   var Module = {
     canvas: canvas,
@@ -57,16 +98,17 @@
     printErr: function (t) { console.log(t); },
     setStatus: function (t) {
       var m = t && t.match(/\((\d+(?:\.\d+)?)\/(\d+)\)/);
-      if (m) barEl.style.width = (100 * m[1] / m[2]) + '%';
-      if (t) statusEl.textContent = t.replace(/\(.*\)/, '').trim() || 'Loading…';
+      if (m) typeTo(Math.floor((CMD.length - 1) * m[1] / m[2]));  // the last letter waits for the game to be ready
     },
     onRuntimeInitialized: function () {
+      typeTo(CMD.length);
       overlay.classList.add('ready');
-      statusEl.textContent = 'Click to play';
     }
   };
-  // Browsers only allow audio and mouse capture after a user gesture, so start on click.
-  overlay.addEventListener('click', function () {
+  // Browsers only allow audio and mouse capture after a user gesture, so start on a click (or Enter: "running" it).
+  overlay.addEventListener('click', start);
+  window.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.altKey && overlay.isConnected) start(); });
+  function start() {
     if (!overlay.classList.contains('ready')) return;
     overlay.remove();
     canvas.focus();
@@ -74,7 +116,7 @@
     // the game's running: Alt+Enter works from here (the page has the keyboard), so say so
     var fsb = document.getElementById('fullscreen');
     fsb.textContent = '⛶ Fullscreen (Alt+Enter)'; fsb.title = 'Fullscreen: Alt+Enter (Esc to leave)';
-  });
+  }
   // Let the browser keep F11 (fullscreen) and F12 (dev tools): stop them before SDL sees and swallows them.
   ['keydown', 'keyup', 'keypress'].forEach(function (type) {
     window.addEventListener(type, function (e) {
@@ -150,7 +192,7 @@
       var lag = performance.now() - e.timeStamp;
       if (lag > Module.emineRawLag) Module.emineRawLag = lag;
     }, true);
-  window.addEventListener('error', function (e) { statusEl.textContent = 'Error: ' + e.message; });
+  window.addEventListener('error', function (e) { if (overlay.isConnected) dosError(e.message); });
 </script>
 <script>
 // The wall of blocks behind the game: a match-three with no score. Click a block with at least two more of its kind

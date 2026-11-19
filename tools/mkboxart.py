@@ -1,6 +1,6 @@
-"""The page's start screen, as a game box cover: fal's painting (art/page/fal/boxart.png, prompt in
+"""A game box cover (it was the page's start screen; now only the itch cover): fal's painting (art/page/fal/boxart.png, prompt in
 art/page/fal_prompts.json) at 960x720 with the game's "SHIFT HAPPENS" (the menu's logo, tools/mktitle.py) over the
-night sky -> web/boxart.jpg (scripts/build-web.sh inlines it into the page). Also art/page/cover.png (630x500, the
+night sky -> art/page/cover.png (630x500, the
 itch.io cover image)."""
 import os, sys
 import numpy as np
@@ -36,9 +36,6 @@ def put_logo(img, width, top):
     return img
 
 out = put_logo(art.copy(), 800, 26)
-dst = os.path.join(ROOT, 'web', 'boxart.jpg')
-Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(dst, quality=86, optimize=True)
-print('web/boxart.jpg', os.path.getsize(dst), 'bytes')
 os.makedirs(os.path.join(ROOT, 'web', 'itch'), exist_ok=True)
 cov = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 cw = round(H * 630 / 500)
