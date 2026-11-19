@@ -14,6 +14,7 @@
   #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px;
     align-items: center; justify-content: center; background: rgba(0,0,0,.85); cursor: pointer; text-align: center; }
   #overlay h1 { margin: 0; font-size: 42px; letter-spacing: 4px; color: #e8c040; text-shadow: 3px 3px 0 #6a2a10; }
+  #tag { max-width: 34em; padding: 0 16px; color: #a89868; }
   #status { min-height: 1.4em; }
   #bar { width: 260px; height: 6px; background: #2a2010; }
   #bar > i { display: block; height: 100%; width: 0; background: #e8c040; }
@@ -24,7 +25,7 @@
 </head>
 <body>
 <div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
-<div id="overlay"><h1>eMINE32</h1><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div>
+<div id="overlay"><h1>SHIFT HAPPENS</h1><div id="tag">A 90s shooter on the Duke Nukem 3D engine, in a world of blocks you can mine, build and blow up.</div><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div>
 <script>
   var overlay = document.getElementById('overlay'), statusEl = document.getElementById('status'),
       barEl = document.querySelector('#bar > i'), canvas = document.getElementById('canvas');

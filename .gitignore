@@ -15,3 +15,4 @@ tools/webtest/*.png
 # Reference/concept art (generated sources, kept local)
 refs/
 __pycache__/
+web/itch/

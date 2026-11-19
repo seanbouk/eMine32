@@ -12,15 +12,16 @@ Module['arguments'] = ['-nosetup', '-usecwd', '-j', '/game', '-j', '/emine', '-m
 })();
 Module['emineArgs'] = Module['arguments'];
 
-// Pick the render resolution: match the window's aspect (so 21:9 works) and, by default, its real pixel count.
+// Pick the render resolution: 4:3 (the page letterboxes it), as big as fits the window and, by default, its real
+// pixel count (960x720 in itch's frame). Fullscreen gets bars at the sides.
 Module['emineRes'] = function () {
   var m = (emineParams.get('res') || '').match(/^(\d+)x(\d+)$/);
   if (m) return [+m[1], +m[2]];
   var dpr = window.devicePixelRatio || 1;
-  // default: the window's real pixels, but no more than about a megapixel (an ultrawide at full size is 4.5)
-  var scale = parseFloat(emineParams.get('scale')) ||
-    Math.max(1, Math.sqrt(window.innerWidth * dpr * window.innerHeight * dpr / 1.0e6));
-  var w = Math.round(window.innerWidth * dpr / scale), h = Math.round(window.innerHeight * dpr / scale);
+  var W = Math.min(window.innerWidth, window.innerHeight * 4 / 3) * dpr, H = W * 3 / 4;
+  // default: those pixels, but no more than about a megapixel
+  var scale = parseFloat(emineParams.get('scale')) || Math.max(1, Math.sqrt(W * H / 1.0e6));
+  var w = Math.round(W / scale), h = Math.round(H / scale);
   return [w & ~3, h & ~1];  // keep the width a multiple of 4 for the column renderer
 };
 
