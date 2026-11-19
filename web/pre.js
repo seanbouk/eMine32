@@ -12,13 +12,14 @@ Module['arguments'] = ['-nosetup', '-usecwd', '-j', '/game', '-j', '/emine', '-m
 })();
 Module['emineArgs'] = Module['arguments'];
 
-// Pick the render resolution: 4:3 (the page letterboxes it), as big as fits the window and, by default, its real
-// pixel count (960x720 in itch's frame). Fullscreen gets bars at the sides.
+// Pick the render resolution: 4:3, as big as fits the game's box on the page (960x720, or the screen in fullscreen;
+// the page letterboxes it), at its real pixel count by default.
 Module['emineRes'] = function () {
   var m = (emineParams.get('res') || '').match(/^(\d+)x(\d+)$/);
   if (m) return [+m[1], +m[2]];
   var dpr = window.devicePixelRatio || 1;
-  var W = Math.min(window.innerWidth, window.innerHeight * 4 / 3) * dpr, H = W * 3 / 4;
+  var box = document.getElementById('game'), bw = box ? box.clientWidth : window.innerWidth, bh = box ? box.clientHeight : window.innerHeight;
+  var W = Math.min(bw, bh * 4 / 3) * dpr, H = W * 3 / 4;
   // default: those pixels, but no more than about a megapixel
   var scale = parseFloat(emineParams.get('scale')) || Math.max(1, Math.sqrt(W * H / 1.0e6));
   var w = Math.round(W / scale), h = Math.round(H / scale);

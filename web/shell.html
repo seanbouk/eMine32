@@ -5,13 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shift Happens</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #000; color: #c8b27a; overflow: hidden;
+  /* the page: the game, 960 x 720 (smaller if the window is), with a bar under it for the fullscreen button.
+     itch embeds this page as it is: embed size 960 x 760. */
+  html, body { margin: 0; height: 100%; background: #111; color: #c8b27a; overflow: hidden;
     font: 14px/1.4 ui-monospace, Consolas, monospace; }
-  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #game { position: relative; background: #000; aspect-ratio: 4 / 3;
+    width: min(960px, 100vw, (100vh - 40px) * 4 / 3); }
+  /* fullscreen: the whole screen, the game 4:3 in the middle */
+  #game:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; }
   /* keep the 8-bit pixels crisp and the aspect ratio fixed */
   canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges;
-    width: 100vw; height: 100vh; object-fit: contain; outline: none; }
-  #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px;
+    width: 100%; height: 100%; object-fit: contain; outline: none; }
+  #controls { display: flex; justify-content: flex-end; align-items: center; height: 40px; box-sizing: border-box;
+    width: min(960px, 100vw, (100vh - 40px) * 4 / 3); }
+  #fullscreen { background: #2a2010; color: #e8c040; border: 1px solid #6a5020; padding: 5px 12px; cursor: pointer;
+    font: inherit; }
+  #fullscreen:hover { background: #3a3018; }
+  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px;
     align-items: center; justify-content: center; background: rgba(0,0,0,.85); cursor: pointer; text-align: center; }
   #overlay h1 { margin: 0; font-size: 42px; letter-spacing: 4px; color: #e8c040; text-shadow: 3px 3px 0 #6a2a10; }
   #tag { max-width: 34em; padding: 0 16px; color: #a89868; }
@@ -20,12 +31,13 @@
   #bar > i { display: block; height: 100%; width: 0; background: #e8c040; }
   #overlay.ready #bar { display: none; }
   #overlay:not(.ready) { cursor: progress; }
-  #build { position: fixed; right: 12px; bottom: 8px; font-size: 11px; opacity: .5; }
+  #build { position: absolute; right: 12px; bottom: 8px; font-size: 11px; opacity: .5; }
 </style>
 </head>
 <body>
-<div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
-<div id="overlay"><h1>SHIFT HAPPENS</h1><div id="tag">A 90s shooter on the Duke Nukem 3D engine, in a world of blocks you can mine, build and blow up.</div><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div>
+<div id="game"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<div id="overlay"><h1>SHIFT HAPPENS</h1><div id="tag">A 90s shooter on the Duke Nukem 3D engine, in a world of blocks you can mine, build and blow up.</div><div id="bar"><i></i></div><div id="status">Loading…</div><div id="build">build __EMINE_BUILD__</div></div></div>
+<div id="controls"><button id="fullscreen" title="Fullscreen (Esc to leave)">⛶ Fullscreen</button></div>
 <script>
   var overlay = document.getElementById('overlay'), statusEl = document.getElementById('status'),
       barEl = document.querySelector('#bar > i'), canvas = document.getElementById('canvas');
@@ -78,6 +90,12 @@
   window.addEventListener('keydown', function (e) { if (e.key !== 'Escape' && wantLock()) canvas.requestPointerLock(); });
   window.addEventListener('mousedown', function () { if (wantLock()) canvas.requestPointerLock(); });
   // Follow the window size (F11, dragging the window): ask the engine to switch resolution once things settle.
+  // the fullscreen button: the game's box fills the screen (the game stays 4:3); Esc leaves
+  var gameEl = document.getElementById('game');
+  document.getElementById('fullscreen').addEventListener('click', function () {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else gameEl.requestFullscreen().then(function () { canvas.focus(); }, function () {});
+  });
   var resizeTimer = 0;
   window.addEventListener('resize', function () {
     if (/[?&]res=/.test(location.search)) return;  // explicit resolution: just scale
