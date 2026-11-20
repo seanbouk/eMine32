@@ -8,11 +8,10 @@ The zip is the build we test at http://localhost:8032/ (tools/serve.py): there i
 On itch:
 - Cover image: art/page/cover.png (630 x 500, tools/mkboxart.py).
 - Kind of project: HTML. Tick "This file will be played in the browser".
-- Embed options: "Click to launch in fullscreen" (itch opens the page filling the browser window: the game near
-  the top, the wall of blocks round it). Not a fixed-size embed, and itch's own fullscreen button isn't needed: the
-  page has its own (Alt+Enter too).
+- Embed options: "Embed in page", manually set size 2048 x 1440 (as uploaded, 2026-11-20). Our page is the whole
+  frame: the game near the top, the match-three wall filling the rest. "Automatically start on page load" on (the page
+  still waits at the DOS prompt for a click); mobile, fullscreen button, scrollbars and SharedArrayBuffer off.
 - Classification: Games (not "Game mods": the button would say "Run mod").
-- Embed frame background (behind the Run button): art/page/itch-launch.png (the DOS screen, tools/webtest/dos_shot.js).
 - Edit theme (itch's page round it, to match ours): background colour #0C0B0A with art/page/itch-background.png as
   the background image, tiled (tools/mkitchart.py); inner column #161412; text #C8B27A; links and buttons #E8C040.
 - Tick the AI-generated content disclosure (art, voice).
