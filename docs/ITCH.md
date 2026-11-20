@@ -11,6 +11,10 @@ On itch:
 - Embed options: "Click to launch in fullscreen" (itch opens the page filling the browser window: the game near
   the top, the wall of blocks round it). Not a fixed-size embed, and itch's own fullscreen button isn't needed: the
   page has its own (Alt+Enter too).
+- Classification: Games (not "Game mods": the button would say "Run mod").
+- Embed frame background (behind the Run button): art/page/itch-launch.png (the DOS screen, tools/webtest/dos_shot.js).
+- Edit theme (itch's page round it, to match ours): background colour #0C0B0A with art/page/itch-background.png as
+  the background image, tiled (tools/mkitchart.py); inner column #161412; text #C8B27A; links and buttons #E8C040.
 - Tick the AI-generated content disclosure (art, voice).
 - Submit to Game Off 2026.
 
